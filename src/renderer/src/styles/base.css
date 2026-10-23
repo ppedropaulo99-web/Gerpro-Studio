@@ -11,6 +11,15 @@ body,
   margin: 0;
 }
 
+/*
+ * Antes de o tema ser aplicado (primeiro quadro), nada é pintado: aparece só o
+ * fundo nativo da janela, que o Main já cria no tema salvo. Evita piscar o tema errado.
+ */
+:root:not([data-theme]) body {
+  visibility: hidden;
+  background: transparent;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -28,6 +37,12 @@ h3,
 h4,
 p {
   margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--text-heading);
 }
 
 h1 {

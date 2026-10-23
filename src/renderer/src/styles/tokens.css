@@ -1,4 +1,12 @@
-/* Tokens de design do Gerpro Studio. Toda cor, espaço e raio sai daqui. */
+/*
+ * Tokens de design do Gerpro Studio. Toda cor, espaço e raio sai daqui.
+ *
+ * Temas: o elemento raiz recebe `data-theme="dark"` ou `data-theme="light"`
+ * (ver `lib/theme.ts`). `:root` traz o tema escuro (padrão); o bloco
+ * `[data-theme='light']` redefine apenas as cores. Componentes usam só tokens
+ * semânticos, nunca cores fixas. As cores nativas da janela ficam em
+ * `main/window.ts` (`WINDOW_CHROME`) e acompanham `--bg` e `--text-muted`.
+ */
 :root {
   color-scheme: dark;
 
@@ -13,6 +21,7 @@
 
   /* Texto */
   --text: #e7eaf1;
+  --text-heading: var(--text);
   --text-muted: #a3abbd;
   --text-subtle: #6f7889;
 
@@ -20,6 +29,7 @@
   --accent: #f5a524;
   --accent-hover: #ffb84a;
   --accent-soft: rgba(245, 165, 36, 0.14);
+  --accent-border: rgba(245, 165, 36, 0.25);
   --accent-contrast: #1a1204;
 
   /* Estados */
@@ -29,6 +39,7 @@
   --warning-soft: rgba(242, 201, 76, 0.14);
   --danger: #f06a6a;
   --danger-soft: rgba(240, 106, 106, 0.14);
+  --danger-soft-hover: rgba(240, 106, 106, 0.22);
   --info: #5aa9ff;
   --info-soft: rgba(90, 169, 255, 0.14);
   --neutral-soft: rgba(163, 171, 189, 0.12);
@@ -55,9 +66,56 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--border-strong);
+  --backdrop: rgba(5, 6, 9, 0.6);
 
   /* Layout */
   --titlebar-height: 40px;
   --sidebar-width: 224px;
   --sidebar-collapsed: 60px;
+}
+
+/*
+ * Tema claro institucional (azul e branco), inspirado no Gerpro Web.
+ * Paleta de referência inicial, não oficial: fundo #f3f7fc, superfícies #ffffff,
+ * azul primário #1765b1, títulos #183f71, destaque #edf4fc, bordas #d8e4f2,
+ * texto secundário #5c7290. Ajustes para contraste AA estão comentados.
+ */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f3f7fc;
+  --surface-1: #ffffff;
+  --surface-2: #f6f9fd;
+  --surface-3: #e8eff8;
+  --surface-hover: #edf4fc;
+  --border: #d8e4f2;
+  /* Bordas de controles (campos, interruptores): 3,3:1 sobre branco. */
+  --border-strong: #7a8faa;
+
+  --text: #1b2b41;
+  --text-heading: #183f71;
+  /* Um pouco mais escuro que #5c7290 para manter 4,5:1 também sobre fundos suaves. */
+  --text-muted: #526884;
+  --text-subtle: #5c7290;
+
+  --accent: #1765b1;
+  --accent-hover: #12558f;
+  --accent-soft: rgba(23, 101, 177, 0.1);
+  --accent-border: rgba(23, 101, 177, 0.28);
+  --accent-contrast: #ffffff;
+
+  /* Estados escurecidos para texto legível (≥ 4,5:1) sobre branco e sobre o fundo suave. */
+  --success: #12764a;
+  --success-soft: rgba(18, 118, 74, 0.1);
+  --warning: #875800;
+  --warning-soft: rgba(196, 138, 0, 0.14);
+  --danger: #bd3338;
+  --danger-soft: rgba(189, 51, 56, 0.1);
+  --danger-soft-hover: rgba(189, 51, 56, 0.16);
+  --info: #0b6585;
+  --info-soft: rgba(11, 101, 133, 0.1);
+  --neutral-soft: rgba(92, 114, 144, 0.12);
+
+  --shadow-pop: 0 12px 32px rgba(24, 63, 113, 0.16), 0 0 0 1px var(--border);
+  --backdrop: rgba(24, 63, 113, 0.35);
 }

@@ -101,9 +101,10 @@ interface SegmentedProps<T extends string> {
   onChange: (value: T) => void
   options: Array<{ value: T; label: string }>
   label: string
+  disabled?: boolean
 }
 
-export function Segmented<T extends string>({ value, onChange, options, label }: SegmentedProps<T>) {
+export function Segmented<T extends string>({ value, onChange, options, label, disabled }: SegmentedProps<T>) {
   return (
     <div className="segmented" role="group" aria-label={label}>
       {options.map((o) => (
@@ -112,6 +113,7 @@ export function Segmented<T extends string>({ value, onChange, options, label }:
           type="button"
           className="segmented__item"
           aria-pressed={o.value === value}
+          disabled={disabled}
           onClick={() => onChange(o.value)}
         >
           {o.label}

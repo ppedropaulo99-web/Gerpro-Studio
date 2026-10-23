@@ -30,6 +30,7 @@
 | D24 | 3.2.2 | Navegação pelo app com alterações não salvas pede confirmação ("Continuar editando" / "Descartar alterações") | Evitar perda silenciosa do que foi digitado (achado 1 da auditoria 3.2.1) |
 | D25 | 3.2.2 | Confirmação de ferramentas sensíveis e telemetria bloqueadas nos valores seguros; o Main recusa alterá-las; valores antigos preservados, mas sem efeito | Uma escolha feita sem a função existir não pode virar decisão efetiva depois (achado 2) |
 | D26 | 3.2.2 | Vocabulário único Real / Simulado / Planejado / Exemplo; modelos de exemplo sem estado operacional; controles sem efeito desativados | Nada fictício pode parecer operacional, e a demonstração futura precisa distinguir execuções reais de simuladas (Lote 2) |
+| D27 | 3.2.2 | Temas escuro (padrão, grafite e âmbar) e claro (azul e branco); cores só em tokens; tema aplicado e gravado na hora, fora do formulário Salvar/Descartar | Mudança visual reversível com um clique; segue o padrão das ações imediatas do Hardware Advisor e não mistura com o fluxo de alterações não salvas |
 
 ## Limitações conhecidas
 
@@ -42,9 +43,16 @@
 - Nenhuma ferramenta executa. Todas aparecem como `not-implemented`.
 - Nenhum agente fica `available`, porque falta o motor.
 - Execuções são só simuladas e se perdem ao fechar o app.
-- As preferências são gravadas, mas não têm efeito. As de privacidade e
-  segurança (confirmação de ferramentas sensíveis e telemetria) nem podem ser
-  alteradas.
+- As preferências são gravadas, mas, exceto o tema, não têm efeito. As de
+  privacidade e segurança (confirmação de ferramentas sensíveis e telemetria)
+  nem podem ser alteradas.
+- O tema não acompanha o tema do sistema operacional, e "Descartar" ou sair
+  sem salvar não o revertem (ver D27).
+- A paleta clara é uma proposta inicial inspirada no Gerpro Web, não as cores
+  oficiais. Não havia tokens institucionais no projeto. Alguns tons foram
+  escurecidos para atingir contraste AA.
+- `settings.json` passou à versão 2. Uma versão anterior do app que abra esse
+  arquivo o trata como "mais novo": usa os padrões e não grava.
 - A proteção de alterações não salvas cobre a navegação pelo app (barra
   lateral e atalhos internos). Fechar a janela ou sair do aplicativo descarta
   as alterações sem perguntar.

@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { app, BrowserWindow } from 'electron'
 import { createServices } from './services'
-import { createMainWindow } from './window'
+import { applyWindowTheme, createMainWindow } from './window'
 import { applySessionSecurity } from './security'
 import { registerIpcHandlers } from './ipc'
 
@@ -24,10 +24,15 @@ app.whenReady().then(async () => {
   const services = await createServices(join(app.getPath('userData'), 'storage'))
   registerIpcHandlers(services)
   app.on('before-quit', () => services.runs.dispose())
-  createMainWindow()
+  // Tema trocado em Configurações: as partes nativas da janela acompanham na hora.
+  services.settings.onChange((settings) => {
+    for (const win of BrowserWindow.getAllWindows()) applyWindowTheme(win, settings.appearance.theme)
+  })
+  const openWindow = () => createMainWindow(services.settings.get().appearance.theme)
+  openWindow()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
+    if (BrowserWindow.getAllWindows().length === 0) openWindow()
   })
 })
 

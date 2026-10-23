@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, Save } from 'lucide-react'
-import type { AppSettings } from '@shared/settings'
+import type { AppSettings, Theme } from '@shared/settings'
 import { useUnsavedChangesGuard } from '@renderer/app/navigation'
 import { HardwarePanel } from '@renderer/components/hardware/HardwarePanel'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
@@ -14,6 +14,7 @@ import {
   FieldError,
   LoadingState,
   Notice,
+  Segmented,
   Select,
   SwitchRow,
   TextInput
@@ -27,6 +28,7 @@ import {
   type SettingsFormErrors,
   type SettingsFormValues
 } from '@renderer/lib/settings-form'
+import { applyTheme, themeOptions, themePatch } from '@renderer/lib/theme'
 import { useResource } from '@renderer/lib/use-resource'
 
 function Section({ title, description, children }: { title: string; description: string; children: ReactNode }) {
@@ -73,7 +75,7 @@ function SettingsForm({ saved, onSaved }: { saved: AppSettings; onSaved: (s: App
 
   const pending = patchFromForm(saved, form)
   const dirty = !pending.ok || pending.changed
-  // As ações do Hardware Advisor valem na hora e não entram aqui.
+  // A aparência e as ações do Hardware Advisor valem na hora e não entram aqui.
   useUnsavedChangesGuard(dirty, 'nas configurações')
   const sensitiveTools = inactivePreference(saved, 'confirmSensitiveTools')
   const telemetry = inactivePreference(saved, 'telemetry')
@@ -127,6 +129,8 @@ function SettingsForm({ saved, onSaved }: { saved: AppSettings; onSaved: (s: App
           </>
         }
       />
+
+      <AppearanceSection saved={saved} onSaved={onSaved} />
 
       <Notice tone="neutral">
         As preferências abaixo são gravadas e mantidas após reiniciar o aplicativo, mas <strong>ainda não têm efeito</strong> nesta
@@ -222,5 +226,50 @@ function SettingsForm({ saved, onSaved }: { saved: AppSettings; onSaved: (s: App
         />
       </Section>
     </>
+  )
+}
+
+/**
+ * Tema: aplicado e gravado na hora, fora do formulário. Não marca alterações
+ * pendentes, e "Descartar" ou sair sem salvar não o revertem; para voltar,
+ * basta escolher o outro tema. Se a gravação falhar, o tema anterior volta.
+ */
+function AppearanceSection({ saved, onSaved }: { saved: AppSettings; onSaved: (s: AppSettings) => void }) {
+  const [choosing, setChoosing] = useState<Theme | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const current = saved.appearance.theme
+
+  async function choose(next: Theme) {
+    if (next === current || choosing) return
+    const root = document.documentElement
+    applyTheme(root, next)
+    setChoosing(next)
+    setError(null)
+    const result = await callApi(() => window.gerpro.settings.update(themePatch(next)))
+    setChoosing(null)
+    if (result.ok) {
+      onSaved(result.data)
+    } else {
+      applyTheme(root, current)
+      setError(result.error.message)
+    }
+  }
+
+  return (
+    <Section title="Aparência" description="Tema visual da interface">
+      {/* Grupo de botões com rótulo próprio (aria-label), por isso sem <label for>. */}
+      <div className="field">
+        <span className="field__label" aria-hidden>
+          Tema
+        </span>
+        <Segmented label="Tema" value={choosing ?? current} onChange={(t) => void choose(t)} options={themeOptions} disabled={choosing !== null} />
+        <span className="field__hint">Aplicado e gravado na hora; não depende do botão Salvar.</span>
+      </div>
+      {error && (
+        <Notice tone="danger" icon={<AlertTriangle size={16} />}>
+          Não foi possível gravar o tema. {error}
+        </Notice>
+      )}
+    </Section>
   )
 }

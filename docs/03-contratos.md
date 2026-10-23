@@ -118,11 +118,13 @@ pending ──► running ──► completed
 
 ## Configurações (`src/shared/settings.ts`)
 
-**Status:** a persistência está implementada; o efeito das preferências é
-planejado.
+**Status:** a persistência está implementada. Só a aparência tem efeito; o
+efeito das demais preferências é planejado.
 
-`AppSettings` tem quatro seções:
+`AppSettings` tem cinco seções:
 
+- `appearance`: `theme` (`dark` | `light`; padrão `dark`). Única preferência
+  com efeito: aplicada na hora à interface e às cores nativas da janela.
 - `general`: `language`, `density`, `startOnLogin`
 - `models`: `directory`, `maxRamGb`
 - `privacy`: `confirmSensitiveTools`, `telemetry`
@@ -130,8 +132,33 @@ planejado.
 
 `settings:update` recebe um `SettingsPatch` parcial (um nível por seção),
 validado campo a campo. **Nenhum campo guarda credencial**: segredos ficam no
-`SecretVault` e são referenciados por ID. Nenhuma preferência tem efeito
-ainda, e a tela diz isso em cada campo.
+`SecretVault` e são referenciados por ID. Exceto o tema, nenhuma preferência
+tem efeito ainda, e a tela diz isso em cada campo.
+
+**Formato:** `settings.json` está na versão 2. Arquivos da versão 1 (sem
+`appearance`) são migrados por `migrateSettingsV1`, que acrescenta o tema
+padrão e preserva todo o resto, inclusive escolhas de privacidade antigas
+(que continuam sem efeito).
+
+**Tema:**
+
+- O elemento raiz recebe `data-theme`. As cores de cada tema ficam só em
+  `renderer/src/styles/tokens.css`; componentes usam tokens semânticos.
+- Para não piscar o tema errado: o Main lê o tema salvo, cria a janela com
+  o fundo nativo nessa cor e passa o tema como argumento
+  (`--gerpro-theme=`, `themeArgument`). O Preload o valida
+  (`themeFromArguments`; valor desconhecido vira `dark`) e o expõe como
+  `window.gerpro.app.initialTheme`. Até o tema ser aplicado, o CSS não pinta
+  nada.
+- Ao trocar o tema, o Renderer aplica na hora e grava com
+  `settings:update({ appearance })`. O Main avisa os ouvintes de
+  `SettingsService.onChange`, e a janela atualiza o fundo e os botões da
+  barra de título (`applyWindowTheme`). Se a gravação falhar, o tema anterior
+  volta.
+- **Alterações não salvas:** o tema fica fora do formulário de
+  Configurações. Trocá-lo não cria pendência, e as edições pendentes de
+  outros campos continuam pendentes. "Descartar", "Cancelar" ou sair sem
+  salvar não revertem o tema: para voltar, escolhe-se o outro tema.
 
 **Preferências de privacidade inativas** (`INACTIVE_PRIVACY_SETTINGS`:
 `confirmSensitiveTools` e `telemetry`):

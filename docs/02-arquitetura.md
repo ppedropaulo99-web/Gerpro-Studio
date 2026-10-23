@@ -63,6 +63,10 @@ desenvolvimento, uma variante libera script inline e WebSocket de
 canal declarado em `src/shared/ipc.ts`. O objeto de evento do Electron nunca
 chega ao Renderer: `runs.onUpdated` repassa só o `RunRecord`.
 
+A única informação que não passa por IPC é o tema inicial
+(`app.initialTheme`): o Main o envia como argumento da janela e o
+Preload só aceita `dark` ou `light`.
+
 ### Main (fronteira de confiança)
 
 Toda chamada passa por três verificações em `src/main/ipc.ts` e

@@ -2,6 +2,7 @@ import {
   applySettingsPatch,
   DEFAULT_SETTINGS,
   inactiveSettingsInPatch,
+  migrateSettingsV1,
   validateSettings,
   validateSettingsPatch,
   type AppSettings
@@ -9,10 +10,12 @@ import {
 import { AppError, unwrap } from '../errors'
 import { VersionedStore, type StoreStatus } from '../storage/versioned-store'
 
-export const SETTINGS_FORMAT_VERSION = 1
+/** v2: seção `appearance` (tema). Arquivos v1 são migrados com o tema padrão. */
+export const SETTINGS_FORMAT_VERSION = 2
 
 export class SettingsService {
   private readonly store: VersionedStore<AppSettings>
+  private readonly listeners = new Set<(settings: AppSettings) => void>()
 
   constructor(filePath: string, now?: () => Date) {
     this.store = new VersionedStore({
@@ -20,6 +23,7 @@ export class SettingsService {
       format: 'gerpro.settings',
       version: SETTINGS_FORMAT_VERSION,
       defaults: () => structuredClone(DEFAULT_SETTINGS),
+      migrations: { 1: migrateSettingsV1 },
       parse: (data) => {
         const result = validateSettings(data)
         return result.ok ? { value: result.value, issues: [] } : { value: undefined, issues: result.issues }
@@ -48,6 +52,16 @@ export class SettingsService {
         details: { fields: inactive.join(', ') }
       })
     }
-    return this.store.update((current) => applySettingsPatch(current, valid))
+    const next = await this.store.update((current) => applySettingsPatch(current, valid))
+    for (const listener of this.listeners) listener(next)
+    return next
+  }
+
+  /** Avisado após cada gravação bem-sucedida (por exemplo, para aplicar o tema à janela). */
+  onChange(listener: (settings: AppSettings) => void): () => void {
+    this.listeners.add(listener)
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 }

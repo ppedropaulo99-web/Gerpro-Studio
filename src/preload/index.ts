@@ -1,11 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IpcChannels, IpcEvents, type GerproApi } from '@shared/ipc'
+import { themeFromArguments } from '@shared/settings'
 import type { RunRecord } from '@shared/runs'
 
 // O Renderer recebe só funções de alto nível. ipcRenderer em si nunca é exposto.
 const api: GerproApi = {
   app: {
-    getInfo: () => ipcRenderer.invoke(IpcChannels.appGetInfo)
+    getInfo: () => ipcRenderer.invoke(IpcChannels.appGetInfo),
+    // Vem do Main por argumento; valor desconhecido vira o tema padrão.
+    initialTheme: themeFromArguments(process.argv)
   },
   settings: {
     get: () => ipcRenderer.invoke(IpcChannels.settingsGet),

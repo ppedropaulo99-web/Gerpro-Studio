@@ -10,7 +10,7 @@ import type { AgentDraft, AgentRecord } from './agents'
 import type { Result } from './errors'
 import type { AnalysisRequest, HardwareAdvisorState, LocalConsentChange } from './hardware'
 import type { DemoRunRequest, RunRecord } from './runs'
-import type { AppSettings, SettingsPatch } from './settings'
+import type { AppSettings, SettingsPatch, Theme } from './settings'
 import type { ToolCatalogEntry } from './tools'
 
 export const IpcChannels = {
@@ -53,6 +53,8 @@ export interface AppInfo {
 export interface GerproApi {
   app: {
     getInfo(): Promise<AppInfo>
+    /** Tema salvo quando a janela abriu; usado só para pintar o primeiro quadro. */
+    readonly initialTheme: Theme
   }
   settings: {
     get(): Promise<Result<AppSettings>>
