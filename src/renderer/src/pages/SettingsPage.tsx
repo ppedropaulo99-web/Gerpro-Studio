@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, Save } from 'lucide-react'
 import type { AppSettings } from '@shared/settings'
+import { useUnsavedChangesGuard } from '@renderer/app/navigation'
 import { HardwarePanel } from '@renderer/components/hardware/HardwarePanel'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
 import {
@@ -18,7 +19,14 @@ import {
   TextInput
 } from '@renderer/components/ui'
 import { callApi } from '@renderer/lib/api'
-import { formFromSettings, patchFromForm, settingsFormErrors, type SettingsFormErrors, type SettingsFormValues } from '@renderer/lib/settings-form'
+import {
+  formFromSettings,
+  inactivePreference,
+  patchFromForm,
+  settingsFormErrors,
+  type SettingsFormErrors,
+  type SettingsFormValues
+} from '@renderer/lib/settings-form'
 import { useResource } from '@renderer/lib/use-resource'
 
 function Section({ title, description, children }: { title: string; description: string; children: ReactNode }) {
@@ -34,6 +42,9 @@ function Section({ title, description, children }: { title: string; description:
 
 /** Toda preferência desta tela é gravada, mas nenhuma altera o comportamento do app ainda. */
 const NO_EFFECT = 'Gravado; ainda sem efeito nesta versão.'
+
+/** Escolha antiga preservada no disco, mas sem valor de decisão. */
+const STORED_NOT_APPLIED = 'Há uma escolha anterior gravada; ela foi preservada, mas não será aplicada.'
 
 export function SettingsPage() {
   const { state, reload, update } = useResource(() => window.gerpro.settings.get())
@@ -62,6 +73,10 @@ function SettingsForm({ saved, onSaved }: { saved: AppSettings; onSaved: (s: App
 
   const pending = patchFromForm(saved, form)
   const dirty = !pending.ok || pending.changed
+  // As ações do Hardware Advisor valem na hora e não entram aqui.
+  useUnsavedChangesGuard(dirty, 'nas configurações')
+  const sensitiveTools = inactivePreference(saved, 'confirmSensitiveTools')
+  const telemetry = inactivePreference(saved, 'telemetry')
 
   useEffect(() => {
     if (dirty) setJustSaved(false)
@@ -115,8 +130,8 @@ function SettingsForm({ saved, onSaved }: { saved: AppSettings; onSaved: (s: App
 
       <Notice tone="neutral">
         As preferências abaixo são gravadas e mantidas após reiniciar o aplicativo, mas <strong>ainda não têm efeito</strong> nesta
-        versão: idioma, densidade, inicialização com o sistema, pasta e limite de modelos, confirmação de ferramentas e telemetria
-        serão aplicados em etapas futuras.
+        versão: idioma, densidade, inicialização com o sistema, pasta e limite de modelos serão aplicados em etapas futuras. As
+        preferências de privacidade e segurança ainda não podem ser alteradas.
       </Notice>
 
       {errors.form && (
@@ -183,17 +198,27 @@ function SettingsForm({ saved, onSaved }: { saved: AppSettings; onSaved: (s: App
       </Section>
 
       <Section title="Privacidade e segurança" description="Controle sobre dados e ações dos agentes">
+        <Notice tone="neutral">
+          Indisponível nesta versão. Enquanto estas funções não existirem, valem os padrões seguros mostrados abaixo. Quando forem
+          implementadas, o Gerpro Studio pedirá uma <strong>nova decisão sua</strong>; nenhuma escolha anterior será aplicada
+          automaticamente.
+        </Notice>
         <SwitchRow
           label="Confirmar antes de usar ferramentas sensíveis"
-          description={`Pedirá aprovação para terminal, escrita em disco e rede. ${NO_EFFECT}`}
-          checked={form.confirmSensitiveTools}
-          onChange={(v) => set('confirmSensitiveTools', v)}
+          description={[
+            'Pedirá aprovação para terminal, escrita em disco e rede. Indisponível: até lá, a confirmação vale como sempre exigida.',
+            sensitiveTools.storedDiffers ? STORED_NOT_APPLIED : ''
+          ].join(' ')}
+          checked={sensitiveTools.shown}
+          disabled
+          onChange={() => undefined}
         />
         <SwitchRow
           label="Enviar dados de uso anônimos"
-          description="Desativado por padrão. Nenhum dado é enviado nesta versão, mesmo se ativado."
-          checked={form.telemetry}
-          onChange={(v) => set('telemetry', v)}
+          description={['Indisponível: nenhum dado é enviado nesta versão.', telemetry.storedDiffers ? STORED_NOT_APPLIED : ''].join(' ')}
+          checked={telemetry.shown}
+          disabled
+          onChange={() => undefined}
         />
       </Section>
     </>

@@ -81,6 +81,15 @@ export function formFromDefinition(def: AgentDefinition | AgentDraft): AgentForm
   }
 }
 
+/**
+ * O formulário difere do estado de partida? A ordem das ferramentas não
+ * conta (marcar e desmarcar uma ferramenta não é alteração).
+ */
+export function agentFormChanged(initial: AgentFormValues, form: AgentFormValues): boolean {
+  const norm = (f: AgentFormValues) => JSON.stringify({ ...f, tools: [...f.tools].sort() })
+  return norm(initial) !== norm(form)
+}
+
 /** Novo agente (rascunho) a partir de um exemplo da biblioteca demonstrativa. */
 export function formFromExample(example: Agent, takenIds: ReadonlySet<string>, catalog: readonly ToolCatalogEntry[]): AgentFormValues {
   return {

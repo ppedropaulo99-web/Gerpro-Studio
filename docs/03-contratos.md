@@ -127,8 +127,21 @@ planejado.
 `settings:update` recebe um `SettingsPatch` parcial (um nível por seção),
 validado campo a campo. **Nenhum campo guarda credencial**: segredos ficam no
 `SecretVault` e são referenciados por ID. Nenhuma preferência tem efeito
-ainda, e a tela diz isso em cada campo. `telemetry` é só gravada: nada é
-enviado.
+ainda, e a tela diz isso em cada campo.
+
+**Preferências de privacidade inativas** (`INACTIVE_PRIVACY_SETTINGS`:
+`confirmSensitiveTools` e `telemetry`):
+
+- O Main recusa alterá-las com `invalid-state` (`inactiveSettingsInPatch`),
+  inclusive quando vêm junto com outros campos. Nada é gravado nesse caso.
+- Valores gravados antes são **preservados**, mas não valem como decisão:
+  `effectivePrivacy` devolve sempre os valores seguros (`SAFE_PRIVACY_VALUES`:
+  confirmação exigida, telemetria desligada).
+- A tela mostra os interruptores desativados, nos valores seguros, e avisa
+  quando há uma escolha anterior gravada que não será aplicada.
+- **Ativação futura:** ler o valor gravado como consentimento é proibido. A
+  função nova deve pedir uma nova decisão explícita ao usuário, com versão
+  própria, e só então sair de `INACTIVE_PRIVACY_SETTINGS`.
 
 ## Erros (`src/shared/errors.ts`)
 

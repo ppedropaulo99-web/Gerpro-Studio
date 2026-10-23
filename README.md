@@ -13,7 +13,7 @@ Documentação completa (arquitetura, contratos, Hardware Advisor, pontos de int
 | Tela | Dados do Main (reais) | Dados de exemplo (fictícios, identificados) |
 |---|---|---|
 | Agentes | "Meus agentes": criar, editar, arquivar, excluir | "Exemplos": podem ser duplicados como novo agente |
-| Configurações | Todas as preferências, gravadas (ainda sem efeito no app) | — |
+| Configurações | Preferências gravadas (ainda sem efeito no app); as de privacidade ficam bloqueadas nos valores seguros | — |
 | Execuções | "Execuções simuladas desta sessão" (só em memória, `origin: simulated`) | "Histórico de exemplo" |
 | Barra lateral | Contadores de agentes salvos e simulações em andamento | — |
 | Configurações › Hardware e desempenho | Consentimento (gravado, revogável) e exclusão de dados | Perfis de hardware fictícios |

@@ -1,7 +1,17 @@
-import { validateSettingsPatch, type AppSettings, type SettingsPatch } from '@shared/settings'
+import {
+  SAFE_PRIVACY_VALUES,
+  validateSettingsPatch,
+  type AppSettings,
+  type InactivePrivacySetting,
+  type SettingsPatch
+} from '@shared/settings'
 import { issuesByField } from './api'
 
-/** Valores da tela de Configurações; números ficam como texto durante a edição. */
+/**
+ * Valores editáveis da tela de Configurações; números ficam como texto durante
+ * a edição. As preferências de privacidade inativas (`INACTIVE_PRIVACY_SETTINGS`)
+ * não fazem parte do formulário: não podem ser alteradas nesta versão.
+ */
 export interface SettingsFormValues {
   language: AppSettings['general']['language']
   density: AppSettings['general']['density']
@@ -9,8 +19,6 @@ export interface SettingsFormValues {
   /** Vazio = pasta padrão. */
   modelsDirectory: string
   maxRamGb: string
-  confirmSensitiveTools: boolean
-  telemetry: boolean
 }
 
 export type SettingsFormErrors = Partial<Record<keyof SettingsFormValues | 'form', string>>
@@ -21,9 +29,7 @@ export function formFromSettings(s: AppSettings): SettingsFormValues {
     density: s.general.density,
     startOnLogin: s.general.startOnLogin,
     modelsDirectory: s.models.directory ?? '',
-    maxRamGb: String(s.models.maxRamGb),
-    confirmSensitiveTools: s.privacy.confirmSensitiveTools,
-    telemetry: s.privacy.telemetry
+    maxRamGb: String(s.models.maxRamGb)
   }
 }
 
@@ -34,9 +40,7 @@ const fieldOf = (path: string): keyof SettingsFormValues | undefined =>
       '$.general.density': 'density',
       '$.general.startOnLogin': 'startOnLogin',
       '$.models.directory': 'modelsDirectory',
-      '$.models.maxRamGb': 'maxRamGb',
-      '$.privacy.confirmSensitiveTools': 'confirmSensitiveTools',
-      '$.privacy.telemetry': 'telemetry'
+      '$.models.maxRamGb': 'maxRamGb'
     } as const
   )[path]
 
@@ -64,16 +68,23 @@ export function patchFromForm(
   if (directory !== saved.models.directory) models.directory = directory
   if (maxRamGb !== saved.models.maxRamGb) models.maxRamGb = maxRamGb
 
-  const privacy: NonNullable<SettingsPatch['privacy']> = {}
-  if (form.confirmSensitiveTools !== saved.privacy.confirmSensitiveTools) privacy.confirmSensitiveTools = form.confirmSensitiveTools
-  if (form.telemetry !== saved.privacy.telemetry) privacy.telemetry = form.telemetry
-
   const patch: SettingsPatch = {}
   if (Object.keys(general).length) patch.general = general
   if (Object.keys(models).length) patch.models = models
-  if (Object.keys(privacy).length) patch.privacy = privacy
 
   const result = validateSettingsPatch(patch)
   if (!result.ok) return { ok: false, errors: settingsFormErrors(result.issues) }
   return { ok: true, patch: result.value, changed: Object.keys(patch).length > 0 }
+}
+
+/** Como exibir uma preferência inativa: sempre o valor seguro, com aviso se havia outra escolha gravada. */
+export interface InactivePreference {
+  /** Valor exibido (e efetivo): o seguro. */
+  shown: boolean
+  /** Há uma escolha anterior gravada diferente do valor seguro; ela é preservada, mas não vale. */
+  storedDiffers: boolean
+}
+
+export function inactivePreference(saved: AppSettings, key: InactivePrivacySetting): InactivePreference {
+  return { shown: SAFE_PRIVACY_VALUES[key], storedDiffers: saved.privacy[key] !== SAFE_PRIVACY_VALUES[key] }
 }

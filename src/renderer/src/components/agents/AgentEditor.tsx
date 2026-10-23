@@ -18,7 +18,9 @@ import {
   TextArea,
   TextInput
 } from '@renderer/components/ui'
+import { useUnsavedChangesGuard } from '@renderer/app/navigation'
 import {
+  agentFormChanged,
   agentFormErrors,
   draftFromForm,
   requestedPermissionsFor,
@@ -65,6 +67,9 @@ export function AgentEditor({ mode, initial, tools, onRetryTools, takenIds, onCa
   const [saving, setSaving] = useState(false)
   // Ao criar, o ID acompanha o nome até o usuário editá-lo.
   const [idTouched, setIdTouched] = useState(mode === 'edit' || initial.id !== '')
+
+  // Sair pela navegação do app com alterações pendentes pede confirmação.
+  useUnsavedChangesGuard(agentFormChanged(initial, form), mode === 'create' ? 'no novo agente' : 'no agente em edição')
 
   const catalog = tools.status === 'ready' ? tools.data : []
   const permissions = useMemo(() => requestedPermissionsFor(form.tools, catalog), [form.tools, catalog])

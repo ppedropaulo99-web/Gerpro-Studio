@@ -22,8 +22,9 @@ export interface AppSettings {
     maxRamGb: number
   }
   privacy: {
+    /** Inativo nesta versão: ver `INACTIVE_PRIVACY_SETTINGS`. */
     confirmSensitiveTools: boolean
-    /** Apenas gravado; nenhum dado é enviado. */
+    /** Inativo nesta versão: nenhum dado é enviado. */
     telemetry: boolean
   }
   tools: {
@@ -37,6 +38,40 @@ export const DEFAULT_SETTINGS: AppSettings = {
   models: { directory: null, maxRamGb: 16 },
   privacy: { confirmSensitiveTools: true, telemetry: false },
   tools: { enabled: {} }
+}
+
+// ---------------------------------------------------------------------------
+// Preferências de segurança e privacidade ainda inativas
+// ---------------------------------------------------------------------------
+
+/**
+ * Preferências de segurança e privacidade sem função nesta versão. Enquanto
+ * estiverem aqui:
+ * - o Main recusa alterá-las (`inactiveSettingsInPatch`);
+ * - valores já gravados são preservados, mas NÃO valem como decisão:
+ *   `effectivePrivacy` devolve sempre os valores seguros.
+ *
+ * Ao implementar uma delas, não leia o valor gravado como consentimento:
+ * peça uma nova decisão explícita ao usuário (com versão própria) e só
+ * então retire a preferência desta lista.
+ */
+export const INACTIVE_PRIVACY_SETTINGS = ['confirmSensitiveTools', 'telemetry'] as const satisfies ReadonlyArray<keyof AppSettings['privacy']>
+export type InactivePrivacySetting = (typeof INACTIVE_PRIVACY_SETTINGS)[number]
+
+/** Valores que valem enquanto as funções não existem: confirmação exigida, nenhum envio. */
+export const SAFE_PRIVACY_VALUES: Readonly<Pick<AppSettings['privacy'], InactivePrivacySetting>> = {
+  confirmSensitiveTools: true,
+  telemetry: false
+}
+
+/** Preferências de privacidade efetivas: as inativas assumem sempre o valor seguro. */
+export function effectivePrivacy(settings: AppSettings): AppSettings['privacy'] {
+  return { ...settings.privacy, ...SAFE_PRIVACY_VALUES }
+}
+
+/** Preferências inativas que uma alteração tenta mudar. */
+export function inactiveSettingsInPatch(patch: SettingsPatch): InactivePrivacySetting[] {
+  return INACTIVE_PRIVACY_SETTINGS.filter((key) => patch.privacy?.[key] !== undefined)
 }
 
 /** Alteração parcial, um nível por seção. */

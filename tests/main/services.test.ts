@@ -10,6 +10,7 @@ import { SettingsService } from '../../src/main/services/settings-service'
 import { BUILTIN_TOOLS } from '../../src/main/tools/catalog'
 import { ToolRegistry } from '../../src/main/tools/tool-registry'
 import { IpcChannels } from '../../src/shared/ipc'
+import { DEFAULT_SETTINGS, effectivePrivacy, INACTIVE_PRIVACY_SETTINGS } from '../../src/shared/settings'
 import { agentDraft, fakeClock, tempDir } from '../support/fixtures'
 
 async function setup() {
@@ -43,11 +44,11 @@ describe('catálogo de ferramentas', () => {
 describe('serviço de configurações', () => {
   it('persiste alterações parciais', async () => {
     const { dir, settings } = await setup()
-    await settings.update({ models: { maxRamGb: 32 }, privacy: { telemetry: true } })
+    await settings.update({ models: { maxRamGb: 32 }, general: { density: 'compact' } })
     const reopened = new SettingsService(join(dir, 'settings.json'))
     await reopened.init()
     assert.equal(reopened.get().models.maxRamGb, 32)
-    assert.equal(reopened.get().privacy.telemetry, true)
+    assert.equal(reopened.get().general.density, 'compact')
     assert.equal(reopened.get().general.language, 'pt-BR')
   })
 
@@ -56,6 +57,60 @@ describe('serviço de configurações', () => {
     await assert.rejects(settings.update({ general: { language: 'klingon' } }), isCode('validation'))
     await assert.rejects(settings.update('x'), isCode('validation'))
     assert.equal(settings.get().general.language, 'pt-BR')
+  })
+})
+
+describe('preferências de segurança e privacidade inativas', () => {
+  /** settings.json gravado por uma versão anterior, com escolhas diferentes dos padrões seguros. */
+  async function withStoredChoices() {
+    const dir = await tempDir()
+    const file = join(dir, 'settings.json')
+    const data = { ...DEFAULT_SETTINGS, privacy: { confirmSensitiveTools: false, telemetry: true } }
+    await writeFile(file, JSON.stringify({ format: 'gerpro.settings', formatVersion: 1, savedAt: '2026-10-20T10:00:00.000Z', data }))
+    const settings = new SettingsService(file)
+    await settings.init()
+    return { file, settings }
+  }
+
+  it('são exatamente a confirmação de ferramentas sensíveis e a telemetria', () => {
+    assert.deepEqual([...INACTIVE_PRIVACY_SETTINGS].sort(), ['confirmSensitiveTools', 'telemetry'])
+  })
+
+  it('o Main recusa alterá-las, inclusive junto com outros campos, sem gravar nada', async () => {
+    const { dir, settings } = await setup()
+    const file = join(dir, 'settings.json')
+    await settings.update({ general: { density: 'compact' } })
+    const before = await readFile(file, 'utf8')
+    for (const privacy of [{ telemetry: true }, { confirmSensitiveTools: false }, { telemetry: false }]) {
+      await assert.rejects(settings.update({ models: { maxRamGb: 64 }, privacy }), isCode('invalid-state'))
+    }
+    assert.equal(await readFile(file, 'utf8'), before, 'arquivo intacto')
+    assert.equal(settings.get().models.maxRamGb, 16)
+    assert.deepEqual(effectivePrivacy(settings.get()), { confirmSensitiveTools: true, telemetry: false })
+  })
+
+  it('escolhas gravadas antes são preservadas, mas não valem como decisão', async () => {
+    const { file, settings } = await withStoredChoices()
+    assert.deepEqual(settings.get().privacy, { confirmSensitiveTools: false, telemetry: true }, 'nada apagado ao carregar')
+    assert.deepEqual(effectivePrivacy(settings.get()), { confirmSensitiveTools: true, telemetry: false }, 'valores seguros valem')
+
+    // Alterar outra preferência não sobrescreve as escolhas anteriores.
+    await settings.update({ general: { language: 'es' } })
+    const reopened = new SettingsService(file)
+    await reopened.init()
+    assert.equal(reopened.get().general.language, 'es')
+    assert.deepEqual(reopened.get().privacy, { confirmSensitiveTools: false, telemetry: true })
+  })
+
+  it('pelo IPC, a recusa chega como erro estruturado', async () => {
+    const dir = await tempDir()
+    const services = await createServices(dir, { stepDelayMs: 1 })
+    const handlers = createDataHandlers(services)
+    const result = await invokeHandler(IpcChannels.settingsUpdate, handlers[IpcChannels.settingsUpdate]!, [{ privacy: { telemetry: true } }])
+    assert.equal(result.ok, false)
+    assert.equal(!result.ok && result.error.code, 'invalid-state')
+    assert.equal(!result.ok && result.error.details?.['fields'], 'telemetry')
+    services.runs.dispose()
   })
 })
 

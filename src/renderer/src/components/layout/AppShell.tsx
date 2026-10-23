@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react'
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { routeById } from '@renderer/app/routes'
 import { useNavigation } from '@renderer/app/navigation'
-import { Button } from '@renderer/components/ui'
+import { Button, ConfirmDialog } from '@renderer/components/ui'
 import { cx } from '@renderer/lib/cx'
 import { Sidebar } from './Sidebar'
 
 const COLLAPSE_BREAKPOINT = 1100
 
 export function AppShell() {
-  const { current } = useNavigation()
+  const { current, pending, blockedBy, keepEditing, confirmDiscard } = useNavigation()
   const route = routeById[current]
   const Page = route.component
 
@@ -48,6 +48,17 @@ export function AppShell() {
       <main className="main">
         <Page key={route.id} />
       </main>
+
+      <ConfirmDialog
+        open={pending !== null}
+        title="Descartar alterações?"
+        cancelLabel="Continuar editando"
+        confirmLabel="Descartar alterações"
+        onCancel={keepEditing}
+        onConfirm={confirmDiscard}
+      >
+        Há alterações não salvas {blockedBy ?? 'nesta tela'}. Se você sair agora, elas serão perdidas.
+      </ConfirmDialog>
     </div>
   )
 }

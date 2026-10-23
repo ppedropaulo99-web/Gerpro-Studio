@@ -129,6 +129,17 @@ remover o aviso "ainda sem efeito" do campo correspondente:
 - confirmação de ferramentas sensíveis (execuções);
 - telemetria: exige política própria e consentimento.
 
+**Confirmação de ferramentas sensíveis e telemetria** estão bloqueadas
+(`INACTIVE_PRIVACY_SETTINGS` em `src/shared/settings.ts`). Ao implementar
+qualquer uma delas:
+
+- não use o valor gravado em `settings.json`: ele foi escolhido quando a
+  função não existia;
+- peça uma nova decisão explícita, registrada com versão própria (mesmo
+  princípio do escopo do Hardware Advisor);
+- só então retire a preferência de `INACTIVE_PRIVACY_SETTINGS` e libere o
+  interruptor na tela.
+
 ## Checklist para qualquer integração
 
 - [ ] Canal IPC declarado em `src/shared/ipc.ts`, com validação e aridade no
