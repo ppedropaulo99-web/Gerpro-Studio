@@ -55,6 +55,11 @@ export interface ProviderModel {
   ref: ResolvedModelRef
   /** Impressão digital do conteúdo, se o provedor informar. Muda quando o modelo é substituído sob o mesmo id. */
   digest: string | null
+  /**
+   * Onde o modelo roda. Um provedor local pode oferecer modelos hospedados
+   * fora do computador (`remote`); eles nunca contam como execução local.
+   */
+  location: 'local' | 'remote'
   displayName: string
   family: string | null
   /** Como o provedor informa, ex.: `8B`. */
@@ -63,6 +68,11 @@ export interface ProviderModel {
   format: string | null
   sizeBytes: number | null
   contextLength: number | null
+  /**
+   * Memória por token de contexto (cache de atenção), em bytes, quando o
+   * provedor expõe os metadados da arquitetura. `null` = desconhecida.
+   */
+  contextBytesPerToken: number | null
   capabilities: ModelCapability[]
 }
 
@@ -224,6 +234,7 @@ export const INFERENCE_LIMITS = {
   metadata: 100,
   sizeBytes: 2 ** 50,
   contextLength: 10_000_000,
+  contextBytesPerToken: 16_777_216,
   durationMs: 86_400_000,
   tokens: 100_000_000,
   tokensPerSecond: 1_000_000,
@@ -260,12 +271,26 @@ const optionalCount = (c: Checker, v: unknown, p: string, max: number, integer =
   c.nullable(v, p, (x, q) => c.number(x, q, { min: 0, max, integer }))
 
 function readProviderModel(c: Checker, value: unknown, path: string): ProviderModel | undefined {
-  const keys = ['ref', 'digest', 'displayName', 'family', 'parameterSize', 'quantization', 'format', 'sizeBytes', 'contextLength', 'capabilities'] as const
+  const keys = [
+    'ref',
+    'digest',
+    'location',
+    'displayName',
+    'family',
+    'parameterSize',
+    'quantization',
+    'format',
+    'sizeBytes',
+    'contextLength',
+    'contextBytesPerToken',
+    'capabilities'
+  ] as const
   const obj = c.record(value, path, keys)
   if (!obj) return undefined
   const model = {
     ref: readResolvedModelRef(c, obj['ref'], `${path}.ref`),
     digest: c.nullable(obj['digest'], `${path}.digest`, (v, p) => c.string(v, p, { min: 1, max: 200, pattern: /^[A-Za-z0-9:._-]+$/ })),
+    location: c.oneOf(obj['location'], `${path}.location`, ['local', 'remote'] as const),
     displayName: c.string(obj['displayName'], `${path}.displayName`, { min: 1, max: INFERENCE_LIMITS.displayName }),
     family: optionalText(c, obj['family'], `${path}.family`),
     parameterSize: optionalText(c, obj['parameterSize'], `${path}.parameterSize`),
@@ -274,6 +299,9 @@ function readProviderModel(c: Checker, value: unknown, path: string): ProviderMo
     sizeBytes: optionalCount(c, obj['sizeBytes'], `${path}.sizeBytes`, INFERENCE_LIMITS.sizeBytes),
     contextLength: c.nullable(obj['contextLength'], `${path}.contextLength`, (v, p) =>
       c.number(v, p, { min: 1, max: INFERENCE_LIMITS.contextLength, integer: true })
+    ),
+    contextBytesPerToken: c.nullable(obj['contextBytesPerToken'], `${path}.contextBytesPerToken`, (v, p) =>
+      c.number(v, p, { min: 1, max: INFERENCE_LIMITS.contextBytesPerToken, integer: true })
     ),
     capabilities: c.array(obj['capabilities'], `${path}.capabilities`, (v, p) => c.oneOf(v, p, MODEL_CAPABILITIES), {
       max: MODEL_CAPABILITIES.length,

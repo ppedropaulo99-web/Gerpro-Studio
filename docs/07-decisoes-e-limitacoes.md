@@ -33,6 +33,7 @@
 | D27 | 3.2.2 | Temas escuro (padrão, grafite e âmbar) e claro (azul e branco); cores só em tokens; tema aplicado e gravado na hora, fora do formulário Salvar/Descartar | Mudança visual reversível com um clique; segue o padrão das ações imediatas do Hardware Advisor e não mistura com o fluxo de alterações não salvas |
 | D28 | 3.3.3 | Agente, modelo e perfil de execução separados; provedores atrás de `InferenceProvider`; perfil embutido no agente com substituição por execução; `agents.json` v2 com migração | Usar o Ollama temporariamente e um runtime próprio depois sem refazer agentes, execuções e interface; perfis nomeados só quando houver onde guardá-los |
 | D29 | 3.3.3 | Compatibilidade em cinco estados; só teste real confirma; falta de memória é transitória | Estimativa nunca é apresentada como confirmação, e uma falha momentânea não marca o modelo como incompatível para sempre |
+| D30 | 3.3.4 | Avaliador e recomendação por regras ordenadas e ordenação lexicográfica, sem pontuação; ajuste de perfil antes de outro modelo; instalados e não instalados em listas separadas | Cada conclusão é explicável passo a passo e reproduzível; nenhuma fórmula arbitrária decide, e nada não instalado parece disponível |
 
 ## Limitações conhecidas
 
@@ -68,8 +69,19 @@
 - `agents.json` passou à versão 2. Uma versão anterior do app que abra o
   arquivo regravado o trata como "mais novo": usa os padrões e não grava.
 - Os contratos de inferência local (provedores, perfis, compatibilidade e
-  execução real) existem, mas nada os implementa: não há provedor, canal IPC
-  de execução real nem avaliação de compatibilidade produzida.
+  execução real) existem, mas não há provedor nem canal IPC de execução
+  real. O avaliador de compatibilidade e a recomendação de alternativas
+  (`compatibility-evaluator.ts`) existem e são testados, mas nada na
+  interface ou no Main os chama ainda.
+- A estimativa de memória do avaliador é deliberadamente simples (pesos +
+  contexto, reservas fixas de RAM e VRAM). Não considera sobrecarga do
+  runtime, buffers de computação nem a divisão real de camadas entre GPU e
+  CPU; por isso só um teste real confirma compatibilidade. Sem a memória do
+  contexto, a estimativa fica incompleta e não conclui que o modelo cabe:
+  perfis no contexto padrão do provedor ficam `not-verified` até haver um
+  contexto explícito ou um teste.
+- A memória livre é um retrato do momento da análise de hardware; numa
+  análise desatualizada ela é tratada como desconhecida.
 - Lacunas que dependem de lotes futuros:
   - `deviceKey` (identificador do dispositivo e da configuração de hardware)
     não é gerado por ninguém: depende do lote de detecção real de hardware.
@@ -79,8 +91,17 @@
     inventário (lote do primeiro provedor de inferência).
   - Perfis nomeados e reutilizáveis: lote que criar o armazenamento de
     perfis (migração `agents.json` v2 → v3).
-  - Ligar `stateFromEstimate`, `stateAfterTest` e `effectiveState` a um
-    serviço de compatibilidade: lote das execuções reais e testes de modelo.
+  - Ligar o avaliador a dados reais: inventário de um provedor (com
+    `sizeBytes`, `contextLength` e `contextBytesPerToken`), testes reais
+    gravados como `CompatibilityAssessment` e evidências de qualidade por
+    tarefa (`TaskQualityEvidence`, hoje sem fonte): lote do primeiro
+    provedor e das execuções reais.
+  - Exibir as justificativas (`steps`) na interface: lote de interface da
+    seleção de modelos. Cuidado obrigatório: `use-target` com
+    `memoryNow: 'unknown'` (análise desatualizada ou estimativa incompleta)
+    diz só que a capacidade comporta o modelo; NÃO confirma memória livre
+    suficiente agora. A interface não pode apresentá-lo como pronto para
+    executar sem esse aviso.
 - Modelos que não estão na biblioteca fictícia têm requisitos desconhecidos.
 - A interface está só em português. A preferência de idioma não tem efeito.
 

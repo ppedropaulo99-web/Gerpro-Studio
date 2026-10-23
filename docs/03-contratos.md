@@ -103,7 +103,9 @@ HTTP, inferência nem streaming funcional.
   provedores (`llama3.2:3b`, `org/modelo:q4_k_m`), até 200 caracteres, sem
   caracteres de controle nem espaços nas pontas.
 - **Separação:** identidade (`ProviderModel`: metadados informados pelo
-  provedor, inclusive `digest`, `null` quando ele não informa) ≠ disponibilidade
+  provedor, inclusive `digest`, `location` (`local` ou `remote`) e
+  `contextBytesPerToken` (memória por token de contexto), `null` quando ele
+  não informa) ≠ disponibilidade
   (`ModelAvailability`, em `ProviderModelEntry`) ≠ requisitos
   (`AgentRequirements`, em `recommendations.ts`) ≠ parâmetros
   (`ExecutionProfile`).
@@ -178,8 +180,8 @@ HTTP, inferência nem streaming funcional.
   sem apagar um sucesso anterior; demais falhas não mudam o estado.
 - `CompatibilityAssessment` reúne a base da avaliação, o estado, os motivos
   (no formato do Advisor), a origem do perfil de hardware, o último teste e
-  as alternativas (`smaller-model`, `profile-adjustment`, `free-memory`).
-  Nenhum serviço produz avaliações ainda.
+  as alternativas (`smaller-model`, `other-model`, `profile-adjustment`,
+  `free-memory`). São produzidas por `evaluateCompatibility` (abaixo).
 - **Base da avaliação (`CompatibilityBasis`):** modelo, digest, parâmetros
   do perfil que afetam memória ou dispositivo (`contextLength`, `gpuMode`,
   `cpuThreads`), identificador do dispositivo (`deviceKey`) e versão das
@@ -190,6 +192,86 @@ HTTP, inferência nem streaming funcional.
   dependem da versão das regras; estimativas deixam de valer quando as
   regras mudam. Parâmetros de amostragem (`temperature`, `topP`, `seed`) não
   invalidam.
+
+### Avaliação e recomendação (`src/shared/compatibility-evaluator.ts`)
+
+Funções puras e determinísticas: não leem relógio (`now` é entrada), disco,
+rede nem hardware, e não dependem de nenhum provedor. Avaliam a combinação
+modelo + perfil + tarefa + dispositivo, nunca "a qualidade do computador".
+
+**`evaluateCompatibility(entrada do inventário, contexto)`** aplica as regras
+em ordem e registra cada uma em `steps` (`stage`, `rule`, `kind`, `factor`,
+`message`, `values`), para auditoria e exibição futura:
+
+1. **Elegibilidade:** modelo `remote` → inelegível (nunca é execução local);
+   sem capacidade `chat` → inelegível; contexto máximo do modelo menor que
+   `minContextTokens` da tarefa → inelegível; contexto do modelo
+   desconhecido → elegibilidade `unknown`.
+2. **Disponibilidade:** só o inventário diz se está instalado.
+3. **Recursos:** perfil de hardware só via `usableProfile` (sem
+   consentimento, não há perfil, mesmo com análise gravada). Pesos =
+   `sizeBytes`; contexto = `contextLength × contextBytesPerToken`, só quando
+   os dois são conhecidos. Posicionamento: `cpu` (perfil `cpu-only` ou
+   nenhuma GPU), `gpu-full`, `gpu-partial`, `shared-memory` (GPU integrada:
+   conta só a RAM), `unknown-vram` e `unknown-gpu`. `gpu-partial` não afirma
+   proporção de camadas nem desempenho.
+4. **Estimativa (capacidade):** cabe na RAM utilizável → `estimated-compatible`;
+   não cabe → `not-recommended`, exceto quando a VRAM ou a GPU são
+   desconhecidas (`not-verified`). Perfil com contexto acima do máximo do
+   modelo ou abaixo do exigido pela tarefa → `not-recommended`. Faltando
+   perfil de hardware, RAM ou tamanho do modelo → `not-verified`.
+   **Estimativa incompleta:** sem a memória do contexto (contexto no padrão
+   do provedor ou `contextBytesPerToken` desconhecido), o componente vai para
+   `unknownComponents` e a conta só com os pesos é um piso: se o piso já não
+   cabe → `not-recommended`; se cabe → `not-verified`, nunca
+   `estimated-compatible`.
+   **Disponibilidade atual (`memoryNow`), separada da capacidade:** compara a
+   parte na RAM com a memória livre no momento da análise: `sufficient`,
+   `insufficient` ou `unknown` (análise `stale` ou estimativa incompleta). A
+   falta de memória livre gera a sugestão `free-memory` e nunca muda o estado
+   de compatibilidade.
+5. **Testes:** só o teste mais recente do modelo, e só se a base for a
+   mesma, com digest e dispositivo conhecidos (mesma regra de
+   `effectiveState`, aplicada também a falhas). O novo estado vem de
+   `stateAfterTest`: falta de memória nunca confirma incompatibilidade.
+6. **Adequação à tarefa:** só com `TaskQualityEvidence` (modelo, digest,
+   tarefa, avaliação, fonte). Sem evidência, de outro digest ou com
+   avaliações divergentes → `unknown`, e a adequação não pesa.
+7. **Ajuste de perfil** (só contexto, conservador): reduzir ao máximo do
+   modelo; ampliar ao mínimo da tarefa; reduzir pela metade até
+   `max(mínimo da tarefa, 2048)`. Só é proposto se o perfil ajustado
+   passar a `estimated-compatible` pela mesma regra, e vale o menor ajuste.
+   Se o modelo já cabe na capacidade mas não na memória livre, o ajuste
+   proposto é o menor que também caiba na memória livre.
+
+Premissas da estimativa (`ESTIMATE_RULES`, regras e não medições; mudá-las
+exige subir `COMPATIBILITY_RULES_VERSION`): GB = 2³⁰ bytes, 25 % da RAM total
+reservados ao sistema, 10 % da VRAM reservados ao driver. O resultado
+(`MemoryEstimate`) tem `source: 'estimate'` e nenhum campo de desempenho.
+
+**`recommendModels(pedido)`** decide, nesta ordem:
+
+| Decisão | Quando |
+|---|---|
+| `use-target` | o modelo pedido está instalado e é `tested-compatible` ou `estimated-compatible`, sem avaliação de inadequação à tarefa, e a memória livre não é sabidamente insuficiente |
+| `free-memory` | o modelo pedido cabe na capacidade, mas não na memória livre no momento da análise; um ajuste de perfil que caiba agora vem como opção secundária |
+| `adjust-profile` | um ajuste de perfil torna o modelo pedido compatível pela estimativa (tem preferência sobre trocar de modelo) |
+| `use-alternative` | outro modelo instalado serve |
+| `insufficient-data` | sem perfil de hardware ou com o modelo pedido `not-verified` |
+| `no-suitable-option` | nenhuma das anteriores |
+
+- Alternativas: modelos elegíveis, compatíveis (testado ou estimado) e não
+  avaliados como inadequados. Ficam em duas listas: `installedAlternatives`
+  e `notInstalledAlternatives`; um modelo não instalado nunca é apresentado
+  como disponível nem decide a recomendação.
+- Ordem, sem pontuação: testado antes de estimado → memória livre
+  suficiente, desconhecida, insuficiente → adequado à tarefa antes de
+  desconhecido → `providerId` → `modelId`.
+- As decisões tratam de recursos: a justificativa sempre declara que
+  compatibilidade de recursos não garante a qualidade das respostas.
+- Modelo fora do inventário (`not-in-inventory`) ou presente em mais de um
+  provedor sem `providerId` (`ambiguous-provider`) não é escolhido por
+  conta própria.
 
 ## Modelos de exemplo (`src/shared/engine.ts`, `src/shared/recommendations.ts`)
 

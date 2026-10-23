@@ -38,6 +38,7 @@ const entry = (providerId: string, modelId: string, availability: ProviderModelE
   model: {
     ref: { providerId, modelId },
     digest: null,
+    location: 'local',
     displayName: modelId,
     family: null,
     parameterSize: null,
@@ -45,6 +46,7 @@ const entry = (providerId: string, modelId: string, availability: ProviderModelE
     format: null,
     sizeBytes: null,
     contextLength: null,
+    contextBytesPerToken: null,
     capabilities: ['chat']
   },
   availability

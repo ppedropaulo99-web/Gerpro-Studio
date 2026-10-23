@@ -104,7 +104,19 @@ export interface RecommendationContext {
 export type RecommendationFit = 'recommended-local' | 'limited' | 'needs-resources' | 'unknown'
 
 export type ReasonKind = 'positive' | 'limitation' | 'blocker' | 'unknown' | 'notice'
-export type ReasonFactor = 'hardware' | 'memory' | 'gpu' | 'storage' | 'cpu' | 'acceleration' | 'model' | 'tools' | 'task' | 'engine'
+export type ReasonFactor =
+  | 'hardware'
+  | 'memory'
+  | 'gpu'
+  | 'storage'
+  | 'cpu'
+  | 'acceleration'
+  | 'model'
+  | 'tools'
+  | 'task'
+  | 'engine'
+  | 'context'
+  | 'evidence'
 
 export interface RecommendationReason {
   kind: ReasonKind

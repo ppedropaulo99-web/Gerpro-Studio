@@ -44,6 +44,7 @@ export interface CompatibilityTest {
 /** Alternativas sugeridas quando o modelo não é o mais indicado. */
 export type AlternativeSuggestion =
   | { kind: 'smaller-model'; model: ModelRef; reason: string }
+  | { kind: 'other-model'; model: ModelRef; reason: string }
   | { kind: 'profile-adjustment'; profile: ExecutionProfileOverride; reason: string }
   | { kind: 'free-memory'; reason: string }
 

@@ -12,6 +12,7 @@ que ainda não foi tomada.
 | `ModelRef` / `ProviderModel` | `src/shared/inference.ts` | Identidade estável (provedor + modelo), separada de disponibilidade e requisitos |
 | `ExecutionProfile` / `RunOverrides` | `src/shared/execution.ts` | Parâmetros padrão do agente e substituição por execução |
 | `CompatibilityState` | `src/shared/compatibility.ts` | Estimado × testado × confirmado |
+| `evaluateCompatibility` / `recommendModels` | `src/shared/compatibility-evaluator.ts` | Avaliação por regras e recomendação de alternativas; puras, testadas, ainda sem chamador |
 | `defaultModel` / `defaultProfile` no agente | `src/shared/agents.ts` | `providerId` opcional: o agente não fica preso a um provedor |
 | `ModelDescriptor` | `src/shared/engine.ts` | Só para a biblioteca de exemplo |
 | Pasta reservada | `src/main/engine/` | Só um README |
@@ -69,8 +70,11 @@ Quando o motor existir:
 - **Lista de modelos:** substituir a biblioteca fictícia por
   `InferenceProvider.listModels()`, mapeando para `ModelProfile` com a
   disponibilidade real (`installed`, `downloading`, `error`).
-- **Compatibilidade:** `stateFromEstimate` traduz o `fit` atual; testes reais
-  atualizam o estado com `stateAfterTest`.
+- **Compatibilidade:** `evaluateCompatibility` recebe as entradas do
+  inventário do provedor; o provedor deve informar `location`, `sizeBytes`,
+  `contextLength` e, se possível, `contextBytesPerToken`. Testes reais
+  gravados como `CompatibilityAssessment` (com digest e `deviceKey`) passam a
+  prevalecer sobre a estimativa nas mesmas condições.
 - **Requisitos medidos pelo motor:** entram como `AgentRequirements` com
   `source: 'declared'` e prevalecem sobre a estimativa.
 - **Recomendações:** `executableNow` passa a ser verdadeiro automaticamente
