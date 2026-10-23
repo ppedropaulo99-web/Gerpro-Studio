@@ -6,6 +6,8 @@ conectadas ao Main. Etapa 3.1: Gerpro Hardware Advisor (contratos, consentimento
 demonstrativos; ver `src/main/hardware/README.md`).
 Ainda não há inferência, detecção real de hardware, execução de ferramentas nem integrações externas.
 
+Documentação completa (arquitetura, contratos, Hardware Advisor, pontos de integração e decisões): [`docs/`](docs/README.md).
+
 ## Dados reais × demonstrativos
 
 | Tela | Dados do Main (reais) | Dados de exemplo (fictícios, identificados) |
