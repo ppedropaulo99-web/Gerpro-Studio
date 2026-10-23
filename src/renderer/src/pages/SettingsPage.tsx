@@ -1,7 +1,24 @@
-import { useState, type ReactNode } from 'react'
-import { Save } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { AlertTriangle, Check, Save } from 'lucide-react'
+import type { AppSettings } from '@shared/settings'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
-import { Button, Card, CardBody, CardHeader, Field, Select, SwitchRow, TextInput } from '@renderer/components/ui'
+import {
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  ErrorState,
+  Field,
+  FieldError,
+  LoadingState,
+  Notice,
+  Select,
+  SwitchRow,
+  TextInput
+} from '@renderer/components/ui'
+import { callApi } from '@renderer/lib/api'
+import { formFromSettings, patchFromForm, settingsFormErrors, type SettingsFormErrors, type SettingsFormValues } from '@renderer/lib/settings-form'
+import { useResource } from '@renderer/lib/use-resource'
 
 function Section({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
@@ -14,36 +31,105 @@ function Section({ title, description, children }: { title: string; description:
   )
 }
 
+/** Toda preferência desta tela é gravada, mas nenhuma altera o comportamento do app ainda. */
+const NO_EFFECT = 'Gravado; ainda sem efeito nesta versão.'
+
 export function SettingsPage() {
-  // Formulário apenas visual: os valores vivem no estado do componente e não são salvos.
-  const [language, setLanguage] = useState('pt-BR')
-  const [density, setDensity] = useState('comfortable')
-  const [modelsDir, setModelsDir] = useState('C:\\Users\\usuario\\GerproStudio\\models')
-  const [maxRam, setMaxRam] = useState('16')
-  const [startOnLogin, setStartOnLogin] = useState(false)
-  const [telemetry, setTelemetry] = useState(false)
-  const [confirmTools, setConfirmTools] = useState(true)
+  const { state, reload, update } = useResource(() => window.gerpro.settings.get())
 
   return (
     <div className="page settings">
+      {state.status === 'ready' ? (
+        <SettingsForm saved={state.data} onSaved={(s) => update(() => s)} />
+      ) : (
+        <>
+          <PageHeader title="Configurações" description="Preferências do aplicativo, gravadas neste computador." />
+          {state.status === 'loading' ? <LoadingState label="Carregando configurações…" /> : <ErrorState error={state.error} onRetry={reload} />}
+        </>
+      )}
+    </div>
+  )
+}
+
+function SettingsForm({ saved, onSaved }: { saved: AppSettings; onSaved: (s: AppSettings) => void }) {
+  const [form, setForm] = useState<SettingsFormValues>(() => formFromSettings(saved))
+  const [errors, setErrors] = useState<SettingsFormErrors>({})
+  const [saving, setSaving] = useState(false)
+  const [justSaved, setJustSaved] = useState(false)
+
+  const pending = patchFromForm(saved, form)
+  const dirty = !pending.ok || pending.changed
+
+  useEffect(() => {
+    if (dirty) setJustSaved(false)
+  }, [dirty])
+
+  const set = <K extends keyof SettingsFormValues>(key: K, value: SettingsFormValues[K]) => {
+    setForm((f) => ({ ...f, [key]: value }))
+    setErrors((e) => ({ ...e, [key]: undefined, form: undefined }))
+  }
+
+  async function save() {
+    if (!pending.ok) {
+      setErrors(pending.errors)
+      return
+    }
+    setSaving(true)
+    const result = await callApi(() => window.gerpro.settings.update(pending.patch))
+    setSaving(false)
+    if (result.ok) {
+      onSaved(result.data)
+      setForm(formFromSettings(result.data))
+      setErrors({})
+      setJustSaved(true)
+    } else {
+      setErrors({ ...(result.error.issues ? settingsFormErrors(result.error.issues) : {}), form: result.error.message })
+    }
+  }
+
+  return (
+    <>
       <PageHeader
         title="Configurações"
-        description="Preferências do aplicativo. Neste protótipo, nada é gravado."
+        description="Preferências do aplicativo, gravadas neste computador."
         actions={
-          <Button variant="primary" icon={<Save size={16} />} disabled title="Persistência em uma próxima etapa">
-            Salvar alterações
-          </Button>
+          <>
+            {dirty && (
+              <Button variant="ghost" disabled={saving} onClick={() => {
+                  setForm(formFromSettings(saved))
+                  setErrors({})
+                }}
+              >
+                Descartar
+              </Button>
+            )}
+            <Button variant="primary" icon={justSaved ? <Check size={16} /> : <Save size={16} />} disabled={!dirty || saving} onClick={() => void save()}>
+              {saving ? 'Salvando…' : justSaved ? 'Salvo' : 'Salvar alterações'}
+            </Button>
+          </>
         }
       />
 
+      <Notice tone="neutral">
+        As preferências abaixo são gravadas e mantidas após reiniciar o aplicativo, mas <strong>ainda não têm efeito</strong> nesta
+        versão: idioma, densidade, inicialização com o sistema, pasta e limite de modelos, confirmação de ferramentas e telemetria
+        serão aplicados em etapas futuras.
+      </Notice>
+
+      {errors.form && (
+        <Notice tone="danger" icon={<AlertTriangle size={16} />}>
+          {errors.form}
+        </Notice>
+      )}
+
       <Section title="Geral" description="Idioma e comportamento do aplicativo">
         <div className="form-grid">
-          <Field label="Idioma">
+          <Field label="Idioma" hint={NO_EFFECT}>
             {(id) => (
               <Select
                 id={id}
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
+                value={form.language}
+                onChange={(e) => set('language', e.target.value as SettingsFormValues['language'])}
                 options={[
                   { value: 'pt-BR', label: 'Português (Brasil)' },
                   { value: 'en-US', label: 'English (US)' },
@@ -52,12 +138,12 @@ export function SettingsPage() {
               />
             )}
           </Field>
-          <Field label="Densidade da interface">
+          <Field label="Densidade da interface" hint={NO_EFFECT}>
             {(id) => (
               <Select
                 id={id}
-                value={density}
-                onChange={(e) => setDensity(e.target.value)}
+                value={form.density}
+                onChange={(e) => set('density', e.target.value as SettingsFormValues['density'])}
                 options={[
                   { value: 'comfortable', label: 'Confortável' },
                   { value: 'compact', label: 'Compacta' }
@@ -68,35 +154,45 @@ export function SettingsPage() {
         </div>
         <SwitchRow
           label="Iniciar com o sistema"
-          description="Abre o Gerpro Studio minimizado ao entrar no Windows."
-          checked={startOnLogin}
-          onChange={setStartOnLogin}
+          description={`Abre o Gerpro Studio minimizado ao entrar no Windows. ${NO_EFFECT}`}
+          checked={form.startOnLogin}
+          onChange={(v) => set('startOnLogin', v)}
         />
       </Section>
 
       <Section title="Modelos" description="Armazenamento e limites de memória">
-        <Field label="Pasta de modelos" hint="Onde os arquivos de modelo serão guardados.">
-          {(id) => <TextInput id={id} value={modelsDir} onChange={(e) => setModelsDir(e.target.value)} />}
+        <Field label="Pasta de modelos" hint={`Vazio usa a pasta padrão. ${NO_EFFECT}`}>
+          {(id) => (
+            <>
+              <TextInput id={id} placeholder="Pasta padrão" value={form.modelsDirectory} onChange={(e) => set('modelsDirectory', e.target.value)} />
+              <FieldError>{errors.modelsDirectory}</FieldError>
+            </>
+          )}
         </Field>
-        <Field label="Limite de RAM para modelos (GB)" hint="Impede carregar modelos que excedam este valor.">
-          {(id) => <TextInput id={id} type="number" min={1} value={maxRam} onChange={(e) => setMaxRam(e.target.value)} />}
+        <Field label="Limite de RAM para modelos (GB)" hint={`Impedirá carregar modelos que excedam este valor. ${NO_EFFECT}`}>
+          {(id) => (
+            <>
+              <TextInput id={id} type="number" min={1} max={4096} step={1} value={form.maxRamGb} onChange={(e) => set('maxRamGb', e.target.value)} />
+              <FieldError>{errors.maxRamGb}</FieldError>
+            </>
+          )}
         </Field>
       </Section>
 
       <Section title="Privacidade e segurança" description="Controle sobre dados e ações dos agentes">
         <SwitchRow
           label="Confirmar antes de usar ferramentas sensíveis"
-          description="Pede aprovação para terminal, escrita em disco e rede."
-          checked={confirmTools}
-          onChange={setConfirmTools}
+          description={`Pedirá aprovação para terminal, escrita em disco e rede. ${NO_EFFECT}`}
+          checked={form.confirmSensitiveTools}
+          onChange={(v) => set('confirmSensitiveTools', v)}
         />
         <SwitchRow
           label="Enviar dados de uso anônimos"
-          description="Desativado por padrão. Nenhum dado é enviado neste protótipo."
-          checked={telemetry}
-          onChange={setTelemetry}
+          description="Desativado por padrão. Nenhum dado é enviado nesta versão, mesmo se ativado."
+          checked={form.telemetry}
+          onChange={(v) => set('telemetry', v)}
         />
       </Section>
-    </div>
+    </>
   )
 }

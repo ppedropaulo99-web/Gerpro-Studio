@@ -272,3 +272,29 @@
     display: none;
   }
 }
+
+/* Estados de carregamento e erro (etapa 2.2) */
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+
+.text-danger {
+  color: var(--danger);
+}
+
+.field__error {
+  font-size: var(--text-xs);
+  color: var(--danger);
+}

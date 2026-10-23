@@ -1,3 +1,5 @@
+import type { ToolPermission } from '@shared/tools'
+
 const number = new Intl.NumberFormat('pt-BR')
 const time = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 
@@ -21,4 +23,11 @@ export const capabilityLabel: Record<string, string> = {
   tools: 'Ferramentas',
   embedding: 'Embedding',
   reasoning: 'Raciocínio'
+}
+
+export const permissionLabel: Record<ToolPermission, string> = {
+  network: 'Rede',
+  'filesystem:read': 'Leitura de disco',
+  'filesystem:write': 'Escrita de disco',
+  process: 'Processos'
 }

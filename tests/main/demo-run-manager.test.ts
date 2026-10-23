@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { AppError } from '../../src/main/errors'
-import { DEMO_STEPS, DemoRunManager } from '../../src/main/runs/demo-run-manager'
+import { DEFAULT_STEP_DELAY_MS, DEMO_STEPS, DemoRunManager } from '../../src/main/runs/demo-run-manager'
 import type { RunRecord } from '../../src/shared/runs'
 import { fakeClock, ManualScheduler } from '../support/fixtures'
 
@@ -104,6 +104,17 @@ describe('gerenciador demonstrativo de execuções', () => {
     manager.list()[0]!.messages.push({ at: '', level: 'info', text: 'intruso' })
     assert.equal(manager.get(run.id)!.state, 'pending')
     assert.equal(manager.get(run.id)!.messages.length, 1)
+  })
+
+  it('opções passadas como undefined usam o intervalo padrão (regressão: etapas com 0 ms)', () => {
+    const delays: number[] = []
+    const manager = new DemoRunManager({
+      canRun: () => ({ ok: true }),
+      stepDelayMs: undefined,
+      scheduler: { setTimeout: (_cb, ms) => delays.push(ms), clearTimeout: () => undefined }
+    })
+    manager.start({ agentId: 'agente', scenario: 'success' })
+    assert.deepEqual(delays, [DEFAULT_STEP_DELAY_MS])
   })
 
   it('limita o histórico descartando as encerradas mais antigas', () => {

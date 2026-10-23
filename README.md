@@ -1,9 +1,22 @@
 # Gerpro Studio
 
 Aplicação desktop de IA. Etapa 1: protótipo visual navegável. Etapa 2.1: núcleo funcional
-(contratos de agentes, ferramentas e execuções, persistência local e IPC).
-Ainda não há inferência, execução de ferramentas nem integrações externas. As telas continuam
-exibindo dados demonstrativos; as execuções do núcleo são **simuladas** e marcadas como tal.
+(contratos, persistência local e IPC). Etapa 2.2: telas Agentes, Configurações e Execuções
+conectadas ao Main.
+Ainda não há inferência, execução de ferramentas nem integrações externas.
+
+## Dados reais × demonstrativos
+
+| Tela | Dados do Main (reais) | Dados de exemplo (fictícios, identificados) |
+|---|---|---|
+| Agentes | "Meus agentes": criar, editar, arquivar, excluir | "Exemplos": podem ser duplicados como novo agente |
+| Configurações | Todas as preferências, gravadas (ainda sem efeito no app) | — |
+| Execuções | "Execuções simuladas desta sessão" (só em memória, `origin: simulated`) | "Histórico de exemplo" |
+| Barra lateral | Contadores de agentes salvos e simulações em andamento | — |
+| Início, Chat, Modelos, Ferramentas | — | Inalteradas (protótipo) |
+
+Os estados dos dados de exemplo são convertidos para o contrato por `legacyRunState`
+(`renderer/src/lib/runs.ts`): `queued→pending`, `succeeded→completed`, demais iguais.
 
 **Stack:** Electron 45 · React 19 · TypeScript · Vite 8 (via electron-vite 6)
 
@@ -26,7 +39,7 @@ Outros scripts:
 | `npm run typecheck` | Verifica os tipos de Main/Preload e Renderer |
 | `npm run build` | Verifica os tipos e gera o build de produção em `out/` |
 | `npm run preview` | Executa o build de produção localmente |
-| `npm test` | Testes automatizados (`node:test`, sem dependências extras) |
+| `npm test` | Testes automatizados (`node:test`, sem dependências extras; exige Node ≥ 22.18) |
 
 > Se `npm run dev` falhar com `Electron uninstall`, o binário não foi baixado. Rode `npx install-electron`.
 
@@ -84,7 +97,7 @@ src/
 - **Permissões** de câmera, microfone, notificações etc. são negadas por padrão.
 - **DevTools** só em desenvolvimento.
 
-Canais IPC: `app:get-info`, `settings:get|update`, `agents:list|save|delete`, `tools:list`,
+Canais IPC: `app:get-info`, `settings:get|update`, `agents:list|create|update|delete`, `tools:list`,
 `runs:list|start-demo|cancel` e o evento `runs:updated`. Os canais de dados recebem argumentos
 como `unknown`, validam no Main e respondem `Result<T>` (`{ ok, data }` ou `{ ok, error }`).
 

@@ -17,7 +17,8 @@ export const IpcChannels = {
   settingsGet: 'settings:get',
   settingsUpdate: 'settings:update',
   agentsList: 'agents:list',
-  agentsSave: 'agents:save',
+  agentsCreate: 'agents:create',
+  agentsUpdate: 'agents:update',
   agentsDelete: 'agents:delete',
   toolsList: 'tools:list',
   runsList: 'runs:list',
@@ -55,7 +56,10 @@ export interface GerproApi {
   agents: {
     /** Inclui a disponibilidade calculada de cada agente. */
     list(): Promise<Result<AgentRecord[]>>
-    save(draft: AgentDraft): Promise<Result<AgentRecord>>
+    /** Falha com `conflict` se o ID já existir. */
+    create(draft: AgentDraft): Promise<Result<AgentRecord>>
+    /** Falha com `not-found` se o agente não existir. */
+    update(draft: AgentDraft): Promise<Result<AgentRecord>>
     remove(id: string): Promise<Result<null>>
   }
   tools: {

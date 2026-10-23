@@ -6,7 +6,8 @@ import { agents, agentById } from '@renderer/data/agents'
 import { models, modelById } from '@renderer/data/models'
 import { runs } from '@renderer/data/runs'
 import { formatDateTime, formatNumber } from '@renderer/lib/format'
-import { runStatus } from '@renderer/lib/status'
+import { legacyRunState } from '@renderer/lib/runs'
+import { runState } from '@renderer/lib/status'
 
 function greeting(): string {
   const h = new Date().getHours()
@@ -80,7 +81,7 @@ export function HomePage() {
           />
           <CardBody className="stack" style={{ gap: 0 }}>
             {runs.slice(0, 5).map((run) => {
-              const meta = runStatus[run.status]
+              const meta = runState[legacyRunState[run.status]]
               return (
                 <div key={run.id} className="list-row">
                   <div className="stack" style={{ gap: 0, minWidth: 0 }}>

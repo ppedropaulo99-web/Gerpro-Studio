@@ -80,8 +80,17 @@ export class AgentService {
     return this.store.get().agents.find((a) => a.id === id)
   }
 
-  /** Cria ou atualiza. `createdAt` é preservado; `updatedAt` é sempre do Main. */
-  async save(input: unknown): Promise<AgentRecord> {
+  /** Cria um agente novo. Falha com `conflict` se o ID já existir. */
+  create(input: unknown): Promise<AgentRecord> {
+    return this.save(input, 'create')
+  }
+
+  /** Atualiza um agente existente, preservando `createdAt`. Falha com `not-found` se ele não existir. */
+  update(input: unknown): Promise<AgentRecord> {
+    return this.save(input, 'update')
+  }
+
+  private async save(input: unknown, mode: 'create' | 'update'): Promise<AgentRecord> {
     const draft = unwrap(validateAgentDraft(input))
     const unknownTools = draft.tools.filter((t) => !this.deps.tools.has(t))
     if (unknownTools.length > 0) {
@@ -92,6 +101,10 @@ export class AgentService {
     let saved: AgentDefinition | undefined
     await this.store.update(({ agents }) => {
       const existing = agents.find((a) => a.id === draft.id)
+      if (mode === 'create' && existing) {
+        throw new AppError('conflict', `Já existe um agente com o ID "${draft.id}".`, { issues: [{ path: '$.id', message: 'ID já em uso' }] })
+      }
+      if (mode === 'update' && !existing) throw new AppError('not-found', `Agente "${draft.id}" não encontrado.`)
       if (!existing && agents.length >= MAX_AGENTS) {
         throw new AppError('conflict', `Limite de ${MAX_AGENTS} agentes atingido.`)
       }

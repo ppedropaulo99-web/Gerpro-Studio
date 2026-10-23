@@ -62,10 +62,10 @@ describe('serviço de configurações', () => {
 describe('serviço de agentes', () => {
   it('cria com datas do Main, atualiza preservando a criação e persiste', async () => {
     const { dir, agents, settings, tools } = await setup()
-    const created = await agents.save(agentDraft())
+    const created = await agents.create(agentDraft())
     assert.equal(created.definition.createdAt, created.definition.updatedAt)
 
-    const updated = await agents.save(agentDraft({ name: 'Assistente 2', version: '1.1.0' }))
+    const updated = await agents.update(agentDraft({ name: 'Assistente 2', version: '1.1.0' }))
     assert.equal(updated.definition.createdAt, created.definition.createdAt)
     assert.notEqual(updated.definition.updatedAt, created.definition.updatedAt)
 
@@ -74,27 +74,36 @@ describe('serviço de agentes', () => {
     assert.deepEqual(reopened.list().map((a) => a.definition.name), ['Assistente 2'])
   })
 
+  it('criar não sobrescreve um ID existente; atualizar exige que ele exista', async () => {
+    const { agents } = await setup()
+    await agents.create(agentDraft())
+    await assert.rejects(agents.create(agentDraft({ name: 'Outro' })), isCode('conflict'))
+    assert.equal(agents.list()[0]!.definition.name, 'Assistente Geral')
+    await assert.rejects(agents.update(agentDraft({ id: 'nao-existe' })), isCode('not-found'))
+    assert.equal(agents.list().length, 1)
+  })
+
   it('rejeita datas enviadas pelo Renderer', async () => {
     const { agents } = await setup()
-    await assert.rejects(agents.save({ ...agentDraft(), createdAt: '1999-01-01T00:00:00Z' }), isCode('validation'))
+    await assert.rejects(agents.create({ ...agentDraft(), createdAt: '1999-01-01T00:00:00Z' }), isCode('validation'))
   })
 
   it('agente pronto continua indisponível: sem motor e sem ferramentas implementadas', async () => {
     const { agents } = await setup()
-    const record = await agents.save(agentDraft({ tools: ['web-search'], requestedPermissions: ['network'] }))
+    const record = await agents.create(agentDraft({ tools: ['web-search'], requestedPermissions: ['network'] }))
     assert.equal(record.availability.status, 'unavailable')
     assert.deepEqual(record.availability.issues.map((i) => i.code).sort(), ['engine-unavailable', 'tool-not-implemented'])
   })
 
   it('rejeita ferramenta que não existe no catálogo', async () => {
     const { agents } = await setup()
-    await assert.rejects(agents.save(agentDraft({ tools: ['ferramenta-fantasma'] })), isCode('validation'))
+    await assert.rejects(agents.create(agentDraft({ tools: ['ferramenta-fantasma'] })), isCode('validation'))
     assert.equal(agents.list().length, 0)
   })
 
   it('remove e informa quando não encontra', async () => {
     const { agents } = await setup()
-    await agents.save(agentDraft())
+    await agents.create(agentDraft())
     await agents.remove('assistente-geral')
     assert.equal(agents.list().length, 0)
     await assert.rejects(agents.remove('assistente-geral'), isCode('not-found'))
@@ -125,11 +134,11 @@ describe('handlers IPC', () => {
       assert.equal(extra.ok, false)
       assert.equal(!extra.ok && extra.error.code, 'validation')
 
-      const bad = await invokeHandler('x', handlers[IpcChannels.agentsSave], [{ id: 'x' }])
+      const bad = await invokeHandler('x', handlers[IpcChannels.agentsCreate], [{ id: 'x' }])
       assert.equal(!bad.ok && bad.error.code, 'validation')
       assert.ok(!bad.ok && bad.error.issues!.length > 0)
 
-      const saved = await invokeHandler('x', handlers[IpcChannels.agentsSave], [agentDraft()])
+      const saved = await invokeHandler('x', handlers[IpcChannels.agentsCreate], [agentDraft()])
       assert.equal(saved.ok, true)
 
       const run = await invokeHandler('x', handlers[IpcChannels.runsStartDemo], [{ agentId: 'assistente-geral', scenario: 'success' }])

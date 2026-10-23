@@ -43,6 +43,8 @@ export const DEMO_STEPS = [
   'Gerando resposta (simulado)'
 ] as const
 
+export const DEFAULT_STEP_DELAY_MS = 700
+
 /** Etapa em que o cenário `failure` falha. */
 const FAILURE_STEP = 2
 
@@ -65,13 +67,14 @@ export class DemoRunManager {
   private readonly options: Required<DemoRunManagerOptions>
 
   constructor(options: DemoRunManagerOptions) {
+    // `??` e não spread: uma opção passada como `undefined` deve cair no padrão.
     this.options = {
-      stepDelayMs: 700,
-      maxRecords: 100,
-      now: () => new Date(),
-      scheduler: defaultScheduler,
-      newId: () => `run-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`,
-      ...options
+      canRun: options.canRun,
+      stepDelayMs: options.stepDelayMs ?? DEFAULT_STEP_DELAY_MS,
+      maxRecords: options.maxRecords ?? 100,
+      now: options.now ?? (() => new Date()),
+      scheduler: options.scheduler ?? defaultScheduler,
+      newId: options.newId ?? (() => `run-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`)
     }
   }
 
