@@ -25,6 +25,7 @@ const api: GerproApi = {
   },
   runs: {
     list: () => ipcRenderer.invoke(IpcChannels.runsList),
+    start: (request) => ipcRenderer.invoke(IpcChannels.runsStart, request),
     startDemo: (request) => ipcRenderer.invoke(IpcChannels.runsStartDemo, request),
     cancel: (id) => ipcRenderer.invoke(IpcChannels.runsCancel, id),
     onUpdated: (listener) => {

@@ -38,8 +38,8 @@ export function RunsPage() {
     <div className="page">
       <PageHeader title="Execuções" description="Execuções simuladas desta sessão e histórico de exemplo." />
       <FeatureNotice state="simulated">
-        Nenhum motor de IA está configurado. As execuções iniciadas aqui não executam modelo nem ferramenta, e não são gravadas no
-        disco.
+        Nenhum motor de IA está configurado. As execuções iniciadas aqui passam pela fila real de execuções, mas quem responde é o
+        provedor simulado: o texto é fixo, nenhum modelo ou ferramenta é executado e nada é gravado no disco.
       </FeatureNotice>
       <SimulatedRuns />
       <ExampleHistory />
@@ -48,7 +48,7 @@ export function RunsPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Execuções simuladas (DemoRunManager no Main)
+// Execuções simuladas (RunService + provedor simulado no Main)
 // ---------------------------------------------------------------------------
 
 function SimulatedRuns() {
@@ -136,7 +136,7 @@ function SimulatedRuns() {
                     onChange={(e) => setScenario(e.target.value as DemoRunRequest['scenario'])}
                     options={[
                       { value: 'success', label: 'Concluir com sucesso' },
-                      { value: 'failure', label: 'Falhar em uma etapa' }
+                      { value: 'failure', label: 'Falhar durante a geração' }
                     ]}
                   />
                 )}
@@ -260,14 +260,28 @@ function SimulatedRunRow({
 
 function RunDetails({ run, agentName }: { run: RunRecord; agentName: string }) {
   const log = run.messages.map((m) => `${formatDateTime(m.at)}  ${m.level.toUpperCase().padEnd(7)} ${m.text}`).join('\n')
+  const simulated = run.origin === 'simulated'
+  const model = run.execution ? `${run.execution.model.modelId} (${run.execution.model.providerId})` : null
+  const inferenceCode = run.error?.details?.['inferenceCode']
   return (
     <Card>
-      <CardHeader title={<span className="mono">{run.id}</span>} subtitle={`${agentName} · execução simulada`} />
+      <CardHeader
+        title={<span className="mono">{run.id}</span>}
+        subtitle={[agentName, simulated ? 'execução simulada' : 'execução real', model && `modelo ${simulated ? 'simulado ' : ''}${model}`]
+          .filter(Boolean)
+          .join(' · ')}
+      />
       <CardBody className="stack">
         {run.error && (
           <Notice tone="danger">
-            <strong>{run.error.code}</strong>: {run.error.message}
+            <strong>{typeof inferenceCode === 'string' ? `${run.error.code} · ${inferenceCode}` : run.error.code}</strong>:{' '}
+            {run.error.message}
           </Notice>
+        )}
+        {run.output && (
+          <pre className="log" aria-label={simulated ? 'Resposta simulada' : 'Resposta'}>
+            {run.output}
+          </pre>
         )}
         <pre className="log" aria-label="Mensagens da execução">
           {log}

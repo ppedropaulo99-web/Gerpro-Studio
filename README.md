@@ -109,7 +109,7 @@ src/
 - **DevTools** só em desenvolvimento.
 
 Canais IPC: `app:get-info`, `settings:get|update`, `agents:list|create|update|delete`, `tools:list`,
-`runs:list|start-demo|cancel`, `hardware:get-state|set-local-consent|analyze|delete-data`
+`runs:list|start|start-demo|cancel`, `hardware:get-state|set-local-consent|analyze|delete-data`
 e o evento `runs:updated`. Os canais de dados recebem argumentos
 como `unknown`, validam no Main e respondem `Result<T>` (`{ ok, data }` ou `{ ok, error }`).
 

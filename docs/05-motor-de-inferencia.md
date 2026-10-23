@@ -16,7 +16,9 @@ que ainda não foi tomada.
 | `defaultModel` / `defaultProfile` no agente | `src/shared/agents.ts` | `providerId` opcional: o agente não fica preso a um provedor |
 | `ModelDescriptor` | `src/shared/engine.ts` | Só para a biblioteca de exemplo |
 | Pasta reservada | `src/main/engine/` | Só um README |
-| `engineAvailable: () => false` | `src/main/services/index.ts` | Todos os agentes ficam com `engine-unavailable` |
+| `RunService` | `src/main/runs/run-service.ts` | Fila, cancelamento, tempo limite, limites e eventos funcionais (Lote 3.3.5) |
+| Provedor simulado | `src/main/runs/simulated-provider.ts` | `kind: 'simulated'`, roteiros determinísticos; **não é motor** |
+| `engineAvailable` | `src/main/services/index.ts` | Verdadeiro só com provedor real registrado (`capabilities().realEngine`); hoje todos os agentes ficam com `engine-unavailable` |
 | `engineAvailable: false` | `src/renderer/src/components/hardware/AgentRecommendations.tsx` | Nenhuma recomendação fica executável |
 | Biblioteca de modelos | `src/renderer/src/data/models.ts` | **Fictícia** |
 | Preferências `models.directory` e `models.maxRamGb` | `src/shared/settings.ts` | Gravadas, sem efeito |
@@ -59,7 +61,9 @@ que ainda não foi tomada.
    armazenamento.
 5. **Aceleração:** CUDA, ROCm, Metal, Vulkan e DirectML. O Hardware Advisor já
    descreve essas capacidades no perfil.
-6. **Limites:** aplicar `models.maxRamGb` antes de carregar um modelo.
+6. **Limites:** aplicar `models.maxRamGb` antes de carregar um modelo. O
+   lugar é a `resourcePolicy` do `RunService`, com memória medida, nunca a
+   do hardware demonstrativo.
 
 ## Integração com o Hardware Advisor
 

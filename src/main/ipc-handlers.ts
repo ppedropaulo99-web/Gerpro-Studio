@@ -1,6 +1,8 @@
 import type { Result } from '@shared/errors'
 import { IpcChannels } from '@shared/ipc'
-import { AppError, toStructuredError } from './errors'
+import { validateDemoRunRequest } from '@shared/runs'
+import { AppError, toStructuredError, unwrap } from './errors'
+import { demoRunRequest } from './runs/simulated-provider'
 import type { Services } from './services'
 
 /**
@@ -29,7 +31,9 @@ export function createDataHandlers(services: Services): Record<DataChannel, Hand
     [IpcChannels.agentsDelete]: { arity: 1, run: async ([id]) => (await agents.remove(id), null) },
     [IpcChannels.toolsList]: { arity: 0, run: () => tools.list(settings.get().tools.enabled) },
     [IpcChannels.runsList]: { arity: 0, run: () => runs.list() },
-    [IpcChannels.runsStartDemo]: { arity: 1, run: ([request]) => runs.start(request) },
+    [IpcChannels.runsStart]: { arity: 1, run: ([request]) => runs.start(request) },
+    // Compatibilidade: a demonstração vira um pedido ao provedor simulado, na mesma fila.
+    [IpcChannels.runsStartDemo]: { arity: 1, run: ([request]) => runs.start(demoRunRequest(unwrap(validateDemoRunRequest(request)))) },
     [IpcChannels.runsCancel]: { arity: 1, run: ([id]) => runs.cancel(id) },
     [IpcChannels.hardwareGetState]: { arity: 0, run: () => hardware.getState() },
     [IpcChannels.hardwareSetLocalConsent]: { arity: 1, run: ([change]) => hardware.setLocalConsent(change) },

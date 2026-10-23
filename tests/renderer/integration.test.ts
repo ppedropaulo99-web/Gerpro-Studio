@@ -56,7 +56,7 @@ describe('mapeamento de estados de execução (dados de exemplo → contrato)', 
 })
 
 describe('lista de execuções no Renderer', () => {
-  const run = (id: string, createdAt: string, state: RunRecord['state'] = 'pending'): RunRecord => ({
+  const run = (id: string, createdAt: string, state: RunRecord['state'] = 'pending', revision = 0): RunRecord => ({
     id,
     agentId: 'a',
     origin: 'simulated',
@@ -68,14 +68,23 @@ describe('lista de execuções no Renderer', () => {
     progress: { percent: 0, step: null },
     messages: [],
     error: null,
-    cancelRequested: false
+    cancelRequested: false,
+    revision,
+    output: '',
+    metrics: null
   })
 
   it('atualiza pelo ID e mantém a mais recente primeiro', () => {
     let list = upsertRun([], run('run-1', '2026-10-23T10:00:00Z'))
     list = upsertRun(list, run('run-2', '2026-10-23T11:00:00Z'))
-    list = upsertRun(list, run('run-1', '2026-10-23T10:00:00Z', 'running'))
+    list = upsertRun(list, run('run-1', '2026-10-23T10:00:00Z', 'running', 1))
     assert.deepEqual(list.map((r) => `${r.id}:${r.state}`), ['run-2:pending', 'run-1:running'])
+  })
+
+  it('versão mais antiga não sobrescreve a mais nova (resposta de start depois dos eventos)', () => {
+    let list = upsertRun([], run('run-1', '2026-10-23T10:00:00Z', 'completed', 5))
+    list = upsertRun(list, run('run-1', '2026-10-23T10:00:00Z', 'pending', 0))
+    assert.deepEqual(list.map((r) => `${r.id}:${r.state}`), ['run-1:completed'])
   })
 
   it('duração só existe quando há início e fim', () => {

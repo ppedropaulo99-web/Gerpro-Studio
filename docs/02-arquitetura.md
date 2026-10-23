@@ -10,7 +10,7 @@
 │ ipc.ts        valida o remetente → ipc-handlers.ts (aridade + validação)        │
 │ services/     SettingsService, AgentService                                     │
 │ tools/        ToolRegistry (catálogo declarado)                                 │
-│ runs/         DemoRunManager (simulado, em memória)                             │
+│ runs/         RunService (fila, cancelamento, prazo) + provedor simulado        │
 │ hardware/     HardwareAdvisorService + detectores                               │
 │ storage/      VersionedStore, escrita atômica, SecretVault                      │
 │ engine/       (reservado)          plugins/  (reservado)                        │
@@ -95,7 +95,8 @@ problemas de validação), sem stack trace. Eventos Main → Renderer
 | `agents:delete` | `id` | `Result<null>` |
 | `tools:list` | — | `Result<ToolCatalogEntry[]>` |
 | `runs:list` | — | `Result<RunRecord[]>` |
-| `runs:start-demo` | `DemoRunRequest` | `Result<RunRecord>` |
+| `runs:start` | `RunRequest` | `Result<RunRecord>` |
+| `runs:start-demo` (compatibilidade) | `DemoRunRequest` | `Result<RunRecord>` |
 | `runs:cancel` | `id` | `Result<RunRecord>` |
 | `hardware:get-state` | — | `Result<HardwareAdvisorState>` |
 | `hardware:set-local-consent` | `{ granted, deleteData? }` | `Result<HardwareAdvisorState>` |

@@ -20,8 +20,14 @@ export function runDurationSec(run: Pick<RunRecord, 'startedAt' | 'finishedAt'>)
   return Math.max(0, Math.round((Date.parse(run.finishedAt) - Date.parse(run.startedAt)) / 1000))
 }
 
-/** Substitui a execução pelo ID ou a acrescenta; mantém a mais recente primeiro. */
+/**
+ * Substitui a execução pelo ID ou a acrescenta; mantém a mais recente primeiro.
+ * Uma versão mais antiga (menor `revision`) nunca sobrescreve uma mais nova:
+ * a resposta de `start` pode chegar depois dos eventos da mesma execução.
+ */
 export function upsertRun(list: readonly RunRecord[], run: RunRecord): RunRecord[] {
-  const next = list.some((r) => r.id === run.id) ? list.map((r) => (r.id === run.id ? run : r)) : [...list, run]
+  const current = list.find((r) => r.id === run.id)
+  if (current && current.revision >= run.revision) return [...list]
+  const next = current ? list.map((r) => (r.id === run.id ? run : r)) : [...list, run]
   return next.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }

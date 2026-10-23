@@ -13,6 +13,7 @@ export type ErrorCode =
   | 'storage'
   | 'storage-read-only'
   | 'secret-storage-unavailable'
+  /** Não é mais emitido desde o Lote 3.3.5 (falhas simuladas usam `inference`); mantido por compatibilidade. */
   | 'simulated-failure'
   /** Falha de um provedor de inferência; o código específico vai em `details.inferenceCode`. */
   | 'inference'

@@ -116,7 +116,10 @@ describe('execuções: transições de estado', () => {
     progress: { percent: 0, step: null },
     messages: [],
     error: null,
-    cancelRequested: false
+    cancelRequested: false,
+    revision: 0,
+    output: '',
+    metrics: null
   }
   const states = Object.keys(RUN_TRANSITIONS) as RunState[]
 

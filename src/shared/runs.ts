@@ -2,10 +2,12 @@
  * Contratos de execuções de agentes.
  *
  * Toda execução declara sua `origin`. Nesta etapa só existem execuções
- * `simulated`: nenhum modelo ou ferramenta real roda. A interface deve sempre
- * sinalizar essa origem e nunca apresentar uma execução simulada como real.
- * O tipo garante a separação: só uma execução `real` tem modelo resolvido,
- * saída gerada e métricas medidas.
+ * `simulated`: o ciclo de vida é real (fila, cancelamento, tempo limite), mas
+ * quem responde é o provedor simulado, nunca um modelo. A interface deve
+ * sempre sinalizar essa origem e nunca apresentar uma execução simulada como
+ * real. O tipo garante a separação: uma execução simulada pode registrar o
+ * modelo simulado resolvido e o texto simulado, mas nunca métricas
+ * (`metrics: null`); só uma execução `real` tem métricas medidas.
  */
 
 import type { StructuredError } from './errors'
@@ -49,14 +51,27 @@ interface RunRecordBase {
   progress: RunProgress
   messages: RunMessage[]
   error: StructuredError | null
-  /** O cancelamento é cooperativo: pedido aqui, efetivado pela execução. */
+  /** Registra que o usuário pediu o cancelamento (o Main o efetiva na hora). */
   cancelRequested: boolean
+  /**
+   * Aumenta a cada alteração. Respostas de IPC e eventos podem chegar fora de
+   * ordem; quem recebe guarda a versão de maior `revision`.
+   */
+  revision: number
 }
 
-/** Execução demonstrativa: nenhum modelo roda, então não há modelo, saída nem métricas. */
+/**
+ * Execução simulada: respondida pelo provedor simulado (`kind: 'simulated'`).
+ * Registra o modelo simulado resolvido e o texto simulado gerado; nunca tem
+ * métricas, porque nada foi medido. `execution` é `null` quando a execução
+ * terminou antes de resolver um modelo.
+ */
 export interface SimulatedRunRecord extends RunRecordBase {
   origin: 'simulated'
-  execution: null
+  execution: ResolvedExecution | null
+  /** Texto simulado gerado até agora. */
+  output: string
+  metrics: null
 }
 
 /** Execução real (futura): registra o modelo e o perfil efetivamente usados. */
@@ -98,10 +113,13 @@ export function applyRunTransition<T extends RunRecord>(run: T, to: RunState, at
 }
 
 // ---------------------------------------------------------------------------
-// Execução demonstrativa
+// Execução demonstrativa (canal de compatibilidade `runs:start-demo`)
 // ---------------------------------------------------------------------------
 
-/** Pedido de execução simulada. `scenario` escolhe o desfecho da demonstração. */
+/**
+ * Pedido de demonstração. `scenario` escolhe o desfecho. Mantido por
+ * compatibilidade: o Main o converte num `RunRequest` para o provedor simulado.
+ */
 export interface DemoRunRequest {
   agentId: string
   scenario: 'success' | 'failure'
@@ -110,12 +128,30 @@ export interface DemoRunRequest {
 export const RUN_ID_PATTERN = /^run-[a-z0-9-]{1,64}$/
 
 // ---------------------------------------------------------------------------
-// Execução real (contrato; ainda sem canal IPC nem implementação)
+// Pedido de execução (canal `runs:start`)
 // ---------------------------------------------------------------------------
 
 export const RUN_INPUT_MAX = 32_000
 
-/** Pedido de execução real: agente, mensagem do usuário e substituições opcionais. */
+/**
+ * Limites aplicados pelo serviço de execuções no Main.
+ * - `inputChars`: mensagem do usuário (validada no IPC).
+ * - `promptChars`: instruções do agente + mensagem, antes de chegar ao provedor.
+ * - `outputChars`: texto acumulado; ao atingir, a geração é interrompida e a
+ *   execução conclui com a saída truncada.
+ * - `maxPending`: execuções aguardando na fila (uma roda por vez).
+ * - `maxRecords`: histórico em memória (as encerradas mais antigas saem primeiro).
+ * O limite de contexto (tokens) é verificado pelo provedor, que conhece o modelo.
+ */
+export const RUN_LIMITS = {
+  inputChars: RUN_INPUT_MAX,
+  promptChars: 64_000,
+  outputChars: 200_000,
+  maxPending: 10,
+  maxRecords: 100
+} as const
+
+/** Pedido de execução: agente, mensagem do usuário e substituições opcionais. */
 export interface RunRequest {
   agentId: string
   input: string

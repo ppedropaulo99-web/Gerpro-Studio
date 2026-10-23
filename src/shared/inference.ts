@@ -4,8 +4,9 @@
  * Um provedor é quem roda modelos neste computador: um processo externo
  * (ex.: Ollama, temporariamente) ou, no futuro, o runtime próprio do Gerpro
  * Studio. Agentes, execuções e interface dependem só destes contratos, nunca
- * de um provedor específico. Nada aqui é implementado nesta etapa: não há
- * chamadas HTTP, inferência nem streaming funcional.
+ * de um provedor específico. O único provedor implementado é o simulado
+ * (`kind: 'simulated'`), que exercita o ciclo de vida sem inferência real:
+ * não há chamadas HTTP nem modelos rodando.
  *
  * Separação deliberada:
  * - identidade do modelo (`ModelRef`, `ProviderModel`);
@@ -92,9 +93,17 @@ export interface ProviderModelEntry {
 /**
  * - `external`: processo separado, instalado e gerenciado fora do app (ex.: Ollama).
  * - `embedded`: runtime próprio do Gerpro Studio (futuro).
+ * - `simulated`: respostas determinísticas para validar o ciclo de vida. Não
+ *   é motor de inferência: execuções feitas com ele são `origin: 'simulated'`
+ *   e não provam compatibilidade com o hardware.
  * Só provedores locais existem: modelos remotos estão bloqueados.
  */
-export type ProviderKind = 'external' | 'embedded'
+export type ProviderKind = 'external' | 'embedded' | 'simulated'
+
+/** Provedores capazes de inferência real. */
+export function isRealProvider(info: ProviderInfo): boolean {
+  return info.kind !== 'simulated'
+}
 
 export interface ProviderInfo {
   id: string
@@ -369,10 +378,14 @@ export function validateInferenceEvent(input: unknown): ValidationResult<Inferen
     }
     case 'error': {
       only(['error'])
-      // `retryable` vem da natureza do código, não do provedor.
-      const err = c.record(obj['error'], '$.error', ['code', 'message'])
+      // `retryable` vem da natureza do código, não do provedor: pode vir junto
+      // (eventos montados com `inferenceError`), mas só se coincidir.
+      const err = c.record(obj['error'], '$.error', ['code', 'message', 'retryable'])
       const code = err && c.oneOf(err['code'], '$.error.code', INFERENCE_ERROR_CODES)
       const message = err && c.string(err['message'], '$.error.message', { max: INFERENCE_LIMITS.errorMessage })
+      if (err && code && 'retryable' in err && err['retryable'] !== inferenceError(code, '').retryable) {
+        c.fail('$.error.retryable', 'definido pela natureza do código')
+      }
       return c.result<InferenceEvent>(code && message !== undefined && c.ok ? { type, error: inferenceError(code, message) } : undefined)
     }
     default:

@@ -39,7 +39,10 @@ const run = (createdAt: Date, state: RunState = 'completed'): RunRecord => ({
   progress: { percent: null, step: null },
   messages: [],
   error: null,
-  cancelRequested: false
+  cancelRequested: false,
+  revision: 0,
+  output: '',
+  metrics: null
 })
 
 describe('vocabulário de estado funcional', () => {

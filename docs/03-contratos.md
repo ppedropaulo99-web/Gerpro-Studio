@@ -301,17 +301,27 @@ execuções são simuladas.
 - `RunRecord`: `id` (`run-...`), `agentId`, `origin` (`simulated` | `real`),
   `state`, `createdAt`, `startedAt`, `finishedAt`, `progress`
   (`percent`/`step`, ambos anuláveis), `messages` (com nível),
-  `error: StructuredError | null` e `cancelRequested`. É uma união
-  discriminada por `origin`:
-  - `SimulatedRunRecord`: `execution: null`; não tem saída nem métricas.
+  `error: StructuredError | null`, `cancelRequested` e `revision` (aumenta a
+  cada alteração; quem recebe guarda a de maior `revision`, porque a resposta
+  de `runs:start` pode chegar depois dos eventos). É uma união discriminada
+  por `origin`:
+  - `SimulatedRunRecord` (Opção A, Lote 3.3.5): `execution`
+    (`ResolvedExecution` do modelo simulado, ou `null`), `output` (texto
+    simulado) e `metrics: null` sempre. Continua simulada: nenhum modelo roda.
   - `RealRunRecord` (futuro): `execution` (`ResolvedExecution`: modelo
     resolvido, perfil efetivo e o que foi substituído), `output` (texto
     simples) e `metrics` (só valores medidos, ou `null`).
-- `RunRequest` (execução real, sem canal IPC nesta etapa): `agentId`,
-  `input` (1–32.000 caracteres, não em branco) e `overrides`
-  (`RunOverrides`: `model` e/ou parte do `profile`, ou `null`). Validado por
-  `validateRunRequest`, que recusa campos desconhecidos.
-- `DemoRunRequest` (execução simulada) não mudou.
+  - A origem vem do provedor: `kind: 'simulated'` → `simulated`; qualquer
+    outro → `real`.
+- `RunRequest` (canal `runs:start`): `agentId`, `input` (1–32.000
+  caracteres, não em branco) e `overrides` (`RunOverrides`: `model` e/ou parte
+  do `profile`, ou `null`). Validado por `validateRunRequest`, que recusa
+  campos desconhecidos.
+- `DemoRunRequest` (canal de compatibilidade `runs:start-demo`): o Main o
+  converte em `RunRequest` para o provedor simulado (`demoRunRequest`):
+  `success` → modelo `resposta-em-fluxo`, `failure` → `falha-na-geracao`.
+  Não há segunda fila. Mantido enquanto a tela Execuções e a Apresentação
+  Guiada o usarem.
 - Transições permitidas (`RUN_TRANSITIONS`), aplicadas por
   `applyRunTransition`, que lança erro em transição inválida:
 
@@ -322,14 +332,56 @@ pending ──► running ──► completed
    └──► cancelled
 ```
 
-- **Cancelamento cooperativo:** uma execução pendente é cancelada na hora.
-  Uma execução em andamento marca `cancelRequested` e encerra na próxima
-  etapa.
-- **`DemoRunManager`:**
-  - Percorre quatro etapas fixas marcadas "(simulado)", a cada 700 ms.
-  - O cenário `failure` falha na terceira etapa.
-  - Execuções ficam só em memória, sempre com `origin: 'simulated'`.
-  - Exige que o agente exista e não esteja arquivado.
+- **`RunService`** (`src/main/runs/run-service.ts`):
+  - `start` valida o pedido, exige agente existente (`not-found`) e não
+    arquivado (`invalid-state`), lê o inventário dos provedores (validado por
+    `validateProviderModel`; modelos remotos ou de outro provedor são
+    ignorados), resolve modelo e perfil (`resolveExecution`) e enfileira.
+  - Recusas antes da fila: `validation`; `conflict` (fila cheia, `retryable`);
+    `inference` com `details.inferenceCode` (`model-not-found` ou
+    `invalid-request` na resolução, com `details.resolution`;
+    `context-too-long` no limite de prompt; o código que a política de
+    recursos devolver).
+  - Fila FIFO, uma execução ativa, até 10 aguardando; ao terminar (sucesso,
+    falha ou cancelamento) a próxima começa sozinha.
+  - **Cancelamento:** pendente sai da fila; em andamento, o `AbortController`
+    aborta o provedor. Nos dois casos a execução vira `cancelled` na hora,
+    com o texto parcial preservado. Encerrada → `invalid-state`.
+  - **Tempo limite:** `profile.timeoutSeconds`, contado a partir de
+    `running` (o tempo na fila não conta). Esgotado → `failed` com
+    `inferenceCode: 'timeout'` (`retryable`).
+  - **Eventos do provedor:** cada um passa por `validateInferenceEvent`.
+    `loading` → etapa "Carregando modelo"; `delta` → acumula `output`;
+    `done` → `completed` (ou `cancelled` se `finishReason: 'cancelled'`);
+    `error` → `failed` com `toStructuredError` (ou `cancelled` se o código
+    for `cancelled`). Evento inválido, exceção ou fim sem `done` →
+    `provider-error`. Métricas só entram em execução `real`.
+  - **Finalização única:** o primeiro desfecho vence (cancelamento, prazo,
+    erro ou conclusão); eventos que chegam depois são ignorados.
+  - **Limites** (`RUN_LIMITS`): entrada 32.000, prompt (instruções +
+    mensagem) 64.000 e saída acumulada 200.000 caracteres; 10 pendentes; 100
+    registros. Ao atingir o limite de saída, a geração é abortada e a
+    execução conclui com aviso. O contexto em tokens é verificado pelo
+    provedor (`context-too-long`).
+  - **Política de recursos** (`resourcePolicy`): ponto de extensão que pode
+    recusar a execução resolvida. O padrão aceita tudo; `maxRamGb` e o
+    hardware demonstrativo não são aplicados.
+  - **Eventos `runs:updated`:** mudanças de estado e de etapa saem na hora;
+    texto novo é agrupado (no máximo uma atualização a cada 75 ms, cópia
+    completa e ordenada). O estado terminal sai na hora e nada é enviado
+    depois dele; temporizadores e ouvintes são limpos (`dispose`).
+  - Histórico só em memória, sem nova tentativa automática.
+  - `capabilities()` separa `infrastructure` (sempre `functional`),
+    `simulation` e `realEngine`. Só `realEngine` alimenta `engineAvailable`
+    dos agentes: a simulação nunca deixa um agente operacional.
+- **Provedor simulado** (`src/main/runs/simulated-provider.ts`, id
+  `simulado`): roteiros fixos, sem aleatoriedade, rede ou arquivos. Modelos
+  `resposta-curta`, `resposta-em-fluxo`, `falha-na-geracao`, `sem-resposta`
+  (só termina por cancelamento ou tempo limite) e `erro-<código>` para cada
+  `INFERENCE_ERROR_CODES`. Texto sempre começa com "[Resposta simulada]";
+  `metrics: null`. Contexto declarado de 8.192 tokens, estimados a 4
+  caracteres por token, e `maxOutputTokens` aplicado pela mesma estimativa.
+  Não prova compatibilidade com o hardware.
 - **Dados antigos:** o histórico de exemplo da tela usa estados antigos,
   convertidos por `legacyRunState` (`src/renderer/src/lib/runs.ts`).
 
@@ -412,8 +464,13 @@ ter foco.
 - `Result<T>` = `{ ok: true, data }` | `{ ok: false, error: StructuredError }`.
 - `StructuredError`: `code` (`validation`, `not-found`, `conflict`,
   `invalid-state`, `storage`, `storage-read-only`,
-  `secret-storage-unavailable`, `simulated-failure`, `internal`), `message`,
-  `retryable`, `issues?` (validação) e `details?`.
+  `secret-storage-unavailable`, `simulated-failure`, `inference`, `internal`),
+  `message`, `retryable`, `issues?` (validação) e `details?`.
+- `inference`: falha de inferência; o código específico vai em
+  `details.inferenceCode`.
+- `simulated-failure`: legado. Não é mais emitido desde o Lote 3.3.5 (a falha
+  simulada vira `inference` com `provider-error`); continua no tipo para não
+  quebrar quem ainda o trate.
 - Nunca carrega stack trace nem dados sensíveis. No Main, `AppError` é
   convertido para essa forma.
 

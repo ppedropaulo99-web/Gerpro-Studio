@@ -9,7 +9,9 @@ import { AGENTS_FORMAT_VERSION, AgentService } from '../../src/main/services/age
 import { SettingsService } from '../../src/main/services/settings-service'
 import { BUILTIN_TOOLS } from '../../src/main/tools/catalog'
 import { ToolRegistry } from '../../src/main/tools/tool-registry'
+import type { AgentRecord } from '../../src/shared/agents'
 import { IpcChannels } from '../../src/shared/ipc'
+import type { RunRecord } from '../../src/shared/runs'
 import { DEFAULT_SETTINGS, effectivePrivacy, INACTIVE_PRIVACY_SETTINGS } from '../../src/shared/settings'
 import { agentDraft, fakeClock, tempDir } from '../support/fixtures'
 
@@ -200,7 +202,29 @@ describe('handlers IPC', () => {
       assert.equal(run.ok && (run.data as { origin: string }).origin, 'simulated')
 
       const unknownAgent = await invokeHandler('x', handlers[IpcChannels.runsStartDemo], [{ agentId: 'nao-existe', scenario: 'success' }])
-      assert.equal(!unknownAgent.ok && unknownAgent.error.code, 'invalid-state')
+      assert.equal(!unknownAgent.ok && unknownAgent.error.code, 'not-found')
+      const badScenario = await invokeHandler('x', handlers[IpcChannels.runsStartDemo], [{ agentId: 'assistente-geral', scenario: 'erro' }])
+      assert.equal(!badScenario.ok && badScenario.error.code, 'validation')
+
+      // runs:start: argumentos validados no Main, erros estruturados.
+      const start = handlers[IpcChannels.runsStart]
+      const simulatedModel = { providerId: 'simulado', modelId: 'resposta-curta' }
+      for (const args of [[], [null], [{ agentId: 'assistente-geral', input: 'Olá' }], [{ agentId: 'assistente-geral', input: 'Olá', overrides: null }, 1]]) {
+        const refused = await invokeHandler('x', start, args)
+        assert.equal(!refused.ok && refused.error.code, 'validation', JSON.stringify(args))
+      }
+      const notInstalled = await invokeHandler('x', start, [{ agentId: 'assistente-geral', input: 'Olá', overrides: null }])
+      assert.ok(!notInstalled.ok && notInstalled.error.code === 'inference' && notInstalled.error.details?.['inferenceCode'] === 'model-not-found')
+      const started = await invokeHandler('x', start, [{ agentId: 'assistente-geral', input: 'Olá', overrides: { model: simulatedModel, profile: null } }])
+      assert.ok(started.ok)
+      assert.deepEqual((started.data as RunRecord).execution?.model, simulatedModel)
+      assert.equal((started.data as RunRecord).origin, 'simulated')
+
+      // A simulação não torna o agente operacional: o motor real continua indisponível.
+      assert.deepEqual(services.runs.capabilities(), { infrastructure: 'functional', simulation: 'available', realEngine: 'unavailable' })
+      const listed = await invokeHandler('x', handlers[IpcChannels.agentsList], [])
+      const agent = listed.ok && (listed.data as AgentRecord[])[0]
+      assert.ok(agent && agent.availability.issues.some((i) => i.code === 'engine-unavailable'))
     } finally {
       services.runs.dispose()
     }

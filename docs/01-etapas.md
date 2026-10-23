@@ -91,7 +91,8 @@ Entregue:
   - Cada campo informa "Gravado; ainda sem efeito nesta versão".
 - **Execuções:**
   - "Execuções simuladas desta sessão" vêm do `DemoRunManager`, só em memória
-    e com `origin: 'simulated'`.
+    e com `origin: 'simulated'` (substituído no Lote 3.3.5 pelo `RunService`
+    com o provedor simulado).
   - O "Histórico de exemplo" fica em uma seção separada.
   - A conversão dos estados antigos dos dados de exemplo para o novo contrato
     é explícita: `legacyRunState`, com `queued→pending` e
@@ -139,7 +140,7 @@ Entregue (detalhes em [Hardware Advisor](04-hardware-advisor.md)):
 | Agentes | CRUD persistido, validação e cálculo de disponibilidade | Biblioteca de exemplos | Execução real; requisitos e tipos de tarefa na definição persistida |
 | Configurações | Gravação, validação e persistência | — | Efeito real de cada preferência |
 | Ferramentas | Catálogo declarado (7 itens) com esquemas e permissões, exibido na tela | — | Executores, ativação, concessão de permissões e plugins |
-| Execuções | Contrato, máquina de estados e cancelamento cooperativo | Todas as execuções (`origin: 'simulated'`, só em memória) | Execuções reais e histórico persistido |
+| Execuções | `RunService` (Lote 3.3.5): fila FIFO com uma execução ativa, cancelamento por `AbortController`, tempo limite, limites e eventos agrupados; canal `runs:start` | Quem responde: o provedor simulado determinístico (`origin: 'simulated'`, só em memória) | Provedor real e histórico persistido |
 | Hardware Advisor | Consentimento com escopo, revogação, exclusão de dados e validação do perfil | Perfis de hardware (cenários fictícios) | Detector real; envio ao Gerpro Web |
 | Recomendações | Motor de regras puro e testado | Entradas: perfil e biblioteca de modelos fictícios | Modelos e requisitos vindos do motor |
 | Modelos | Contratos de inferência local (`InferenceProvider`, `ModelRef`, `ExecutionProfile`, compatibilidade); origem `ModelSource` | Tela Modelos (biblioteca de exemplo, sem estado operacional) | Provedor local de modelos e motor de inferência |

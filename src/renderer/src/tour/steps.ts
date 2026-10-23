@@ -158,7 +158,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     chapter: 'runs',
     title: 'Execuções simuladas',
     description:
-      'Inicia uma execução simulada de um agente salvo, com progresso, cancelamento e falhas de demonstração. Nada é executado e nada é gravado no disco.',
+      'Inicia uma execução simulada de um agente salvo pela fila de execuções: o provedor simulado responde com texto fixo em partes, e dá para cancelar ou ver uma falha de demonstração. Nenhum modelo roda e nada é gravado no disco.',
     route: 'runs',
     target: 'runs.launcher',
     feature: 'demo'

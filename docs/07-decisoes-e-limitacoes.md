@@ -37,6 +37,7 @@
 | D31 | UX-P1 | Apresentação Guiada nas telas reais: roteiro declarativo em capítulos (`tour/steps.ts`), componentes marcados com `data-tour`, painel numa coluna reservada à direita (o app encolhe, o painel nunca cobre o destaque) e app inerte durante a apresentação | Mostrar o produto real, não slides; somente leitura por construção; editar o roteiro sem mexer na mecânica |
 | D32 | UX-B1 | Identidade oficial Gerpro: cores extraídas do PDF do logo (marinho #333366, azul #58AED9, azul-claro #ACD7EC) substituem o âmbar e a paleta clara provisória (D2, D27); logo convertido do PDF para SVG sem alterar geometria; no tema escuro, logo sobre placa branca; barra de título só com o nome | Usar a marca real, sem redesenho; o logo não tem versão para fundo escuro nem versão reduzida, e abaixo de ~44 px de altura deixa de ser legível |
 | D33 | UX-B1.1 | Logo só na barra lateral (113 × 52 px); saudação no Início com nome de exibição opcional em `profile.displayName` (`settings.json` v3, migração explícita); ícone do aplicativo sem alteração até a aprovação de uma versão reduzida | Evitar a marca repetida na mesma tela; nome digitado pelo usuário, local e fora de logs; nenhum símbolo reduzido é escolhido sem aprovação |
+| D34 | 3.3.5 | `RunService` único no Main (fila FIFO, uma ativa, até 10 pendentes, `AbortController`, prazo a partir de `running`, finalização única) com provedor simulado determinístico; execuções simuladas registram modelo e texto simulados, nunca métricas (Opção A); `runs:start-demo` vira adaptador da mesma fila; texto agrupado a cada 75 ms com `revision`; `engineAvailable` só considera provedor real | Validar todo o ciclo de vida antes do motor real, sem segunda fila nem simulação confundida com inferência ou com prova de compatibilidade |
 
 ## Limitações conhecidas
 
@@ -47,8 +48,14 @@
   "Exemplo". No Início, modelos carregados e tokens aparecem como
   "Planejado", sem valor.
 - Nenhuma ferramenta executa. Todas aparecem como `not-implemented`.
-- Nenhum agente fica `available`, porque falta o motor.
-- Execuções são só simuladas e se perdem ao fechar o app.
+- Nenhum agente fica `available`, porque falta o motor. O provedor simulado
+  não muda isso.
+- Execuções são só simuladas (a fila é real; quem responde é o provedor
+  simulado) e se perdem ao fechar o app.
+- A tela Execuções ainda inicia execuções por `runs:start-demo` (sucesso ou
+  falha). `runs:start` está exposto, mas sem formulário próprio.
+- Durante a geração, o progresso fica indeterminado: a barra só mostra 100%
+  ao concluir; a etapa ("Gerando resposta") aparece abaixo dela.
 - As preferências são gravadas, mas, exceto o tema e o nome de exibição, não têm efeito. As de
   privacidade e segurança (confirmação de ferramentas sensíveis e telemetria)
   nem podem ser alteradas.
@@ -131,6 +138,11 @@
 - **Estimativas de requisitos:** `estimateRequirementsFromModel` usa
   heurísticas aproximadas (tamanho do arquivo e contexto), não medições.
 - **Limite de agentes:** até 500 agentes salvos.
+- **Provedor que ignora o cancelamento:** a execução encerra na hora e a
+  fila segue, mas o gerador do provedor pode continuar até seu próximo
+  evento, que é descartado.
+- **Atualizações de texto:** cada lote envia a execução inteira (com todo o
+  texto acumulado, até 200.000 caracteres), não só o trecho novo.
 - Não há empacotamento, instalador nem atualização automática.
 - Não há lint configurado. A qualidade é verificada por `typecheck` estrito e
   testes.

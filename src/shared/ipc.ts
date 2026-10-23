@@ -9,7 +9,7 @@
 import type { AgentDraft, AgentRecord } from './agents'
 import type { Result } from './errors'
 import type { AnalysisRequest, HardwareAdvisorState, LocalConsentChange } from './hardware'
-import type { DemoRunRequest, RunRecord } from './runs'
+import type { DemoRunRequest, RunRecord, RunRequest } from './runs'
 import type { AppSettings, SettingsPatch, Theme } from './settings'
 import type { ToolCatalogEntry } from './tools'
 
@@ -23,6 +23,8 @@ export const IpcChannels = {
   agentsDelete: 'agents:delete',
   toolsList: 'tools:list',
   runsList: 'runs:list',
+  runsStart: 'runs:start',
+  /** Compatibilidade: convertido no Main em `runs:start` com o provedor simulado. */
   runsStartDemo: 'runs:start-demo',
   runsCancel: 'runs:cancel',
   hardwareGetState: 'hardware:get-state',
@@ -75,10 +77,25 @@ export interface GerproApi {
   runs: {
     /** Somente execuções desta sessão. Todas têm `origin: 'simulated'` nesta etapa. */
     list(): Promise<Result<RunRecord[]>>
-    /** Inicia uma execução SIMULADA: nenhum modelo ou ferramenta é chamado. */
+    /**
+     * Valida, resolve modelo e perfil e enfileira (uma execução ativa, até 10
+     * aguardando). Com o provedor simulado, o resultado é `origin: 'simulated'`.
+     * Recusas antes da fila: `validation`, `not-found`, `invalid-state`,
+     * `conflict` (fila cheia) ou `inference` (código em `details.inferenceCode`).
+     */
+    start(request: RunRequest): Promise<Result<RunRecord>>
+    /**
+     * Compatibilidade: inicia a demonstração no provedor simulado pela mesma
+     * fila de `start`. Nenhum modelo ou ferramenta é chamado.
+     */
     startDemo(request: DemoRunRequest): Promise<Result<RunRecord>>
+    /** Pendente sai da fila; em andamento é abortada. Ambas terminam `cancelled` na hora. */
     cancel(id: string): Promise<Result<RunRecord>>
-    /** Recebe cada mudança de execução. Devolve a função que cancela a inscrição. */
+    /**
+     * Recebe as mudanças de execução: estados na hora, texto agrupado (no
+     * máximo uma atualização a cada ~75 ms). Guarde a de maior `revision`.
+     * Devolve a função que cancela a inscrição.
+     */
     onUpdated(listener: (run: RunRecord) => void): () => void
   }
   /** Gerpro Hardware Advisor. Nesta etapa, só análises demonstrativas produzem dados (fictícios). */

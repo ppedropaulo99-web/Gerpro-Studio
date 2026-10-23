@@ -45,11 +45,16 @@ obrigatórios. Nenhum deles está implementado.
 - **Contrato:** `RunRequest` / `validateRunRequest`, `RealRunRecord`,
   `resolveExecution`, `RUN_TRANSITIONS` e `applyRunTransition`
   (`src/shared/runs.ts`, `src/shared/execution.ts`).
+- **Pronto (Lote 3.3.5):** `RunService` com fila, cancelamento, tempo
+  limite, limites e eventos agrupados; canal `runs:start`; provedor simulado.
 - **A fazer:**
-  - Criar um gerenciador de execuções reais ao lado do `DemoRunManager` (não
-    no lugar dele).
+  - Registrar um provedor real na lista `providers` do `RunService`
+    (`src/main/services/index.ts`). As execuções dele já saem `origin:
+    'real'`.
+  - Implementar uma `resourcePolicy` com memória medida.
   - Decidir se o histórico será persistido.
-  - Criar o canal de início de execução real.
+  - Retirar `runs:start-demo` quando a tela Execuções e a Apresentação
+    Guiada passarem a usar `runs:start`.
 - **Cuidados:**
   - Manter a distinção visual simulada × real.
   - Exigir agente `available` antes de iniciar.

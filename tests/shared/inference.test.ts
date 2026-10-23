@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
-import { DemoRunManager } from '../../src/main/runs/demo-run-manager'
+import { RunService } from '../../src/main/runs/run-service'
+import { demoRunRequest, SimulatedInferenceProvider } from '../../src/main/runs/simulated-provider'
 import { validateAgentDraft } from '../../src/shared/agents'
 import {
   COMPATIBILITY_RULES_VERSION,
@@ -20,6 +21,7 @@ import {
   INFERENCE_ERROR_CODES,
   INFERENCE_ERROR_NATURE,
   inferenceError,
+  isRealProvider,
   sameModel,
   toStructuredError,
   validateInferenceEvent,
@@ -29,7 +31,7 @@ import {
 } from '../../src/shared/inference'
 import { validateRunRequest } from '../../src/shared/runs'
 import { draftFromForm, formFromDefinition } from '../../src/renderer/src/lib/agent-form'
-import { agentDraft, ManualScheduler } from '../support/fixtures'
+import { agentDraft, VirtualScheduler } from '../support/fixtures'
 
 const SRC = join(import.meta.dirname, '../../src')
 const paths = (r: { ok: boolean; issues?: Array<{ path: string }> }) => (r.ok ? [] : r.issues!.map((i) => i.path))
@@ -187,6 +189,8 @@ describe('eventos de streaming, métricas e erros', () => {
     assert.deepEqual(event, { ok: true, value: { type: 'error', error: { code: 'insufficient-memory', message: 'sem memória', retryable: true } } })
     assert.equal(inferenceError('model-unsupported', 'x').retryable, false)
     assert.equal(validateInferenceEvent({ type: 'error', error: { code: 'insufficient-memory', message: 'x', retryable: false } }).ok, false)
+    // Evento montado com `inferenceError` (retryable coerente) é aceito.
+    assert.ok(validateInferenceEvent({ type: 'error', error: inferenceError('timeout', 'x') }).ok)
     assert.deepEqual(toStructuredError(inferenceError('timeout', 'Tempo esgotado.')), {
       code: 'inference',
       message: 'Tempo esgotado.',
@@ -281,13 +285,28 @@ describe('compatibilidade: validade da avaliação', () => {
 })
 
 describe('separação entre execuções simuladas e reais', () => {
-  it('execução demonstrativa não tem modelo, saída nem métricas', () => {
-    const manager = new DemoRunManager({ canRun: () => ({ ok: true }), scheduler: new ManualScheduler() })
-    const run = manager.start({ agentId: 'a', scenario: 'success' })
-    assert.equal(run.origin, 'simulated')
-    assert.equal(run.execution, null)
-    assert.ok(!('metrics' in run) && !('output' in run))
-    manager.dispose()
+  it('execução simulada registra o modelo simulado e o texto simulado, nunca métricas', async () => {
+    const scheduler = new VirtualScheduler()
+    const agent = { ...agentDraft(), createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }
+    const service = new RunService({
+      providers: [new SimulatedInferenceProvider({ scheduler, stepDelayMs: 10 })],
+      findAgent: (id) => (id === agent.id ? agent : undefined),
+      scheduler,
+      now: scheduler.now
+    })
+    const run = await service.start(demoRunRequest({ agentId: agent.id, scenario: 'success' }))
+    await scheduler.advance(1_000)
+    const done = service.get(run.id)!
+    assert.equal(done.origin, 'simulated')
+    assert.equal(done.execution?.model.providerId, 'simulado')
+    assert.ok(done.output.startsWith('[Resposta simulada]'))
+    assert.equal(done.metrics, null)
+    service.dispose()
+  })
+
+  it('o provedor simulado não é motor real', () => {
+    assert.equal(isRealProvider(new SimulatedInferenceProvider().info), false)
+    assert.equal(isRealProvider({ id: 'x', displayName: 'X', kind: 'external' }), true)
   })
 })
 
