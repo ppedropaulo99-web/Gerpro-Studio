@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight, EyeOff, X } from 'lucide-react'
+import { BrandLogo } from '@renderer/components/brand/BrandLogo'
 import { Button, Notice, ProgressBar, StatusBadge } from '@renderer/components/ui'
 import type { Tone } from '@renderer/components/ui/tone'
 import { findAnchor, SCROLL_CONTAINER } from './anchors'
@@ -112,13 +113,14 @@ export function TourOverlay({ progress, onNext, onPrev, onClose }: Props) {
 
       <aside ref={panel} className="tour__panel" role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-description">
         <header className="tour__head">
-          <span className="tour__eyebrow">
-            Capítulo {progress.chapterPosition} de {progress.chapterCount} · {progress.chapter.title}
-          </span>
+          <BrandLogo height={44} decorative />
           <Button variant="ghost" size="sm" iconOnly aria-label="Encerrar apresentação" title="Encerrar apresentação (Esc)" icon={<X size={16} />} onClick={onClose} />
         </header>
 
         <div className="tour__body">
+          <span className="tour__eyebrow">
+            Capítulo {progress.chapterPosition} de {progress.chapterCount} · {progress.chapter.title}
+          </span>
           <h2 id="tour-title" className="tour__title">
             {step.title}
           </h2>

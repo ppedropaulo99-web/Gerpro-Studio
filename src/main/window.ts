@@ -11,8 +11,8 @@ const here = fileURLToPath(new URL('.', import.meta.url))
  * `renderer/src/styles/tokens.css`: mantenha os dois em sincronia.
  */
 const WINDOW_CHROME: Record<Theme, { background: string; symbols: string }> = {
-  dark: { background: '#0d0f14', symbols: '#a3abbd' },
-  light: { background: '#f3f7fc', symbols: '#526884' }
+  dark: { background: '#0c1124', symbols: '#a9b3cc' },
+  light: { background: '#f4f8fc', symbols: '#4c5a7c' }
 }
 
 const TITLE_BAR_HEIGHT = 40

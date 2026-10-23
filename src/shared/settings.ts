@@ -8,15 +8,32 @@ import { Checker, readSlug, type ValidationResult } from './validation'
 
 export const LANGUAGES = ['pt-BR', 'en-US', 'es'] as const
 export const DENSITIES = ['comfortable', 'compact'] as const
-/** Temas visuais. `dark` (grafite e âmbar) é o padrão. */
+/** Temas visuais. `dark` (azul-marinho profundo) é o padrão. */
 export const THEMES = ['dark', 'light'] as const
 export type Theme = (typeof THEMES)[number]
 export const DEFAULT_THEME: Theme = 'dark'
+
+/** Limite do nome de exibição, em caracteres. */
+export const DISPLAY_NAME_MAX = 40
+
+/**
+ * Nome de exibição na forma gravada: vazio, ou texto sem espaços nas pontas e
+ * sem caracteres de controle (quebras de linha, tabulações etc.).
+ */
+const DISPLAY_NAME_PATTERN = /^(?:[^\p{Cc}\s](?:[^\p{Cc}]*[^\p{Cc}\s])?)?$/u
 
 export interface AppSettings {
   /** Tem efeito imediato: aplicado à interface e às cores da janela. */
   appearance: {
     theme: Theme
+  }
+  /**
+   * Perfil local, só deste computador. O nome é digitado pelo usuário (nunca
+   * lido do sistema), usado apenas na saudação do Início e não vai para logs.
+   */
+  profile: {
+    /** Vazio = saudação sem nome. */
+    displayName: string
   }
   general: {
     language: (typeof LANGUAGES)[number]
@@ -43,6 +60,7 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   appearance: { theme: DEFAULT_THEME },
+  profile: { displayName: '' },
   general: { language: 'pt-BR', density: 'comfortable', startOnLogin: false },
   models: { directory: null, maxRamGb: 16 },
   privacy: { confirmSensitiveTools: true, telemetry: false },
@@ -86,6 +104,7 @@ export function inactiveSettingsInPatch(patch: SettingsPatch): InactivePrivacySe
 /** Alteração parcial, um nível por seção. */
 export interface SettingsPatch {
   appearance?: Partial<AppSettings['appearance']>
+  profile?: Partial<AppSettings['profile']>
   general?: Partial<AppSettings['general']>
   models?: Partial<AppSettings['models']>
   privacy?: Partial<AppSettings['privacy']>
@@ -99,6 +118,14 @@ type Section = keyof AppSettings
 const readers: { [K in Section]: { [F in keyof AppSettings[K]]: (c: Checker, v: unknown, p: string) => AppSettings[K][F] | undefined } } = {
   appearance: {
     theme: (c, v, p) => c.oneOf(v, p, THEMES)
+  },
+  profile: {
+    displayName: (c, v, p) =>
+      c.string(v, p, {
+        max: DISPLAY_NAME_MAX,
+        pattern: DISPLAY_NAME_PATTERN,
+        patternMessage: 'sem espaços nas pontas nem quebras de linha'
+      })
   },
   general: {
     language: (c, v, p) => c.oneOf(v, p, LANGUAGES),
@@ -172,6 +199,7 @@ export function validateSettingsPatch(input: unknown): ValidationResult<Settings
 export function applySettingsPatch(settings: AppSettings, patch: SettingsPatch): AppSettings {
   return {
     appearance: { ...settings.appearance, ...patch.appearance },
+    profile: { ...settings.profile, ...patch.profile },
     general: { ...settings.general, ...patch.general },
     models: { ...settings.models, ...patch.models },
     privacy: { ...settings.privacy, ...patch.privacy },
@@ -203,4 +231,15 @@ export function themeFromArguments(argv: readonly string[]): Theme {
 export function migrateSettingsV1(data: unknown): unknown {
   if (data === null || typeof data !== 'object' || Array.isArray(data) || 'appearance' in data) return data
   return { appearance: { theme: DEFAULT_THEME }, ...data }
+}
+
+/** Migração do formato 2 para o 3: perfil com nome vazio, demais campos intactos. */
+export function migrateSettingsV2(data: unknown): unknown {
+  if (data === null || typeof data !== 'object' || Array.isArray(data) || 'profile' in data) return data
+  return { ...data, profile: { displayName: '' } }
+}
+
+/** Forma gravada do que foi digitado: espaços repetidos viram um, pontas aparadas. */
+export function normalizeDisplayName(raw: string): string {
+  return raw.replace(/\s+/g, ' ').trim()
 }

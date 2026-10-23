@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Play, Server, Terminal } from 'lucide-react'
 import type { AppInfo } from '@shared/ipc'
+import { BrandLogo } from '@renderer/components/brand/BrandLogo'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
 import { Button, Card, CardBody, CardHeader, FeatureBadge, Field, SwitchRow, TextInput } from '@renderer/components/ui'
 
@@ -90,6 +91,7 @@ export function DeveloperPage() {
           <Card data-tour="developer.app">
             <CardHeader title="Aplicativo" subtitle="Lido do processo Main via IPC" actions={<FeatureBadge state="real" />} />
             <CardBody>
+              <BrandLogo height={56} className="developer__logo" />
               <dl className="specs">
                 <div>
                   <dt>Versão</dt>

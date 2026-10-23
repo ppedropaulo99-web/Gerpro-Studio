@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BrandLogo } from '@renderer/components/brand/BrandLogo'
 import { isTerminalRunState } from '@shared/runs'
 import { routes, type RouteDef } from '@renderer/app/routes'
 import { useNavigation } from '@renderer/app/navigation'
@@ -49,6 +50,10 @@ export function Sidebar() {
 
   return (
     <nav className="sidebar" aria-label="Navegação principal" data-tour="shell.sidebar">
+      {/* Só com a barra expandida: recolhida, não há largura para o logo legível. */}
+      <div className="sidebar__brand">
+        <BrandLogo height={52} />
+      </div>
       {sections.map((section) => (
         <div key={section.id} className="stack" style={{ gap: 2 }}>
           <div className="sidebar__section">{section.label}</div>

@@ -35,6 +35,8 @@
 | D29 | 3.3.3 | Compatibilidade em cinco estados; só teste real confirma; falta de memória é transitória | Estimativa nunca é apresentada como confirmação, e uma falha momentânea não marca o modelo como incompatível para sempre |
 | D30 | 3.3.4 | Avaliador e recomendação por regras ordenadas e ordenação lexicográfica, sem pontuação; ajuste de perfil antes de outro modelo; instalados e não instalados em listas separadas | Cada conclusão é explicável passo a passo e reproduzível; nenhuma fórmula arbitrária decide, e nada não instalado parece disponível |
 | D31 | UX-P1 | Apresentação Guiada nas telas reais: roteiro declarativo em capítulos (`tour/steps.ts`), componentes marcados com `data-tour`, painel numa coluna reservada à direita (o app encolhe, o painel nunca cobre o destaque) e app inerte durante a apresentação | Mostrar o produto real, não slides; somente leitura por construção; editar o roteiro sem mexer na mecânica |
+| D32 | UX-B1 | Identidade oficial Gerpro: cores extraídas do PDF do logo (marinho #333366, azul #58AED9, azul-claro #ACD7EC) substituem o âmbar e a paleta clara provisória (D2, D27); logo convertido do PDF para SVG sem alterar geometria; no tema escuro, logo sobre placa branca; barra de título só com o nome | Usar a marca real, sem redesenho; o logo não tem versão para fundo escuro nem versão reduzida, e abaixo de ~44 px de altura deixa de ser legível |
+| D33 | UX-B1.1 | Logo só na barra lateral (113 × 52 px); saudação no Início com nome de exibição opcional em `profile.displayName` (`settings.json` v3, migração explícita); ícone do aplicativo sem alteração até a aprovação de uma versão reduzida | Evitar a marca repetida na mesma tela; nome digitado pelo usuário, local e fora de logs; nenhum símbolo reduzido é escolhido sem aprovação |
 
 ## Limitações conhecidas
 
@@ -47,16 +49,27 @@
 - Nenhuma ferramenta executa. Todas aparecem como `not-implemented`.
 - Nenhum agente fica `available`, porque falta o motor.
 - Execuções são só simuladas e se perdem ao fechar o app.
-- As preferências são gravadas, mas, exceto o tema, não têm efeito. As de
+- As preferências são gravadas, mas, exceto o tema e o nome de exibição, não têm efeito. As de
   privacidade e segurança (confirmação de ferramentas sensíveis e telemetria)
   nem podem ser alteradas.
 - O tema não acompanha o tema do sistema operacional, e "Descartar" ou sair
   sem salvar não o revertem (ver D27).
-- A paleta clara é uma proposta inicial inspirada no Gerpro Web, não as cores
-  oficiais. Não havia tokens institucionais no projeto. Alguns tons foram
-  escurecidos para atingir contraste AA.
-- `settings.json` passou à versão 2. Uma versão anterior do app que abra esse
-  arquivo o trata como "mais novo": usa os padrões e não grava.
+- As cores vêm do logo oficial (ver D32), não de um manual de marca: não
+  havia guia com paleta de interface, tons de apoio nem regras de uso. Os
+  azuis intermediários e as superfícies foram derivados do degradê oficial e
+  ajustados para contraste AA.
+- O logo não tem versão para fundo escuro nem versão reduzida. No tema escuro
+  ele aparece sobre uma placa branca: sem placa, o marinho de "GERPRO" fica a
+  1,5:1 do fundo, e uma placa azulada (#C7D6E7) apagava os traços
+  comemorativos. A barra de título e a barra lateral recolhida não o exibem.
+- O aplicativo ainda não tem ícone próprio. Em desenvolvimento, a janela e a
+  barra de tarefas mostram o ícone do executável do Electron. O logo completo
+  fica ilegível de 16 a 48 px, e uma versão reduzida depende de aprovação. Não
+  há empacotamento configurado, então o ícone do executável empacotado ainda
+  não existe.
+- `settings.json` passou à versão 3 (nome de exibição). Uma versão anterior do
+  app que abra esse arquivo o trata como "mais novo": usa os padrões e não
+  grava.
 - A proteção de alterações não salvas cobre a navegação pelo app (barra
   lateral e atalhos internos). Fechar a janela ou sair do aplicativo descarta
   as alterações sem perguntar.

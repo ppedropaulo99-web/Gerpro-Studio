@@ -15,11 +15,11 @@ async function open(file: string) {
   return settings
 }
 
-/** settings.json no formato 1, de antes do tema: sem a seção `appearance`. */
-async function legacyFile(overrides: Partial<Omit<AppSettings, 'appearance'>> = {}) {
+/** settings.json no formato 1, de antes do tema e do perfil: sem `appearance` nem `profile`. */
+async function legacyFile(overrides: Partial<Omit<AppSettings, 'appearance' | 'profile'>> = {}) {
   const dir = await tempDir()
   const file = join(dir, 'settings.json')
-  const { appearance: _a, ...v1 } = structuredClone(DEFAULT_SETTINGS)
+  const { appearance: _a, profile: _p, ...v1 } = structuredClone(DEFAULT_SETTINGS)
   await writeFile(file, JSON.stringify({ format: 'gerpro.settings', formatVersion: 1, savedAt: '2026-10-20T10:00:00.000Z', data: { ...v1, ...overrides } }))
   return file
 }
@@ -80,8 +80,9 @@ describe('aparência: tema', () => {
     assert.deepEqual(settings.get().general, { language: 'es', density: 'compact', startOnLogin: true })
     await settings.update({ appearance: { theme: 'light' } })
     const disk = JSON.parse(await readFile(file, 'utf8'))
-    assert.equal(disk.formatVersion, 2)
+    assert.equal(disk.formatVersion, SETTINGS_FORMAT_VERSION)
     assert.equal(disk.data.general.language, 'es')
+    assert.deepEqual(disk.data.profile, { displayName: '' })
   })
 
   it('migração preserva escolhas de privacidade antigas, que continuam sem efeito e bloqueadas', async () => {

@@ -6,31 +6,49 @@
  * `[data-theme='light']` redefine apenas as cores. Componentes usam só tokens
  * semânticos, nunca cores fixas. As cores nativas da janela ficam em
  * `main/window.ts` (`WINDOW_CHROME`) e acompanham `--bg` e `--text-muted`.
+ *
+ * Identidade visual oficial (logo Gerpro 25 anos, arquivo do estúdio):
+ *   azul-marinho #333366, azul institucional #58AED9 e azul-claro #ACD7EC
+ *   (o institucional a 50% sobre branco, como nos traços do logo). Os azuis
+ *   intermediários saem do degradê oficial, que vai de #333366 a #58AED9.
+ *   Azul nunca comunica erro ou incompatibilidade: esses estados mantêm as
+ *   cores de sucesso, alerta e perigo.
  */
 :root {
   color-scheme: dark;
 
-  /* Superfícies (do fundo para a frente) */
-  --bg: #0d0f14;
-  --surface-1: #13161d;
-  --surface-2: #191d26;
-  --surface-3: #212633;
-  --surface-hover: #262c3a;
-  --border: #262b37;
-  --border-strong: #353c4c;
+  /* Cores oficiais da marca (iguais nos dois temas) */
+  --brand-navy: #333366;
+  --brand-blue: #58aed9;
+  --brand-light: #acd7ec;
+  /*
+   * O logo não tem versão para fundo escuro: o marinho de "GERPRO" some sobre
+   * o azul profundo. No tema escuro ele fica sobre uma placa branca, sem recolorir.
+   */
+  --brand-plate: #ffffff;
+  --brand-plate-border: transparent;
 
-  /* Texto */
-  --text: #e7eaf1;
-  --text-heading: var(--text);
-  --text-muted: #a3abbd;
-  --text-subtle: #6f7889;
+  /* Superfícies: azul-marinho profundo, derivado de #333366 (do fundo para a frente) */
+  --bg: #0c1124;
+  --surface-1: #111830;
+  --surface-2: #161e39;
+  --surface-3: #1d2645;
+  --surface-hover: #232e52;
+  --border: #222b4a;
+  --border-strong: #36416a;
 
-  /* Marca: âmbar Gerpro */
-  --accent: #f5a524;
-  --accent-hover: #ffb84a;
-  --accent-soft: rgba(245, 165, 36, 0.14);
-  --accent-border: rgba(245, 165, 36, 0.25);
-  --accent-contrast: #1a1204;
+  /* Texto: contraste ≥ 4,5:1 sobre todas as superfícies, exceto `--text-subtle` em `--surface-3` (4,2:1). */
+  --text: #e8ecf6;
+  --text-heading: #f2f5fc;
+  --text-muted: #a9b3cc;
+  --text-subtle: #7d88a8;
+
+  /* Destaque: azul institucional, com texto marinho por cima (7,5:1) */
+  --accent: var(--brand-blue);
+  --accent-hover: #7dc1e3;
+  --accent-soft: rgba(88, 174, 217, 0.16);
+  --accent-border: rgba(88, 174, 217, 0.34);
+  --accent-contrast: #0c1124;
 
   /* Estados */
   --success: #3ccf91;
@@ -65,10 +83,10 @@
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--border-strong);
-  --backdrop: rgba(5, 6, 9, 0.6);
+  --shadow-pop: 0 12px 32px rgba(2, 4, 14, 0.5), 0 0 0 1px var(--border-strong);
+  --backdrop: rgba(4, 7, 20, 0.62);
   /* Apresentação guiada: escurece o que não está em destaque. */
-  --tour-dim: rgba(5, 6, 9, 0.62);
+  --tour-dim: rgba(4, 7, 20, 0.64);
 
   /* Layout */
   --titlebar-height: 40px;
@@ -85,33 +103,39 @@
 }
 
 /*
- * Tema claro institucional (azul e branco), inspirado no Gerpro Web.
- * Paleta de referência inicial, não oficial: fundo #f3f7fc, superfícies #ffffff,
- * azul primário #1765b1, títulos #183f71, destaque #edf4fc, bordas #d8e4f2,
- * texto secundário #5c7290. Ajustes para contraste AA estão comentados.
+ * Tema claro institucional: fundo azul muito suave, superfícies brancas,
+ * títulos em azul-marinho, ações em azul médio do degradê oficial e
+ * azul-claro nos destaques e estados selecionados.
  */
 :root[data-theme='light'] {
   color-scheme: light;
 
-  --bg: #f3f7fc;
+  /* Sobre superfícies brancas o logo dispensa placa. */
+  --brand-plate: transparent;
+  --brand-plate-border: transparent;
+
+  --bg: #f4f8fc;
   --surface-1: #ffffff;
-  --surface-2: #f6f9fd;
-  --surface-3: #e8eff8;
-  --surface-hover: #edf4fc;
-  --border: #d8e4f2;
+  --surface-2: #f7fafd;
+  --surface-3: #eaf2f9;
+  --surface-hover: #eef5fb;
+  --border: #d5e3ef;
   /* Bordas de controles (campos, interruptores): 3,3:1 sobre branco. */
-  --border-strong: #7a8faa;
+  --border-strong: #7d90ab;
 
-  --text: #1b2b41;
-  --text-heading: #183f71;
-  /* Um pouco mais escuro que #5c7290 para manter 4,5:1 também sobre fundos suaves. */
-  --text-muted: #526884;
-  --text-subtle: #5c7290;
+  --text: #1e2446;
+  --text-heading: var(--brand-navy);
+  --text-muted: #4c5a7c;
+  --text-subtle: #5a6789;
 
-  --accent: #1765b1;
-  --accent-hover: #12558f;
-  --accent-soft: rgba(23, 101, 177, 0.1);
-  --accent-border: rgba(23, 101, 177, 0.28);
+  /*
+   * Azul médio: ponto 0,45 do degradê oficial. Texto branco por cima (5,6:1)
+   * e legível sobre o azul-claro dos itens selecionados (4,8:1).
+   */
+  --accent: #446a9a;
+  --accent-hover: #3c5283;
+  --accent-soft: rgba(88, 174, 217, 0.18);
+  --accent-border: rgba(88, 174, 217, 0.55);
   --accent-contrast: #ffffff;
 
   /* Estados escurecidos para texto legível (≥ 4,5:1) sobre branco e sobre o fundo suave. */
@@ -126,7 +150,7 @@
   --info-soft: rgba(11, 101, 133, 0.1);
   --neutral-soft: rgba(92, 114, 144, 0.12);
 
-  --shadow-pop: 0 12px 32px rgba(24, 63, 113, 0.16), 0 0 0 1px var(--border);
-  --backdrop: rgba(24, 63, 113, 0.35);
-  --tour-dim: rgba(16, 37, 66, 0.42);
+  --shadow-pop: 0 12px 32px rgba(51, 51, 102, 0.16), 0 0 0 1px var(--border);
+  --backdrop: rgba(30, 36, 70, 0.38);
+  --tour-dim: rgba(30, 36, 70, 0.44);
 }

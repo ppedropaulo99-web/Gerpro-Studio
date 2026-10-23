@@ -27,6 +27,8 @@ function themeBlocks() {
 }
 
 const isColor = (v: string) => /^#|^rgba?\(|^0 12px/.test(v)
+/** Cores oficiais da marca: iguais nos dois temas, declaradas uma vez. */
+const BRAND_CONSTANTS = ['--brand-navy', '--brand-blue', '--brand-light']
 
 describe('tema na interface', () => {
   it('nenhum tema aplicado até a primeira aplicação; depois alterna', () => {
@@ -97,19 +99,41 @@ describe('tema e alterações não salvas em Configurações', () => {
 describe('tokens dos temas', () => {
   it('o tema claro redefine todas as cores do escuro, e só cores', () => {
     const { dark, light } = themeBlocks()
-    const darkColors = [...dark].filter(([, v]) => isColor(v)).map(([k]) => k)
+    const darkColors = [...dark].filter(([k, v]) => isColor(v) && !BRAND_CONSTANTS.includes(k)).map(([k]) => k)
     assert.ok(darkColors.length >= 25)
+    for (const name of BRAND_CONSTANTS) assert.ok(!light.has(name), `${name} não muda entre temas`)
     for (const name of darkColors) assert.ok(light.has(name), `${name} sem valor no tema claro`)
     for (const name of light.keys()) assert.ok(dark.has(name), `${name} não existe no tema escuro`)
     assert.ok(![...light.keys()].some((k) => /^--(space|radius|text-(xs|sm|md|lg|xl|2xl)|font|titlebar|sidebar)/.test(k)))
   })
 
-  it('o tema escuro mantém a identidade grafite e âmbar', () => {
-    const { dark } = themeBlocks()
-    assert.equal(dark.get('--bg'), '#0d0f14')
-    assert.equal(dark.get('--accent'), '#f5a524')
-    assert.equal(dark.get('--text'), '#e7eaf1')
-    assert.equal(dark.get('--text-heading'), 'var(--text)')
+  it('os dois temas seguem as cores oficiais do logo Gerpro, sem âmbar como destaque', () => {
+    const { dark, light } = themeBlocks()
+    assert.equal(dark.get('--brand-navy'), '#333366')
+    assert.equal(dark.get('--brand-blue'), '#58aed9')
+    assert.equal(dark.get('--brand-light'), '#acd7ec')
+    assert.equal(dark.get('--accent'), 'var(--brand-blue)')
+    assert.equal(light.get('--text-heading'), 'var(--brand-navy)')
+    // Azul médio tirado do degradê oficial (#333366 → #58AED9).
+    assert.equal(light.get('--accent'), '#446a9a')
+    for (const tokens of [dark, light]) assert.doesNotMatch(tokens.get('--accent')!, /f5a524/i)
+  })
+
+  it('azul não comunica erro nem alerta', () => {
+    const { dark, light } = themeBlocks()
+    const hue = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255) as [number, number, number]
+      const max = Math.max(r, g, b)
+      const d = max - Math.min(r, g, b)
+      const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+      return (h * 60 + 360) % 360
+    }
+    for (const tokens of [dark, light]) {
+      for (const name of ['--danger', '--warning']) {
+        const h = hue(tokens.get(name)!)
+        assert.ok(h < 180 || h > 280, `${name} (${tokens.get(name)}) não pode ser azul`)
+      }
+    }
   })
 
   it('nenhuma cor fixa fora de tokens.css', () => {

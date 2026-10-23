@@ -16,20 +16,17 @@ import { formatDateTime } from '@renderer/lib/format'
 import { homeStats } from '@renderer/lib/home'
 import type { FeatureState } from '@renderer/lib/status'
 import { runState } from '@renderer/lib/status'
+import { useGreeting } from '@renderer/lib/use-greeting'
 import { useResource } from '@renderer/lib/use-resource'
 import { useSessionRuns } from '@renderer/lib/use-session-runs'
-
-function greeting(): string {
-  const h = new Date().getHours()
-  if (h < 12) return 'Bom dia'
-  if (h < 18) return 'Boa tarde'
-  return 'Boa noite'
-}
 
 export function HomePage() {
   const { navigate } = useNavigation()
   const agents = useResource(() => window.gerpro.agents.list())
   const runs = useSessionRuns()
+  // Relido a cada visita ao Início: um nome salvo em Configurações já aparece na volta.
+  const settings = useResource(() => window.gerpro.settings.get())
+  const title = useGreeting(settings.state.status === 'ready' ? settings.state.data.profile.displayName : undefined)
 
   // Só dados do Main; enquanto carregam ou se falharem, nada é estimado.
   const stats =
@@ -59,7 +56,7 @@ export function HomePage() {
   return (
     <div className="page">
       <PageHeader
-        title={greeting()}
+        title={title}
         description="Visão geral do seu espaço de trabalho no Gerpro Studio."
         actions={
           <>

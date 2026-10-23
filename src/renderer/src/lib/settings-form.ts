@@ -1,4 +1,5 @@
 import {
+  normalizeDisplayName,
   SAFE_PRIVACY_VALUES,
   validateSettingsPatch,
   type AppSettings,
@@ -13,6 +14,8 @@ import { issuesByField } from './api'
  * não fazem parte do formulário: não podem ser alteradas nesta versão.
  */
 export interface SettingsFormValues {
+  /** Como digitado; gravado sem espaços extras. Vazio = sem nome. */
+  displayName: string
   language: AppSettings['general']['language']
   density: AppSettings['general']['density']
   startOnLogin: boolean
@@ -25,6 +28,7 @@ export type SettingsFormErrors = Partial<Record<keyof SettingsFormValues | 'form
 
 export function formFromSettings(s: AppSettings): SettingsFormValues {
   return {
+    displayName: s.profile.displayName,
     language: s.general.language,
     density: s.general.density,
     startOnLogin: s.general.startOnLogin,
@@ -36,6 +40,7 @@ export function formFromSettings(s: AppSettings): SettingsFormValues {
 const fieldOf = (path: string): keyof SettingsFormValues | undefined =>
   (
     {
+      '$.profile.displayName': 'displayName',
       '$.general.language': 'language',
       '$.general.density': 'density',
       '$.general.startOnLogin': 'startOnLogin',
@@ -58,6 +63,10 @@ export function patchFromForm(
 ): { ok: true; patch: SettingsPatch; changed: boolean } | { ok: false; errors: SettingsFormErrors } {
   const directory = form.modelsDirectory.trim() || null
   const maxRamGb = form.maxRamGb.trim() === '' ? Number.NaN : Number(form.maxRamGb)
+  const displayName = normalizeDisplayName(form.displayName)
+
+  const profile: NonNullable<SettingsPatch['profile']> = {}
+  if (displayName !== saved.profile.displayName) profile.displayName = displayName
 
   const general: NonNullable<SettingsPatch['general']> = {}
   if (form.language !== saved.general.language) general.language = form.language
@@ -69,6 +78,7 @@ export function patchFromForm(
   if (maxRamGb !== saved.models.maxRamGb) models.maxRamGb = maxRamGb
 
   const patch: SettingsPatch = {}
+  if (Object.keys(profile).length) patch.profile = profile
   if (Object.keys(general).length) patch.general = general
   if (Object.keys(models).length) patch.models = models
 

@@ -30,25 +30,33 @@
   -webkit-app-region: no-drag;
 }
 
+/* Na barra de 40 px o logo ficaria ilegível: só o nome do aplicativo. */
 .brand {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  color: var(--text-heading);
   font-size: var(--text-sm);
   font-weight: 600;
   letter-spacing: 0.01em;
 }
 
-.brand__mark {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: var(--accent);
-  color: var(--accent-contrast);
-  font-size: 12px;
-  font-weight: 800;
+/* ---------- Logo oficial ---------- */
+/* Respiro em volta do logo; no tema escuro vira a placa branca que o mantém legível. */
+.brand-logo {
+  display: inline-flex;
+  flex: none;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--brand-plate-border);
+  border-radius: var(--radius-md);
+  background: var(--brand-plate);
+}
+
+.brand-logo img {
+  display: block;
+  width: auto;
+  max-width: none;
+  user-select: none;
 }
 
 .titlebar__crumb {
@@ -70,6 +78,19 @@
   border-right: 1px solid var(--border);
   background: var(--surface-1);
   overflow-y: auto;
+}
+
+.sidebar__brand {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-1) 0 var(--space-2);
+  margin-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Placa justa: só o respiro mínimo em volta do logo. */
+.sidebar__brand .brand-logo {
+  padding: var(--space-1) var(--space-2);
 }
 
 .sidebar__section {
@@ -156,6 +177,7 @@
   padding: 0;
 }
 
+.shell--collapsed .sidebar__brand,
 .shell--collapsed .nav-item__label,
 .shell--collapsed .nav-item__badge,
 .shell--collapsed .sidebar__section,

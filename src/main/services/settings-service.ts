@@ -3,6 +3,7 @@ import {
   DEFAULT_SETTINGS,
   inactiveSettingsInPatch,
   migrateSettingsV1,
+  migrateSettingsV2,
   validateSettings,
   validateSettingsPatch,
   type AppSettings
@@ -10,8 +11,11 @@ import {
 import { AppError, unwrap } from '../errors'
 import { VersionedStore, type StoreStatus } from '../storage/versioned-store'
 
-/** v2: seção `appearance` (tema). Arquivos v1 são migrados com o tema padrão. */
-export const SETTINGS_FORMAT_VERSION = 2
+/**
+ * v2: seção `appearance` (tema). Arquivos v1 são migrados com o tema padrão.
+ * v3: seção `profile` (nome de exibição). Arquivos v2 são migrados com o nome vazio.
+ */
+export const SETTINGS_FORMAT_VERSION = 3
 
 export class SettingsService {
   private readonly store: VersionedStore<AppSettings>
@@ -23,7 +27,7 @@ export class SettingsService {
       format: 'gerpro.settings',
       version: SETTINGS_FORMAT_VERSION,
       defaults: () => structuredClone(DEFAULT_SETTINGS),
-      migrations: { 1: migrateSettingsV1 },
+      migrations: { 1: migrateSettingsV1, 2: migrateSettingsV2 },
       parse: (data) => {
         const result = validateSettings(data)
         return result.ok ? { value: result.value, issues: [] } : { value: undefined, issues: result.issues }

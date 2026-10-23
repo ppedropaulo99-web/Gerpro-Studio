@@ -338,10 +338,14 @@ pending ──► running ──► completed
 **Status:** a persistência está implementada. Só a aparência tem efeito; o
 efeito das demais preferências é planejado.
 
-`AppSettings` tem cinco seções:
+`AppSettings` tem seis seções:
 
-- `appearance`: `theme` (`dark` | `light`; padrão `dark`). Única preferência
-  com efeito: aplicada na hora à interface e às cores nativas da janela.
+- `appearance`: `theme` (`dark` | `light`; padrão `dark`). Aplicada na hora à
+  interface e às cores nativas da janela.
+- `profile`: `displayName` (padrão vazio). Digitado pelo usuário, nunca lido
+  do sistema. Até 40 caracteres, sem espaços nas pontas nem caracteres de
+  controle; o formulário grava o texto já normalizado (`normalizeDisplayName`).
+  Usado só na saudação do Início, gravado só neste computador e fora de logs.
 - `general`: `language`, `density`, `startOnLogin`
 - `models`: `directory`, `maxRamGb`
 - `privacy`: `confirmSensitiveTools`, `telemetry`
@@ -349,13 +353,25 @@ efeito das demais preferências é planejado.
 
 `settings:update` recebe um `SettingsPatch` parcial (um nível por seção),
 validado campo a campo. **Nenhum campo guarda credencial**: segredos ficam no
-`SecretVault` e são referenciados por ID. Exceto o tema, nenhuma preferência
-tem efeito ainda, e a tela diz isso em cada campo.
+`SecretVault` e são referenciados por ID. Exceto o tema e o nome de exibição,
+nenhuma preferência tem efeito ainda, e a tela diz isso em cada campo.
 
-**Formato:** `settings.json` está na versão 2. Arquivos da versão 1 (sem
-`appearance`) são migrados por `migrateSettingsV1`, que acrescenta o tema
-padrão e preserva todo o resto, inclusive escolhas de privacidade antigas
-(que continuam sem efeito).
+**Formato:** `settings.json` está na versão 3. As migrações rodam em
+sequência e preservam todo o resto, inclusive escolhas de privacidade antigas
+(que continuam sem efeito):
+
+- v1 → v2 (`migrateSettingsV1`): acrescenta `appearance` com o tema padrão;
+- v2 → v3 (`migrateSettingsV2`): acrescenta `profile` com o nome vazio.
+
+O arquivo migrado só é regravado na próxima alteração.
+
+**Saudação do Início** (`renderer/src/lib/greeting.ts`): horário local do
+computador; manhã das 5h às 11h59, tarde das 12h às 17h59, noite das 18h às
+4h59. Com nome, "Boa tarde, Ana!"; sem nome, "Boa tarde!". O Início relê as
+configurações a cada visita, então um nome salvo aparece na volta. Com o app
+aberto, um único temporizador dispara na próxima troca de período
+(`nextPeriodChange`), e o período é conferido de novo quando a janela volta a
+ter foco.
 
 **Tema:**
 

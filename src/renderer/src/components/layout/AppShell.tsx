@@ -37,12 +37,7 @@ export function AppShell() {
           icon={collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           onClick={() => setCollapsed((v) => !v)}
         />
-        <div className="brand">
-          <span className="brand__mark" aria-hidden>
-            G
-          </span>
-          Gerpro Studio
-        </div>
+        <div className="brand">Gerpro Studio</div>
         <span className="titlebar__crumb">/ {route.label}</span>
         <div className="titlebar__spacer" />
         <TourLauncher />

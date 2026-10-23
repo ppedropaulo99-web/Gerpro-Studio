@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, Save } from 'lucide-react'
-import type { AppSettings, Theme } from '@shared/settings'
+import { DISPLAY_NAME_MAX, type AppSettings, type Theme } from '@shared/settings'
 import { useUnsavedChangesGuard } from '@renderer/app/navigation'
 import { HardwarePanel } from '@renderer/components/hardware/HardwarePanel'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
@@ -131,6 +131,24 @@ function SettingsForm({ saved, onSaved }: { saved: AppSettings; onSaved: (s: App
       />
 
       <AppearanceSection saved={saved} onSaved={onSaved} />
+
+      <Section title="Perfil" description="Como o Gerpro Studio se dirige a você">
+        <Field label="Nome de exibição" hint="Opcional. Usado só na saudação do Início e guardado apenas neste computador.">
+          {(id) => (
+            <>
+              <TextInput
+                id={id}
+                placeholder="Sem nome"
+                autoComplete="off"
+                maxLength={DISPLAY_NAME_MAX}
+                value={form.displayName}
+                onChange={(e) => set('displayName', e.target.value)}
+              />
+              <FieldError>{errors.displayName}</FieldError>
+            </>
+          )}
+        </Field>
+      </Section>
 
       <Notice tone="neutral">
         As preferências abaixo são gravadas e mantidas após reiniciar o aplicativo, mas <strong>ainda não têm efeito</strong> nesta

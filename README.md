@@ -137,4 +137,4 @@ Arquivos em `<userData>/storage/` (`settings.json`, `agents.json`, `hardware.jso
 
 ## Originalidade
 
-Código, nomes, dados de exemplo e identidade visual (acento âmbar, marca "G") são próprios deste projeto. Nenhum arquivo, código, recurso gráfico ou componente do LM Studio foi copiado. A semelhança é apenas no tipo de organização de uma estação de trabalho de IA: barra lateral, biblioteca de modelos e chat.
+Código, nomes e dados de exemplo são próprios deste projeto; a identidade visual segue o logo oficial Gerpro 25 anos e suas cores. Nenhum arquivo, código, recurso gráfico ou componente do LM Studio foi copiado. A semelhança é apenas no tipo de organização de uma estação de trabalho de IA: barra lateral, biblioteca de modelos e chat.
