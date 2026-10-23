@@ -209,11 +209,17 @@
 
 .chat__head {
   display: flex;
+  /* Em áreas estreitas, selo e seletor de modelo descem para a linha de baixo. */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-6);
   border-bottom: 1px solid var(--border);
+}
+
+.chat__head > .row {
+  flex-wrap: wrap;
 }
 
 .chat__thread {

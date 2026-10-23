@@ -32,7 +32,7 @@ export function DeveloperPage() {
 
       <div className="split">
         <div className="stack">
-          <Card>
+          <Card data-tour="developer.server">
             <CardHeader
               title={
                 <span className="row">
@@ -87,7 +87,7 @@ export function DeveloperPage() {
         </div>
 
         <div className="stack">
-          <Card>
+          <Card data-tour="developer.app">
             <CardHeader title="Aplicativo" subtitle="Lido do processo Main via IPC" actions={<FeatureBadge state="real" />} />
             <CardBody>
               <dl className="specs">

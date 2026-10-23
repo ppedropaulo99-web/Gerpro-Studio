@@ -67,11 +67,21 @@
   --radius-lg: 12px;
   --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--border-strong);
   --backdrop: rgba(5, 6, 9, 0.6);
+  /* Apresentação guiada: escurece o que não está em destaque. */
+  --tour-dim: rgba(5, 6, 9, 0.62);
 
   /* Layout */
   --titlebar-height: 40px;
   --sidebar-width: 224px;
   --sidebar-collapsed: 60px;
+  /* Coluna do painel da apresentação guiada (igual a `tour/placement.ts`). */
+  --tour-panel-width: 300px;
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --tour-panel-width: 360px;
+  }
 }
 
 /*
@@ -118,4 +128,5 @@
 
   --shadow-pop: 0 12px 32px rgba(24, 63, 113, 0.16), 0 0 0 1px var(--border);
   --backdrop: rgba(24, 63, 113, 0.35);
+  --tour-dim: rgba(16, 37, 66, 0.42);
 }

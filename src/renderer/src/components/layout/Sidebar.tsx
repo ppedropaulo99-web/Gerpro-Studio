@@ -48,7 +48,7 @@ export function Sidebar() {
   const badges = useBadges(current)
 
   return (
-    <nav className="sidebar" aria-label="Navegação principal">
+    <nav className="sidebar" aria-label="Navegação principal" data-tour="shell.sidebar">
       {sections.map((section) => (
         <div key={section.id} className="stack" style={{ gap: 2 }}>
           <div className="sidebar__section">{section.label}</div>
@@ -72,7 +72,7 @@ export function Sidebar() {
       ))}
 
       <div className="sidebar__footer">
-        <div className="engine-pill" title="Motor de IA: não conectado (protótipo)">
+        <div className="engine-pill" title="Motor de IA: não conectado (protótipo)" data-tour="shell.engine">
           <span className="status tone-neutral" style={{ padding: 0, background: 'none' }}>
             <span className="status__dot" />
           </span>

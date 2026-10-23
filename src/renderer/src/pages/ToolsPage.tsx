@@ -47,10 +47,10 @@ export function ToolsPage() {
       {catalog.state.status === 'error' && <ErrorState error={catalog.state.error} onRetry={catalog.reload} />}
       {catalog.state.status === 'ready' && (
         <div className="grid">
-          {catalog.state.data.map(({ definition: tool, availability }) => {
+          {catalog.state.data.map(({ definition: tool, availability }, i) => {
             const badge = availabilityBadge[availability]
             return (
-              <Card key={tool.id}>
+              <Card key={tool.id} data-tour={i === 0 ? 'tools.catalog' : undefined}>
                 <CardHeader
                   title={
                     <span className="row">

@@ -19,7 +19,9 @@ import { ToolsPage } from '@renderer/pages/ToolsPage'
 import { DeveloperPage } from '@renderer/pages/DeveloperPage'
 import { SettingsPage } from '@renderer/pages/SettingsPage'
 
-export type RouteId = 'home' | 'agents' | 'chat' | 'models' | 'runs' | 'tools' | 'developer' | 'settings'
+import type { RouteId } from './route-ids'
+
+export type { RouteId }
 
 export interface RouteDef {
   id: RouteId

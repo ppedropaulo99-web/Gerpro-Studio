@@ -73,7 +73,7 @@ export function HomePage() {
         }
       />
 
-      <div className="grid grid--stats">
+      <div className="grid grid--stats" data-tour="home.stats">
         {cards.map(({ label, value, detail, state, icon: Icon }) => (
           <Card key={label}>
             <CardBody className="stat">
@@ -94,7 +94,7 @@ export function HomePage() {
       </div>
 
       <div className="split">
-        <Card>
+        <Card data-tour="home.recent-runs">
           <CardHeader
             title="Execuções recentes"
             subtitle="Simulações desta sessão"

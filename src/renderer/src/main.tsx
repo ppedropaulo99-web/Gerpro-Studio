@@ -8,6 +8,7 @@ import './styles/base.css'
 import './styles/components.css'
 import './styles/layout.css'
 import './styles/pages.css'
+import './styles/tour.css'
 
 // O tema salvo é aplicado antes do primeiro render; até lá, `tokens.css` não pinta nada
 // e a janela mostra o próprio fundo, que o Main já criou no tema certo.

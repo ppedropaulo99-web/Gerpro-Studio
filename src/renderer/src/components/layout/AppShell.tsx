@@ -4,12 +4,15 @@ import { routeById } from '@renderer/app/routes'
 import { useNavigation } from '@renderer/app/navigation'
 import { Button, ConfirmDialog } from '@renderer/components/ui'
 import { cx } from '@renderer/lib/cx'
+import { TourLauncher } from '@renderer/tour/TourLauncher'
+import { useTour } from '@renderer/tour/TourProvider'
 import { Sidebar } from './Sidebar'
 
 const COLLAPSE_BREAKPOINT = 1100
 
 export function AppShell() {
   const { current, pending, blockedBy, keepEditing, confirmDiscard } = useNavigation()
+  const tour = useTour()
   const route = routeById[current]
   const Page = route.component
 
@@ -23,7 +26,8 @@ export function AppShell() {
   }, [])
 
   return (
-    <div className={cx('shell', collapsed && 'shell--collapsed')}>
+    // Na apresentação, o app fica inerte (somente leitura) e cede uma coluna à direita para o painel explicativo.
+    <div className={cx('shell', collapsed && 'shell--collapsed', tour.active && 'shell--touring')} inert={tour.active}>
       <header className="titlebar">
         <Button
           variant="ghost"
@@ -41,6 +45,7 @@ export function AppShell() {
         </div>
         <span className="titlebar__crumb">/ {route.label}</span>
         <div className="titlebar__spacer" />
+        <TourLauncher />
       </header>
 
       <Sidebar />

@@ -34,6 +34,7 @@
 | D28 | 3.3.3 | Agente, modelo e perfil de execução separados; provedores atrás de `InferenceProvider`; perfil embutido no agente com substituição por execução; `agents.json` v2 com migração | Usar o Ollama temporariamente e um runtime próprio depois sem refazer agentes, execuções e interface; perfis nomeados só quando houver onde guardá-los |
 | D29 | 3.3.3 | Compatibilidade em cinco estados; só teste real confirma; falta de memória é transitória | Estimativa nunca é apresentada como confirmação, e uma falha momentânea não marca o modelo como incompatível para sempre |
 | D30 | 3.3.4 | Avaliador e recomendação por regras ordenadas e ordenação lexicográfica, sem pontuação; ajuste de perfil antes de outro modelo; instalados e não instalados em listas separadas | Cada conclusão é explicável passo a passo e reproduzível; nenhuma fórmula arbitrária decide, e nada não instalado parece disponível |
+| D31 | UX-P1 | Apresentação Guiada nas telas reais: roteiro declarativo em capítulos (`tour/steps.ts`), componentes marcados com `data-tour`, painel numa coluna reservada à direita (o app encolhe, o painel nunca cobre o destaque) e app inerte durante a apresentação | Mostrar o produto real, não slides; somente leitura por construção; editar o roteiro sem mexer na mecânica |
 
 ## Limitações conhecidas
 

@@ -14,7 +14,7 @@ export function ChatPage() {
 
   return (
     <div className="page page--full chat">
-      <aside className="chat__list" aria-label="Conversas">
+      <aside className="chat__list" aria-label="Conversas" data-tour="chat.list">
         <div className="chat__list-head stack" style={{ gap: 'var(--space-2)' }}>
           <Button
             variant="secondary"
@@ -80,7 +80,7 @@ export function ChatPage() {
           )}
         </div>
 
-        <footer className="chat__composer">
+        <footer className="chat__composer" data-tour="chat.composer">
           <TextArea
             placeholder="Envio planejado: o motor de IA ainda não está conectado."
             rows={2}

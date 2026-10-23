@@ -78,9 +78,10 @@ export function ModelsPage() {
 
       <div className="split">
         <div className="stack">
-          {visible.map((m) => (
+          {visible.map((m, i) => (
             <ModelRow
               key={m.id}
+              tour={i === 0 ? 'models.library' : undefined}
               model={m}
               source={LIBRARY_SOURCE}
               selected={m.id === selectedId}
@@ -109,12 +110,15 @@ function ModelRow({
   model,
   source,
   selected,
-  onSelect
+  onSelect,
+  tour
 }: {
   model: LibraryModel
   source: ModelSource
   selected: boolean
   onSelect: () => void
+  /** Marcação da apresentação guiada. */
+  tour?: string
 }) {
   const showProgress = source !== 'example' && model.status === 'downloading'
   return (
@@ -126,6 +130,7 @@ function ModelRow({
       aria-pressed={selected}
       onClick={onSelect}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onSelect())}
+      data-tour={tour}
     >
       <CardBody className="model-row">
         <div className="model-row__icon" aria-hidden>

@@ -368,6 +368,9 @@
 /* ---------- Segmented control ---------- */
 .segmented {
   display: inline-flex;
+  /* Em áreas estreitas, as opções quebram linha em vez de estourar a largura. */
+  flex-wrap: wrap;
+  max-width: 100%;
   padding: 3px;
   gap: 2px;
   background: var(--surface-2);

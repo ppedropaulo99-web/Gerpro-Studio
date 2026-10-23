@@ -103,12 +103,17 @@ function Body({
       ) : (
         <Card>
           <CardBody className="stack" style={{ gap: 0 }}>
-            {recs.map((rec) => {
+            {recs.map((rec, i) => {
               const candidate = byKey.get(`${rec.origin}:${rec.agentId}`)
               const meta = recommendationFit[rec.fit]
               const conclusion = recommendationConclusion(rec)
               return (
-                <div key={`${rec.origin}:${rec.agentId}`} className="list-row" style={{ alignItems: 'flex-start' }}>
+                <div
+                  key={`${rec.origin}:${rec.agentId}`}
+                  className="list-row"
+                  style={{ alignItems: 'flex-start' }}
+                  data-tour={i === 0 ? 'agents.recommendations' : undefined}
+                >
                   <div className="stack" style={{ gap: 'var(--space-2)', minWidth: 0, flex: 1 }}>
                     <div className="row" style={{ flexWrap: 'wrap' }}>
                       <strong>{candidate?.name ?? rec.agentId}</strong>

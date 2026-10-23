@@ -133,7 +133,7 @@ function AdvisorBody({ s, busy, scenario, onScenario, onGrant, onDeny, onRevoke,
   return (
     <>
       {/* Consentimento: análise local */}
-      <div className="stack" style={{ gap: 'var(--space-3)' }}>
+      <div className="stack" style={{ gap: 'var(--space-3)' }} data-tour="settings.hardware">
         <div className="row between">
           <div className="stack" style={{ gap: 2 }}>
             <span className="field__label">Análise local de hardware</span>

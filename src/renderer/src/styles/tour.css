@@ -1,0 +1,152 @@
+/* ---------- Apresentação guiada ---------- */
+
+/* O app cede a coluna da direita ao painel; a barra de título continua inteira. */
+.shell--touring {
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--tour-panel-width);
+  grid-template-areas:
+    'titlebar titlebar titlebar'
+    'sidebar  main     .';
+}
+
+.shell--touring.shell--collapsed {
+  grid-template-columns: var(--sidebar-collapsed) minmax(0, 1fr) var(--tour-panel-width);
+}
+
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+/* Recebe cliques e rolagem: nada do app é acionado durante a apresentação. */
+.tour__blocker {
+  position: absolute;
+  inset: 0;
+}
+
+.tour__dim {
+  position: absolute;
+  inset: 0;
+  background: var(--tour-dim);
+  pointer-events: none;
+}
+
+/* Recorte iluminado: a sombra escurece todo o resto. */
+.tour__spotlight {
+  position: absolute;
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 0 6px var(--accent-soft),
+    0 0 0 200vmax var(--tour-dim);
+  pointer-events: none;
+  transition:
+    top 180ms ease,
+    left 180ms ease,
+    width 180ms ease,
+    height 180ms ease;
+}
+
+.tour__panel {
+  position: absolute;
+  top: var(--titlebar-height);
+  right: 0;
+  bottom: 0;
+  width: var(--tour-panel-width);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border-left: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-pop);
+  outline: none;
+}
+
+.tour__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.tour__eyebrow {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.tour__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  overflow-y: auto;
+}
+
+.tour__title {
+  margin: 0;
+  font-size: var(--text-xl);
+  color: var(--text-heading);
+}
+
+.tour__description {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.tour__foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+.tour__progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tour__controls {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.tour__hint {
+  font-size: var(--text-xs);
+}
+
+/* Botão na barra de título */
+.tour-launcher {
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+
+.tour-launcher__notice {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 300px;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-pop);
+  font-size: var(--text-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour__spotlight {
+    transition: none;
+  }
+}

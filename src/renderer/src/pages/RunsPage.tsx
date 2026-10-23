@@ -104,7 +104,7 @@ function SimulatedRuns() {
         </div>
       </div>
 
-      <Card>
+      <Card data-tour="runs.launcher">
         <CardBody>
           {agents.state.status === 'loading' && <LoadingState label="Carregando agentes…" />}
           {agents.state.status === 'error' && <ErrorState error={agents.state.error} onRetry={agents.reload} />}
@@ -296,7 +296,7 @@ function ExampleHistory() {
   const visible = useMemo(() => exampleRuns.filter((r) => filter === 'all' || legacyRunState[r.status] === filter), [filter])
 
   return (
-    <section className="section" aria-labelledby="example-runs">
+    <section className="section" aria-labelledby="example-runs" data-tour="runs.history">
       <div className="section__head">
         <h2 id="example-runs">Histórico de exemplo</h2>
         <div className="row">

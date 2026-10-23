@@ -128,7 +128,7 @@ export function AgentsPage() {
         computador, mas aparecem como indisponíveis.
       </FeatureNotice>
 
-      <section className="section" aria-labelledby="saved-agents">
+      <section className="section" aria-labelledby="saved-agents" data-tour="agents.saved">
         <div className="section__head">
           <h2 id="saved-agents">Meus agentes</h2>
           <div className="row">
@@ -275,9 +275,9 @@ function ExampleAgents({
         </EmptyState>
       ) : (
         <div className="grid">
-          {visible.map((agent) => {
+          {visible.map((agent, i) => {
             return (
-              <Card key={agent.id}>
+              <Card key={agent.id} data-tour={i === 0 ? 'agents.examples' : undefined}>
                 <CardHeader
                   title={
                     <span className="row">

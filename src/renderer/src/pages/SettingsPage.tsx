@@ -31,9 +31,9 @@ import {
 import { applyTheme, themeOptions, themePatch } from '@renderer/lib/theme'
 import { useResource } from '@renderer/lib/use-resource'
 
-function Section({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+function Section({ title, description, tour, children }: { title: string; description: string; tour?: string; children: ReactNode }) {
   return (
-    <Card>
+    <Card data-tour={tour}>
       <CardHeader title={title} subtitle={description} />
       <CardBody className="stack" style={{ gap: 'var(--space-4)' }}>
         {children}
@@ -144,7 +144,7 @@ function SettingsForm({ saved, onSaved }: { saved: AppSettings; onSaved: (s: App
         </Notice>
       )}
 
-      <Section title="Geral" description="Idioma e comportamento do aplicativo">
+      <Section title="Geral" description="Idioma e comportamento do aplicativo" tour="settings.general">
         <div className="form-grid">
           <Field label="Idioma" hint={NO_EFFECT}>
             {(id) => (
@@ -201,7 +201,7 @@ function SettingsForm({ saved, onSaved }: { saved: AppSettings; onSaved: (s: App
         </Field>
       </Section>
 
-      <Section title="Privacidade e segurança" description="Controle sobre dados e ações dos agentes">
+      <Section title="Privacidade e segurança" description="Controle sobre dados e ações dos agentes" tour="settings.privacy">
         <Notice tone="neutral">
           Indisponível nesta versão. Enquanto estas funções não existirem, valem os padrões seguros mostrados abaixo. Quando forem
           implementadas, o Gerpro Studio pedirá uma <strong>nova decisão sua</strong>; nenhuma escolha anterior será aplicada
@@ -256,7 +256,7 @@ function AppearanceSection({ saved, onSaved }: { saved: AppSettings; onSaved: (s
   }
 
   return (
-    <Section title="Aparência" description="Tema visual da interface">
+    <Section title="Aparência" description="Tema visual da interface" tour="settings.appearance">
       {/* Grupo de botões com rótulo próprio (aria-label), por isso sem <label for>. */}
       <div className="field">
         <span className="field__label" aria-hidden>
