@@ -34,9 +34,10 @@ Entregue:
 - Pastas reservadas para o motor de IA (`src/main/engine/`) e para plugins
   (`src/main/plugins/`).
 
-Estado atual das telas da Etapa 1: Início, Chat, Modelos, Ferramentas e
-Desenvolvedor continuam **simuladas**, com dados de exemplo e sem ligação
-com o Main.
+Estado atual das telas da Etapa 1 (após a Etapa 3.2.2, Lote 2): Início e
+Ferramentas leem dados reais do Main; Chat, Modelos e Desenvolvedor ainda
+usam dados de exemplo, identificados como tal (ver "Identificação de origem"
+abaixo).
 
 ---
 
@@ -137,14 +138,32 @@ Entregue (detalhes em [Hardware Advisor](04-hardware-advisor.md)):
 |---|---|---|---|
 | Agentes | CRUD persistido, validação e cálculo de disponibilidade | Biblioteca de exemplos | Execução real; requisitos e tipos de tarefa na definição persistida |
 | Configurações | Gravação, validação e persistência | — | Efeito real de cada preferência |
-| Ferramentas | Catálogo declarado (7 itens) com esquemas e permissões | Tela Ferramentas (interruptores só na tela, não gravados) | Executores, concessão de permissões e plugins |
+| Ferramentas | Catálogo declarado (7 itens) com esquemas e permissões, exibido na tela | — | Executores, ativação, concessão de permissões e plugins |
 | Execuções | Contrato, máquina de estados e cancelamento cooperativo | Todas as execuções (`origin: 'simulated'`, só em memória) | Execuções reais e histórico persistido |
 | Hardware Advisor | Consentimento com escopo, revogação, exclusão de dados e validação do perfil | Perfis de hardware (cenários fictícios) | Detector real; envio ao Gerpro Web |
 | Recomendações | Motor de regras puro e testado | Entradas: perfil e biblioteca de modelos fictícios | Modelos e requisitos vindos do motor |
-| Modelos | Contrato `InferenceEngine` / `ModelDescriptor` | Tela Modelos | Motor de inferência próprio |
+| Modelos | Contrato `InferenceEngine` / `ModelDescriptor`; origem `ModelSource` | Tela Modelos (biblioteca de exemplo, sem estado operacional) | Provedor local de modelos e motor de inferência |
 | Credenciais | `SecretVault` cifrado (testado) | — | Uso pelos serviços; ainda não está ligado a nenhum |
 | Gerpro Web | Espaço reservado para o consentimento `serverSharing`, que hoje não pode ser concedido | — | APIs, autenticação e módulos web |
-| Chat, Início, Desenvolvedor | — | Telas com dados de exemplo | Ligação com motor e execuções |
+| Início | Agentes salvos e simulações da sessão (data local atual) | — | Modelos carregados e tokens |
+| Chat, Desenvolvedor | Informações do aplicativo (Desenvolvedor) | Conversas e logs de exemplo | Inferência, servidor local e exposição na rede |
+
+## Identificação de origem (Etapa 3.2.2, Lote 2)
+
+Todas as telas usam o mesmo vocabulário (`featureStatus` em
+`renderer/src/lib/status.ts`, componentes `FeatureBadge` e `FeatureNotice`):
+
+| Selo | Significado |
+|---|---|
+| **Real** | Implementado e operacional: dados gravados ou serviços do Main |
+| **Simulado** | Fluxo demonstrativo; a funcionalidade representada não roda |
+| **Planejado** | Ainda não implementado |
+| **Exemplo** | Registro fictício (agente, conversa, modelo, histórico, log) |
+
+Regras: telas que importam `renderer/src/data/` precisam identificar os
+exemplos (verificado por teste); modelos de exemplo nunca mostram
+"Carregado", progresso de download ou "disponível localmente"; controles sem
+efeito ficam desativados e explicados, nunca com aparência operacional.
 
 ## Verificação
 

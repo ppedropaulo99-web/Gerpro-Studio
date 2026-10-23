@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
-import { Download, FolderOpen, HardDrive, Power, Trash2 } from 'lucide-react'
+import { Download, FolderOpen, HardDrive } from 'lucide-react'
+import type { ModelSource } from '@shared/recommendations'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
 import {
   Button,
   Card,
   CardBody,
   CardHeader,
-  Menu,
+  FeatureBadge,
+  FeatureNotice,
   ProgressBar,
   SearchInput,
   Segmented,
@@ -15,8 +17,8 @@ import {
 } from '@renderer/components/ui'
 import { models } from '@renderer/data/models'
 import type { LibraryModel } from '@renderer/data/types'
-import { capabilityLabel, formatContext } from '@renderer/lib/format'
-import { modelStatus } from '@renderer/lib/status'
+import { capabilityLabel, formatContext, formatGb } from '@renderer/lib/format'
+import { displayedModelStatus } from '@renderer/lib/status'
 
 type Filter = 'all' | 'chat' | 'vision' | 'reasoning' | 'embedding'
 
@@ -27,6 +29,9 @@ const filters: Array<{ value: Filter; label: string }> = [
   { value: 'vision', label: 'Visão' },
   { value: 'embedding', label: 'Embedding' }
 ]
+
+/** Toda a biblioteca atual é fictícia. Um provedor local futuro listará modelos com `source: 'local-provider'`. */
+const LIBRARY_SOURCE: ModelSource = 'example'
 
 export function ModelsPage() {
   const [query, setQuery] = useState('')
@@ -43,24 +48,28 @@ export function ModelsPage() {
   }, [query, filter])
 
   const selected = models.find((m) => m.id === selectedId) ?? models[0]
-  const totalGb = models.reduce((n, m) => n + m.sizeGb, 0)
 
   return (
     <div className="page">
       <PageHeader
         title="Modelos"
-        description={`${models.length} modelos na biblioteca local · ${totalGb.toFixed(1)} GB em disco (simulado)`}
+        description={`Biblioteca de exemplo com ${models.length} modelos · nenhum modelo instalado ou carregado`}
         actions={
           <>
-            <Button icon={<FolderOpen size={16} />} disabled>
+            <Button icon={<FolderOpen size={16} />} disabled title="Planejado: depende do provedor local de modelos">
               Pasta de modelos
             </Button>
-            <Button variant="primary" icon={<Download size={16} />} disabled title="Disponível em uma próxima etapa">
+            <Button variant="primary" icon={<Download size={16} />} disabled title="Planejado: depende do provedor local de modelos">
               Descobrir modelos
             </Button>
           </>
         }
       />
+
+      <FeatureNotice state="example">
+        Estes modelos ilustram a biblioteca: não estão neste computador e não podem ser carregados. Carregar, baixar e gerenciar
+        modelos depende do motor de IA, ainda planejado.
+      </FeatureNotice>
 
       <div className="toolbar">
         <SearchInput label="Buscar por nome ou publicador" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -70,18 +79,44 @@ export function ModelsPage() {
       <div className="split">
         <div className="stack">
           {visible.map((m) => (
-            <ModelRow key={m.id} model={m} selected={m.id === selectedId} onSelect={() => setSelectedId(m.id)} />
+            <ModelRow
+              key={m.id}
+              model={m}
+              source={LIBRARY_SOURCE}
+              selected={m.id === selectedId}
+              onSelect={() => setSelectedId(m.id)}
+            />
           ))}
           {visible.length === 0 && <p className="muted">Nenhum modelo corresponde ao filtro.</p>}
         </div>
-        <ModelDetail model={selected} />
+        <ModelDetail model={selected} source={LIBRARY_SOURCE} />
       </div>
     </div>
   )
 }
 
-function ModelRow({ model, selected, onSelect }: { model: LibraryModel; selected: boolean; onSelect: () => void }) {
-  const meta = modelStatus[model.status]
+function ModelStateBadge({ source, model }: { source: ModelSource; model: LibraryModel }) {
+  const meta = displayedModelStatus(source, model.status)
+  if (!meta) return <FeatureBadge state="example" />
+  return (
+    <StatusBadge tone={meta.tone} pulse={meta.pulse}>
+      {meta.label}
+    </StatusBadge>
+  )
+}
+
+function ModelRow({
+  model,
+  source,
+  selected,
+  onSelect
+}: {
+  model: LibraryModel
+  source: ModelSource
+  selected: boolean
+  onSelect: () => void
+}) {
+  const showProgress = source !== 'example' && model.status === 'downloading'
   return (
     <Card
       interactive
@@ -109,7 +144,7 @@ function ModelRow({ model, selected, onSelect }: { model: LibraryModel; selected
               <Tag key={c}>{capabilityLabel[c]}</Tag>
             ))}
           </div>
-          {model.status === 'downloading' && (
+          {showProgress && (
             <div className="row">
               <div style={{ flex: 1 }}>
                 <ProgressBar value={model.downloadProgress ?? 0} label={`Download de ${model.name}`} />
@@ -119,47 +154,27 @@ function ModelRow({ model, selected, onSelect }: { model: LibraryModel; selected
           )}
         </div>
         <div className="stack" style={{ alignItems: 'flex-end', gap: 6 }}>
-          <StatusBadge tone={meta.tone} pulse={meta.pulse}>
-            {meta.label}
-          </StatusBadge>
-          <span className="subtle mono">{model.sizeGb} GB</span>
+          <ModelStateBadge source={source} model={model} />
+          <span className="subtle mono">{formatGb(model.sizeGb)}</span>
         </div>
-        <Menu
-          label={`Ações de ${model.name}`}
-          items={[
-            { label: model.status === 'loaded' ? 'Descarregar' : 'Carregar', icon: <Power size={14} />, disabled: true },
-            { label: 'Mostrar no explorador', icon: <FolderOpen size={14} />, disabled: true },
-            'separator',
-            { label: 'Excluir do disco', icon: <Trash2 size={14} />, danger: true, disabled: true }
-          ]}
-        />
       </CardBody>
     </Card>
   )
 }
 
-function ModelDetail({ model }: { model: LibraryModel }) {
-  const meta = modelStatus[model.status]
+function ModelDetail({ model, source }: { model: LibraryModel; source: ModelSource }) {
   const specs: Array<[string, string]> = [
     ['Publicador', model.publisher],
     ['Parâmetros', model.parameters],
     ['Quantização', model.quantization],
     ['Formato', model.format.toUpperCase()],
     ['Contexto máximo', `${formatContext(model.contextLength)} tokens`],
-    ['Tamanho', `${model.sizeGb} GB`]
+    ['Tamanho do download', formatGb(model.sizeGb)]
   ]
 
   return (
     <Card className="sticky">
-      <CardHeader
-        title={model.name}
-        subtitle={model.id}
-        actions={
-          <StatusBadge tone={meta.tone} pulse={meta.pulse}>
-            {meta.label}
-          </StatusBadge>
-        }
-      />
+      <CardHeader title={model.name} subtitle={model.id} actions={<ModelStateBadge source={source} model={model} />} />
       <CardBody className="stack">
         <p className="muted">{model.description}</p>
         <dl className="specs">
@@ -170,9 +185,13 @@ function ModelDetail({ model }: { model: LibraryModel }) {
             </div>
           ))}
         </dl>
-        <Button variant="primary" icon={<Power size={16} />} disabled title="Motor de IA não conectado">
-          {model.status === 'loaded' ? 'Descarregar modelo' : 'Carregar modelo'}
-        </Button>
+        <div className="row" style={{ alignItems: 'flex-start' }}>
+          <FeatureBadge state="planned" />
+          <span className="field__hint">
+            Carregar, baixar, abrir no explorador e excluir modelos ficarão disponíveis quando o provedor local de modelos for
+            conectado.
+          </span>
+        </div>
       </CardBody>
     </Card>
   )

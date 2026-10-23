@@ -18,7 +18,10 @@ Documentação completa (arquitetura, contratos, Hardware Advisor, pontos de int
 | Barra lateral | Contadores de agentes salvos e simulações em andamento | — |
 | Configurações › Hardware e desempenho | Consentimento (gravado, revogável) e exclusão de dados | Perfis de hardware fictícios |
 | Agentes › Recomendações | Agentes salvos entram na avaliação | Perfil de hardware e biblioteca de modelos fictícios |
-| Início, Chat, Modelos, Ferramentas | — | Inalteradas (protótipo) |
+| Início | Agentes salvos e simulações da sessão | — (modelos e tokens: planejado) |
+| Ferramentas | Catálogo e permissões declaradas (execução planejada) | — |
+| Chat, Modelos | — | Conversas e biblioteca de modelos de exemplo |
+| Desenvolvedor | Informações do aplicativo | Logs de exemplo (servidor local: planejado) |
 
 Os estados dos dados de exemplo são convertidos para o contrato por `legacyRunState`
 (`renderer/src/lib/runs.ts`): `queued→pending`, `succeeded→completed`, demais iguais.

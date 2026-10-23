@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Play, Server, Terminal } from 'lucide-react'
 import type { AppInfo } from '@shared/ipc'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
-import { Button, Card, CardBody, CardHeader, Field, StatusBadge, SwitchRow, TextInput } from '@renderer/components/ui'
+import { Button, Card, CardBody, CardHeader, FeatureBadge, Field, SwitchRow, TextInput } from '@renderer/components/ui'
 
 /** Endpoints planejados para o servidor local (ainda não implementados). */
 const plannedEndpoints = [
@@ -21,10 +21,7 @@ const sampleLogs = [
 
 export function DeveloperPage() {
   const [info, setInfo] = useState<AppInfo | null>(null)
-  const [port, setPort] = useState('4310')
-  const [lan, setLan] = useState(false)
-
-  // Única chamada real de IPC do protótipo: demonstra o canal seguro Main ↔ Renderer.
+  // Informações reais do processo Main, lidas pelo canal seguro de IPC.
   useEffect(() => {
     window.gerpro.app.getInfo().then(setInfo).catch(() => setInfo(null))
   }, [])
@@ -42,26 +39,31 @@ export function DeveloperPage() {
                   <Server size={15} /> Servidor local
                 </span>
               }
-              subtitle="API compatível para outros aplicativos (planejada)"
-              actions={<StatusBadge tone="neutral">Parado</StatusBadge>}
+              subtitle="API compatível para outros aplicativos"
+              actions={<FeatureBadge state="planned" />}
             />
             <CardBody className="stack">
+              <p className="muted">
+                O servidor local ainda não existe: nada escuta em nenhuma porta. Os valores abaixo são os padrões previstos e não
+                podem ser alterados nesta versão.
+              </p>
               <div className="form-grid">
-                <Field label="Porta" hint="Somente 127.0.0.1 por padrão">
-                  {(id) => <TextInput id={id} value={port} onChange={(e) => setPort(e.target.value)} inputMode="numeric" />}
+                <Field label="Porta" hint="Padrão previsto">
+                  {(id) => <TextInput id={id} value="4310" disabled readOnly />}
                 </Field>
-                <Field label="Endereço">
-                  {(id) => <TextInput id={id} value={lan ? '0.0.0.0' : '127.0.0.1'} readOnly />}
+                <Field label="Endereço" hint="Somente este computador">
+                  {(id) => <TextInput id={id} value="127.0.0.1" disabled readOnly />}
                 </Field>
               </div>
               <SwitchRow
                 label="Aceitar conexões da rede local"
-                description="Exporá a API a outros dispositivos da rede."
-                checked={lan}
-                onChange={setLan}
+                description="Planejado. Exigirá decisão explícita, pois exporia a API a outros dispositivos da rede."
+                checked={false}
+                disabled
+                onChange={() => undefined}
               />
               <div className="row">
-                <Button variant="primary" icon={<Play size={15} />} disabled title="Servidor em uma próxima etapa">
+                <Button variant="primary" icon={<Play size={15} />} disabled title="Planejado: servidor local">
                   Iniciar servidor
                 </Button>
               </div>
@@ -69,7 +71,7 @@ export function DeveloperPage() {
           </Card>
 
           <Card>
-            <CardHeader title="Endpoints planejados" subtitle="Referência de design; nenhum está ativo" />
+            <CardHeader title="Endpoints planejados" subtitle="Referência de design; nenhum está ativo" actions={<FeatureBadge state="planned" />} />
             <CardBody className="stack" style={{ gap: 0 }}>
               {plannedEndpoints.map((e) => (
                 <div key={e.path} className="list-row">
@@ -86,7 +88,7 @@ export function DeveloperPage() {
 
         <div className="stack">
           <Card>
-            <CardHeader title="Aplicativo" subtitle="Lido do processo Main via IPC" />
+            <CardHeader title="Aplicativo" subtitle="Lido do processo Main via IPC" actions={<FeatureBadge state="real" />} />
             <CardBody>
               <dl className="specs">
                 <div>
@@ -120,7 +122,8 @@ export function DeveloperPage() {
                   <Terminal size={15} /> Logs
                 </span>
               }
-              subtitle="Exemplo de saída"
+              subtitle="Exemplo de saída; não são logs desta sessão"
+              actions={<FeatureBadge state="example" />}
             />
             <CardBody>
               <pre className="log">{sampleLogs.join('\n')}</pre>

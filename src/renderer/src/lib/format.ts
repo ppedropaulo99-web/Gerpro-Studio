@@ -5,6 +5,10 @@ const time = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', 
 
 export const formatNumber = (n: number) => number.format(n)
 
+const gigabytes = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 })
+
+export const formatGb = (gb: number) => `${gigabytes.format(gb)} GB`
+
 export const formatDateTime = (iso: string) => time.format(new Date(iso))
 
 export function formatDuration(sec: number | null): string {

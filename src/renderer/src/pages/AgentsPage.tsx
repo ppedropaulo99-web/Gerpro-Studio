@@ -13,6 +13,8 @@ import {
   CardHeader,
   EmptyState,
   ErrorState,
+  FeatureBadge,
+  FeatureNotice,
   LoadingState,
   Menu,
   Notice,
@@ -27,7 +29,7 @@ import { toolById } from '@renderer/data/tools'
 import type { AgentCategory } from '@renderer/data/types'
 import { emptyAgentForm, formFromDefinition, formFromExample, type AgentFormValues } from '@renderer/lib/agent-form'
 import { callApi } from '@renderer/lib/api'
-import { agentAvailability, agentConfigState, agentStatus } from '@renderer/lib/status'
+import { agentAvailability, agentConfigState } from '@renderer/lib/status'
 import { useResource } from '@renderer/lib/use-resource'
 
 type Filter = 'all' | AgentCategory
@@ -121,14 +123,18 @@ export function AgentsPage() {
         }
       />
 
-      <Notice tone="neutral">
-        Nenhum motor de IA configurado: agentes salvos aparecem como indisponíveis e não podem ser executados nesta versão.
-      </Notice>
+      <FeatureNotice state="planned">
+        A execução de agentes depende do motor de IA, ainda não conectado. Os agentes salvos são reais e ficam gravados neste
+        computador, mas aparecem como indisponíveis.
+      </FeatureNotice>
 
       <section className="section" aria-labelledby="saved-agents">
         <div className="section__head">
           <h2 id="saved-agents">Meus agentes</h2>
-          {saved.state.status === 'ready' && <span className="subtle">{saved.state.data.length} salvo(s)</span>}
+          <div className="row">
+            {saved.state.status === 'ready' && <span className="subtle">{saved.state.data.length} salvo(s)</span>}
+            <FeatureBadge state="real" />
+          </div>
         </div>
 
         {actionError && (
@@ -252,7 +258,10 @@ function ExampleAgents({
     <section className="section" aria-labelledby="example-agents">
       <div className="section__head">
         <h2 id="example-agents">Exemplos</h2>
-        <span className="subtle">Dados demonstrativos — não são agentes salvos</span>
+        <div className="row">
+          <span className="subtle">Não são agentes salvos</span>
+          <FeatureBadge state="example" />
+        </div>
       </div>
 
       <div className="toolbar">
@@ -267,7 +276,6 @@ function ExampleAgents({
       ) : (
         <div className="grid">
           {visible.map((agent) => {
-            const meta = agentStatus[agent.status]
             return (
               <Card key={agent.id}>
                 <CardHeader
@@ -304,8 +312,8 @@ function ExampleAgents({
                   </div>
                 </CardBody>
                 <CardFooter>
-                  <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
-                  <span className="subtle mono truncate" title="Modelo padrão">
+                  <FeatureBadge state="example" />
+                  <span className="subtle mono truncate" title="Modelo sugerido (biblioteca de exemplo)">
                     {modelById[agent.modelId]?.name}
                   </span>
                   <Button size="sm" icon={<Play size={13} />} disabled title="Exemplo demonstrativo: não executável">

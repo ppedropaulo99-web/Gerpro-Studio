@@ -1,13 +1,23 @@
 import { ArrowRight, Bot, Boxes, History, MessageSquarePlus, Plus, Zap } from 'lucide-react'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
-import { Button, Card, CardBody, CardHeader, Notice, StatusBadge } from '@renderer/components/ui'
+import {
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  EmptyState,
+  ErrorState,
+  FeatureBadge,
+  LoadingState,
+  StatusBadge
+} from '@renderer/components/ui'
 import { useNavigation } from '@renderer/app/navigation'
-import { agents, agentById } from '@renderer/data/agents'
-import { models, modelById } from '@renderer/data/models'
-import { runs } from '@renderer/data/runs'
-import { formatDateTime, formatNumber } from '@renderer/lib/format'
-import { legacyRunState } from '@renderer/lib/runs'
+import { formatDateTime } from '@renderer/lib/format'
+import { homeStats } from '@renderer/lib/home'
+import type { FeatureState } from '@renderer/lib/status'
 import { runState } from '@renderer/lib/status'
+import { useResource } from '@renderer/lib/use-resource'
+import { useSessionRuns } from '@renderer/lib/use-session-runs'
 
 function greeting(): string {
   const h = new Date().getHours()
@@ -18,14 +28,32 @@ function greeting(): string {
 
 export function HomePage() {
   const { navigate } = useNavigation()
-  const loaded = models.filter((m) => m.status === 'loaded')
-  const tokensToday = runs.filter((r) => r.startedAt.startsWith('2026-10-23')).reduce((n, r) => n + r.tokens, 0)
+  const agents = useResource(() => window.gerpro.agents.list())
+  const runs = useSessionRuns()
 
-  const stats = [
-    { label: 'Agentes ativos', value: agents.filter((a) => a.status === 'active').length, total: agents.length, icon: Bot },
-    { label: 'Modelos carregados', value: loaded.length, total: models.length, icon: Boxes },
-    { label: 'Execuções hoje', value: runs.filter((r) => r.startedAt.startsWith('2026-10-23')).length, icon: History },
-    { label: 'Tokens hoje', value: formatNumber(tokensToday), icon: Zap }
+  // Só dados do Main; enquanto carregam ou se falharem, nada é estimado.
+  const stats =
+    agents.state.status === 'ready' && runs.state.status === 'ready' ? homeStats(agents.state.data, runs.state.data, new Date()) : null
+  const pendingValue = agents.state.status === 'error' || runs.state.status === 'error' ? '—' : '…'
+  const nameOf = (id: string) => (agents.state.status === 'ready' && agents.state.data.find((a) => a.definition.id === id)?.definition.name) || id
+
+  const cards: Array<{ label: string; value: string | number; detail: string; state: FeatureState; icon: typeof Bot }> = [
+    {
+      label: 'Agentes salvos',
+      value: stats?.savedAgents ?? pendingValue,
+      detail: stats ? `${stats.readyAgents} pronto(s) para uso futuro` : 'Gravados neste computador',
+      state: 'real',
+      icon: Bot
+    },
+    {
+      label: 'Simulações hoje',
+      value: stats?.simulationsToday ?? pendingValue,
+      detail: stats?.activeSimulations ? `${stats.activeSimulations} em andamento` : 'Nesta sessão',
+      state: 'simulated',
+      icon: History
+    },
+    { label: 'Modelos carregados', value: '—', detail: 'Motor de IA não conectado', state: 'planned', icon: Boxes },
+    { label: 'Tokens hoje', value: '—', detail: 'Disponível com o motor de IA', state: 'planned', icon: Zap }
   ]
 
   return (
@@ -45,23 +73,20 @@ export function HomePage() {
         }
       />
 
-      <Notice>
-        Protótipo visual: todos os dados exibidos são simulados. O motor de IA ainda não está conectado.
-      </Notice>
-
       <div className="grid grid--stats">
-        {stats.map(({ label, value, total, icon: Icon }) => (
+        {cards.map(({ label, value, detail, state, icon: Icon }) => (
           <Card key={label}>
             <CardBody className="stat">
               <div className="stat__icon">
                 <Icon size={18} />
               </div>
-              <div>
-                <div className="stat__value">
-                  {value}
-                  {total !== undefined && <span className="subtle"> / {total}</span>}
-                </div>
+              <div className="stack" style={{ gap: 2, minWidth: 0 }}>
+                <div className="stat__value">{value}</div>
                 <div className="subtle">{label}</div>
+                <div className="row" style={{ marginTop: 'var(--space-1)' }}>
+                  <FeatureBadge state={state} />
+                </div>
+                <span className="field__hint">{detail}</span>
               </div>
             </CardBody>
           </Card>
@@ -72,49 +97,50 @@ export function HomePage() {
         <Card>
           <CardHeader
             title="Execuções recentes"
-            subtitle="Últimas atividades dos agentes"
+            subtitle="Simulações desta sessão"
             actions={
-              <Button variant="ghost" size="sm" onClick={() => navigate('runs')}>
-                Ver todas <ArrowRight size={14} />
-              </Button>
+              <div className="row">
+                <FeatureBadge state="simulated" />
+                <Button variant="ghost" size="sm" onClick={() => navigate('runs')}>
+                  Ver todas <ArrowRight size={14} />
+                </Button>
+              </div>
             }
           />
           <CardBody className="stack" style={{ gap: 0 }}>
-            {runs.slice(0, 5).map((run) => {
-              const meta = runState[legacyRunState[run.status]]
-              return (
-                <div key={run.id} className="list-row">
-                  <div className="stack" style={{ gap: 0, minWidth: 0 }}>
-                    <span>{agentById[run.agentId]?.name}</span>
-                    <span className="subtle">
-                      {modelById[run.modelId]?.name} · {formatDateTime(run.startedAt)}
-                    </span>
+            {runs.state.status === 'loading' && <LoadingState label="Carregando execuções…" />}
+            {runs.state.status === 'error' && <ErrorState error={runs.state.error} onRetry={runs.reload} />}
+            {runs.state.status === 'ready' && runs.state.data.length === 0 && (
+              <EmptyState icon={<History size={24} />} title="Nenhuma execução nesta sessão">
+                Inicie uma simulação em Execuções. O histórico de exemplo continua disponível lá.
+              </EmptyState>
+            )}
+            {runs.state.status === 'ready' &&
+              runs.state.data.slice(0, 5).map((run) => {
+                const meta = runState[run.state]
+                return (
+                  <div key={run.id} className="list-row">
+                    <div className="stack" style={{ gap: 0, minWidth: 0 }}>
+                      <span>{nameOf(run.agentId)}</span>
+                      <span className="subtle">Execução simulada · {formatDateTime(run.createdAt)}</span>
+                    </div>
+                    <StatusBadge tone={meta.tone} pulse={meta.pulse}>
+                      {meta.label}
+                    </StatusBadge>
                   </div>
-                  <StatusBadge tone={meta.tone} pulse={meta.pulse}>
-                    {meta.label}
-                  </StatusBadge>
-                </div>
-              )
-            })}
+                )
+              })}
           </CardBody>
         </Card>
 
         <Card>
-          <CardHeader title="Modelos em memória" subtitle="Prontos para uso" />
+          <CardHeader title="Modelos" subtitle="Inferência local" actions={<FeatureBadge state="planned" />} />
           <CardBody className="stack">
-            {loaded.map((m) => (
-              <div key={m.id} className="list-row">
-                <div className="stack" style={{ gap: 0 }}>
-                  <span>{m.name}</span>
-                  <span className="subtle mono">
-                    {m.parameters} · {m.quantization} · {m.sizeGb} GB
-                  </span>
-                </div>
-                <StatusBadge tone="success">Carregado</StatusBadge>
-              </div>
-            ))}
+            <p className="muted">
+              Nenhum modelo está carregado: o motor de IA ainda não está conectado. A biblioteca mostra modelos de exemplo.
+            </p>
             <Button variant="secondary" onClick={() => navigate('models')}>
-              Abrir biblioteca de modelos
+              Abrir biblioteca de exemplos
             </Button>
           </CardBody>
         </Card>

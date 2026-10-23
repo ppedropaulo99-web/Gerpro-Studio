@@ -6,7 +6,7 @@ import { recommendAgents, TASK_LABELS, TASK_TYPES, type TaskType } from '@shared
 import type { ToolCatalogEntry } from '@shared/tools'
 import { useNavigation } from '@renderer/app/navigation'
 import { ReasonList } from '@renderer/components/hardware/ReasonList'
-import { Button, Card, CardBody, EmptyState, ErrorState, LoadingState, Notice, Segmented, StatusBadge, Tag } from '@renderer/components/ui'
+import { Button, Card, CardBody, EmptyState, ErrorState, FeatureBadge, LoadingState, Notice, Segmented, StatusBadge, Tag } from '@renderer/components/ui'
 import { exampleAgentProfiles } from '@renderer/data/agent-requirements'
 import { agents as exampleAgents } from '@renderer/data/agents'
 import { models } from '@renderer/data/models'
@@ -42,7 +42,7 @@ export function AgentRecommendations({ saved, tools }: Props) {
           <Cpu size={17} className="subtle" />
           Recomendações do Hardware Advisor
         </h2>
-        <span className="subtle">Demonstração</span>
+        <FeatureBadge state="simulated">Demonstração</FeatureBadge>
       </div>
 
       {hardware.state.status === 'loading' && <LoadingState label="Carregando perfil de hardware…" />}

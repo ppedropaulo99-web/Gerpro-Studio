@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FlaskConical, History, Play, Square } from 'lucide-react'
+import { History, Play, Square } from 'lucide-react'
 import type { AgentRecord } from '@shared/agents'
 import type { StructuredError } from '@shared/errors'
 import type { DemoRunRequest, RunRecord, RunState } from '@shared/runs'
@@ -12,6 +12,8 @@ import {
   CardHeader,
   EmptyState,
   ErrorState,
+  FeatureBadge,
+  FeatureNotice,
   Field,
   LoadingState,
   Notice,
@@ -29,15 +31,16 @@ import { formatDateTime, formatDuration, formatNumber } from '@renderer/lib/form
 import { legacyRunState, runDurationSec, upsertRun } from '@renderer/lib/runs'
 import { runOrigin, runState } from '@renderer/lib/status'
 import { useResource } from '@renderer/lib/use-resource'
+import { useSessionRuns } from '@renderer/lib/use-session-runs'
 
 export function RunsPage() {
   return (
     <div className="page">
       <PageHeader title="Execuções" description="Execuções simuladas desta sessão e histórico de exemplo." />
-      <Notice tone="warning" icon={<FlaskConical size={16} />}>
-        Nenhum motor de IA está configurado. As execuções iniciadas aqui são <strong>simuladas</strong>: nenhum modelo ou ferramenta
-        real é executado, e elas não são gravadas no disco.
-      </Notice>
+      <FeatureNotice state="simulated">
+        Nenhum motor de IA está configurado. As execuções iniciadas aqui não executam modelo nem ferramenta, e não são gravadas no
+        disco.
+      </FeatureNotice>
       <SimulatedRuns />
       <ExampleHistory />
     </div>
@@ -50,7 +53,7 @@ export function RunsPage() {
 
 function SimulatedRuns() {
   const { navigate } = useNavigation()
-  const runs = useResource(() => window.gerpro.runs.list())
+  const runs = useSessionRuns()
   const agents = useResource(() => window.gerpro.agents.list())
   const [agentId, setAgentId] = useState('')
   const [scenario, setScenario] = useState<DemoRunRequest['scenario']>('success')
@@ -58,9 +61,7 @@ function SimulatedRuns() {
   const [actionError, setActionError] = useState<StructuredError | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  // Atualizações chegam do Main por evento; mescladas à lista já carregada.
   const { update } = runs
-  useEffect(() => window.gerpro.runs.onUpdated((run) => update((list) => upsertRun(list, run))), [update])
 
   const runnable = useMemo(
     () => (agents.state.status === 'ready' ? agents.state.data.filter((a) => a.definition.state !== 'archived') : []),
@@ -97,7 +98,10 @@ function SimulatedRuns() {
     <section className="section" aria-labelledby="simulated-runs">
       <div className="section__head">
         <h2 id="simulated-runs">Execuções simuladas desta sessão</h2>
-        {runs.state.status === 'ready' && <span className="subtle">{runs.state.data.length} execução(ões)</span>}
+        <div className="row">
+          {runs.state.status === 'ready' && <span className="subtle">{runs.state.data.length} execução(ões)</span>}
+          <FeatureBadge state="simulated" />
+        </div>
       </div>
 
       <Card>
@@ -295,7 +299,10 @@ function ExampleHistory() {
     <section className="section" aria-labelledby="example-runs">
       <div className="section__head">
         <h2 id="example-runs">Histórico de exemplo</h2>
-        <span className="subtle">Dados fictícios — não correspondem a execuções reais nem simuladas</span>
+        <div className="row">
+          <span className="subtle">Não corresponde a execuções reais nem simuladas</span>
+          <FeatureBadge state="example" />
+        </div>
       </div>
 
       <div className="toolbar">

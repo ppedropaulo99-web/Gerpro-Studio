@@ -134,6 +134,7 @@ describe('motor de recomendações', () => {
     contextLength: 32768,
     capabilities: ['chat', 'tools'],
     availability: 'installed',
+    source: 'local-provider',
     ...o
   })
   const candidate = (o: Partial<RecommendationCandidate> = {}): RecommendationCandidate => ({

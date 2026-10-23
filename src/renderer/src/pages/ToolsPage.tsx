@@ -1,59 +1,83 @@
-import { useState } from 'react'
-import { Puzzle, ShieldCheck, Wrench } from 'lucide-react'
+import { Puzzle, Wrench } from 'lucide-react'
+import type { ToolAvailability } from '@shared/tools'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
-import { Button, Card, CardBody, CardFooter, CardHeader, Notice, Switch, Tag } from '@renderer/components/ui'
-import { tools as initialTools } from '@renderer/data/tools'
+import {
+  Button,
+  Card,
+  CardBody,
+  CardFooter,
+  CardHeader,
+  ErrorState,
+  FeatureBadge,
+  FeatureNotice,
+  LoadingState,
+  Tag
+} from '@renderer/components/ui'
+import { permissionLabel } from '@renderer/lib/format'
+import type { FeatureState } from '@renderer/lib/status'
+import { useResource } from '@renderer/lib/use-resource'
+
+const availabilityBadge: Record<ToolAvailability, { state: FeatureState; label: string }> = {
+  available: { state: 'real', label: 'Disponível' },
+  disabled: { state: 'planned', label: 'Desativada' },
+  'not-implemented': { state: 'planned', label: 'Execução planejada' }
+}
 
 export function ToolsPage() {
-  // Estado local apenas para demonstrar os controles; nada é persistido.
-  const [enabled, setEnabled] = useState(() => Object.fromEntries(initialTools.map((t) => [t.id, t.enabled])))
+  const catalog = useResource(() => window.gerpro.tools.list())
 
   return (
     <div className="page">
       <PageHeader
         title="Ferramentas"
-        description="Capacidades que os agentes podem usar. Plugins adicionarão novas ferramentas."
+        description="Catálogo de capacidades que os agentes poderão usar. Plugins adicionarão novas ferramentas."
         actions={
-          <Button icon={<Puzzle size={16} />} disabled title="Sistema de plugins em uma próxima etapa">
+          <Button icon={<Puzzle size={16} />} disabled title="Planejado: sistema de plugins">
             Instalar plugin
           </Button>
         }
       />
 
-      <Notice tone="neutral" icon={<ShieldCheck size={16} />}>
-        Cada ferramenta declara as permissões de que precisa. Ativar ou desativar aqui é apenas visual neste protótipo.
-      </Notice>
+      <FeatureNotice state="planned">
+        O catálogo e as permissões declaradas são reais, mas nenhuma ferramenta executa nesta versão. Não há controles de
+        ativação aqui: eles só farão sentido quando houver execução, com confirmação de permissões.
+      </FeatureNotice>
 
-      <div className="grid">
-        {initialTools.map((tool) => (
-          <Card key={tool.id}>
-            <CardHeader
-              title={
-                <span className="row">
-                  <Wrench size={15} className="subtle" />
-                  {tool.name}
-                </span>
-              }
-              subtitle={tool.kind}
-              actions={
-                <Switch
-                  label={`Ativar ${tool.name}`}
-                  checked={enabled[tool.id]}
-                  onChange={(v) => setEnabled((s) => ({ ...s, [tool.id]: v }))}
+      {catalog.state.status === 'loading' && <LoadingState label="Carregando catálogo…" />}
+      {catalog.state.status === 'error' && <ErrorState error={catalog.state.error} onRetry={catalog.reload} />}
+      {catalog.state.status === 'ready' && (
+        <div className="grid">
+          {catalog.state.data.map(({ definition: tool, availability }) => {
+            const badge = availabilityBadge[availability]
+            return (
+              <Card key={tool.id}>
+                <CardHeader
+                  title={
+                    <span className="row">
+                      <Wrench size={15} className="subtle" />
+                      {tool.name}
+                    </span>
+                  }
+                  subtitle={tool.source === 'plugin' ? `Plugin · v${tool.version}` : `Nativa · v${tool.version}`}
+                  actions={<FeatureBadge state={badge.state}>{badge.label}</FeatureBadge>}
                 />
-              }
-            />
-            <CardBody>
-              <p className="muted">{tool.description}</p>
-            </CardBody>
-            <CardFooter>
-              <div className="tag-list">
-                {tool.permissions.length === 0 ? <Tag>Sem permissões</Tag> : tool.permissions.map((p) => <Tag key={p}>{p}</Tag>)}
-              </div>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+                <CardBody>
+                  <p className="muted">{tool.description}</p>
+                </CardBody>
+                <CardFooter>
+                  <div className="tag-list" aria-label="Permissões declaradas">
+                    {tool.permissions.length === 0 ? (
+                      <Tag>Sem permissões</Tag>
+                    ) : (
+                      tool.permissions.map((p) => <Tag key={p}>{permissionLabel[p]}</Tag>)
+                    )}
+                  </div>
+                </CardFooter>
+              </Card>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

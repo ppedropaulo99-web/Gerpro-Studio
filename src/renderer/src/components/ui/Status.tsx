@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { cx } from '@renderer/lib/cx'
+import type { Tone } from './tone'
 
-export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'accent' | 'neutral'
+export type { Tone }
 
 interface StatusBadgeProps {
   tone: Tone

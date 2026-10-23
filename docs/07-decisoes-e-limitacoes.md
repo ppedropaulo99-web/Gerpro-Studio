@@ -29,13 +29,16 @@
 | D23 | — | Motor de inferência, Gerpro Web e módulos web: **decisão adiada** | Exigem autorização e definição da equipe |
 | D24 | 3.2.2 | Navegação pelo app com alterações não salvas pede confirmação ("Continuar editando" / "Descartar alterações") | Evitar perda silenciosa do que foi digitado (achado 1 da auditoria 3.2.1) |
 | D25 | 3.2.2 | Confirmação de ferramentas sensíveis e telemetria bloqueadas nos valores seguros; o Main recusa alterá-las; valores antigos preservados, mas sem efeito | Uma escolha feita sem a função existir não pode virar decisão efetiva depois (achado 2) |
+| D26 | 3.2.2 | Vocabulário único Real / Simulado / Planejado / Exemplo; modelos de exemplo sem estado operacional; controles sem efeito desativados | Nada fictício pode parecer operacional, e a demonstração futura precisa distinguir execuções reais de simuladas (Lote 2) |
 
 ## Limitações conhecidas
 
 ### Funcionais
 
-- Não há inferência, download de modelos nem chat real. As telas Chat,
-  Modelos, Início e Desenvolvedor usam dados de exemplo.
+- Não há inferência, download de modelos nem chat real. Chat, Modelos e os
+  logs do Desenvolvedor usam dados de exemplo, identificados com o selo
+  "Exemplo". No Início, modelos carregados e tokens aparecem como
+  "Planejado", sem valor.
 - Nenhuma ferramenta executa. Todas aparecem como `not-implemented`.
 - Nenhum agente fica `available`, porque falta o motor.
 - Execuções são só simuladas e se perdem ao fechar o app.
@@ -45,8 +48,8 @@
 - A proteção de alterações não salvas cobre a navegação pelo app (barra
   lateral e atalhos internos). Fechar a janela ou sair do aplicativo descarta
   as alterações sem perguntar.
-- Os interruptores da tela Ferramentas não são gravados: são só estado visual
-  da tela. `settings.tools.enabled` existe, mas nenhuma tela o altera.
+- A tela Ferramentas só exibe o catálogo; não há controle de ativação.
+  `settings.tools.enabled` existe, mas nenhuma tela o altera.
 - A detecção real de hardware não existe. O botão sempre leva a
   "indisponível".
 - Requisitos e tipos de tarefa só existem nos agentes de exemplo. Agentes

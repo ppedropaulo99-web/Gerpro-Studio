@@ -76,7 +76,11 @@ Conhecimento. **Nenhuma tem executor**, então todas aparecem como
   `reasoning`).
 - `ModelProfile` (recomendações): a parte do modelo relevante para avaliar
   hardware, mais `availability` (`installed` | `not-installed` |
-  `downloading` | `error`).
+  `downloading` | `error`) e `source` (`example` | `local-provider`).
+- `effectiveModelAvailability`: modelos com `source: 'example'` valem sempre
+  como `not-installed`, qualquer que seja o `availability` declarado. Assim,
+  um modelo fictício nunca aparece como instalado nem torna um agente
+  executável. Um provedor local futuro deverá informar `local-provider`.
 
 A tela Modelos e a biblioteca usada nas recomendações
 (`src/renderer/src/data/models.ts`) são **fictícias**. Ver

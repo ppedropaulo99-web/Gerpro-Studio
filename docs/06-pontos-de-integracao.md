@@ -58,8 +58,10 @@ obrigatórios. Nenhum deles está implementado.
   - Implementar os executores e registrá-los no `ToolRegistry`.
   - Criar o fluxo de **concessão de permissões** pelo usuário (hoje só há
     permissões "solicitadas").
-  - Ligar os interruptores da tela Ferramentas a `settings.tools.enabled`
-    (hoje são só estado visual).
+  - Adicionar à tela Ferramentas o controle de ativação ligado a
+    `settings.tools.enabled` (hoje a tela só exibe o catálogo, sem
+    interruptores) e trocar o selo "Execução planejada" pela disponibilidade
+    real.
 - **Cuidados:**
   - Validar a entrada contra `inputSchema` no Main.
   - Confirmar ferramentas sensíveis (`confirmSensitiveTools`).

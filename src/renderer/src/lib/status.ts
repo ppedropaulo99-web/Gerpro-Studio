@@ -1,10 +1,9 @@
 import type { ConsentStatus, HardwareAnalysisStatus } from '@shared/hardware'
-import type { LocalCapabilityLevel, RecommendationFit } from '@shared/recommendations'
+import type { LocalCapabilityLevel, ModelSource, RecommendationFit } from '@shared/recommendations'
 import type { AgentAvailabilityStatus, AgentConfigState } from '@shared/agents'
 import type { ModelStatus } from '@shared/engine'
 import type { RunOrigin, RunState } from '@shared/runs'
-import type { Tone } from '@renderer/components/ui'
-import type { AgentStatus } from '@renderer/data/types'
+import type { Tone } from '@renderer/components/ui/tone'
 
 interface StatusMeta {
   tone: Tone
@@ -12,12 +11,20 @@ interface StatusMeta {
   pulse?: boolean
 }
 
-/** Status dos agentes de exemplo (dados demonstrativos). */
-export const agentStatus: Record<AgentStatus, StatusMeta> = {
-  active: { tone: 'success', label: 'Ativo' },
-  idle: { tone: 'neutral', label: 'Ocioso' },
-  draft: { tone: 'info', label: 'Rascunho' },
-  error: { tone: 'danger', label: 'Com erro' }
+/**
+ * Estado funcional do que a tela mostra. Vocabulário único do app:
+ * - `real`: implementado e operacional (dados gravados, serviços do Main).
+ * - `simulated`: fluxo demonstrativo; a funcionalidade representada não roda.
+ * - `planned`: ainda não implementado.
+ * - `example`: registro fictício (agente, conversa, modelo, histórico).
+ */
+export type FeatureState = 'real' | 'simulated' | 'planned' | 'example'
+
+export const featureStatus: Record<FeatureState, StatusMeta & { description: string }> = {
+  real: { tone: 'success', label: 'Real', description: 'Funcionalidade implementada e operacional.' },
+  simulated: { tone: 'warning', label: 'Simulado', description: 'Demonstração: a funcionalidade representada não é executada.' },
+  planned: { tone: 'neutral', label: 'Planejado', description: 'Recurso ainda não implementado.' },
+  example: { tone: 'info', label: 'Exemplo', description: 'Registro fictício, mantido para demonstração.' }
 }
 
 /** Disponibilidade calculada pelo Main para agentes salvos. */
@@ -33,11 +40,20 @@ export const agentConfigState: Record<AgentConfigState, string> = {
   archived: 'Arquivado'
 }
 
+/** Estado de modelos informados por um provedor real. Modelos de exemplo não usam este mapa. */
 export const modelStatus: Record<ModelStatus, StatusMeta> = {
   loaded: { tone: 'success', label: 'Carregado' },
   available: { tone: 'neutral', label: 'Disponível' },
   downloading: { tone: 'accent', label: 'Baixando', pulse: true },
   error: { tone: 'danger', label: 'Erro' }
+}
+
+/**
+ * Estado operacional a exibir para um modelo. Modelos de exemplo não têm estado
+ * real (nem "Carregado", nem download): devolve `null` e a tela mostra o selo Exemplo.
+ */
+export function displayedModelStatus(source: ModelSource, status: ModelStatus): StatusMeta | null {
+  return source === 'example' ? null : modelStatus[status]
 }
 
 /** Estados do contrato de execuções. Dados de exemplo chegam aqui via `legacyRunState`. */

@@ -30,6 +30,14 @@ export const TASK_LABELS: Record<TaskType, string> = {
 
 export type ModelAvailability = 'installed' | 'not-installed' | 'downloading' | 'error'
 
+/**
+ * De onde vem o modelo:
+ * - `example`: biblioteca de exemplo da interface. A disponibilidade é
+ *   ilustrativa e nunca vale como instalação real.
+ * - `local-provider`: informado por um provedor local de modelos (futuro).
+ */
+export type ModelSource = 'example' | 'local-provider'
+
 export interface ModelProfile {
   id: string
   name: string
@@ -37,6 +45,12 @@ export interface ModelProfile {
   contextLength: number
   capabilities: ModelDescriptor['capabilities']
   availability: ModelAvailability
+  source: ModelSource
+}
+
+/** Disponibilidade que vale para as recomendações: modelos de exemplo nunca estão instalados. */
+export function effectiveModelAvailability(model: Pick<ModelProfile, 'availability' | 'source'>): ModelAvailability {
+  return model.source === 'example' ? 'not-installed' : model.availability
 }
 
 /** Recursos de que o agente precisa. Declarados ou estimados a partir do modelo. */
@@ -227,9 +241,12 @@ export function recommendAgent(candidate: RecommendationCandidate, ctx: Recommen
   if (!model) {
     add('unknown', 'model', candidate.modelRef ? `Modelo "${candidate.modelRef}" não está na biblioteca: requisitos desconhecidos.` : 'Nenhum modelo definido.')
   } else {
-    if (model.availability === 'installed') add('positive', 'model', `${model.name} já está disponível localmente.`)
-    else if (model.availability === 'not-installed') add('notice', 'model', `Será preciso baixar ${model.name} (${gb(model.sizeGb)}).`)
-    else if (model.availability === 'downloading') add('limitation', 'model', `${model.name} ainda está sendo baixado.`)
+    const availability = effectiveModelAvailability(model)
+    if (model.source === 'example') {
+      add('notice', 'model', `${model.name} é um modelo da biblioteca de exemplo: não está instalado neste computador (seria preciso baixar ${gb(model.sizeGb)}).`)
+    } else if (availability === 'installed') add('positive', 'model', `${model.name} já está disponível localmente.`)
+    else if (availability === 'not-installed') add('notice', 'model', `Será preciso baixar ${model.name} (${gb(model.sizeGb)}).`)
+    else if (availability === 'downloading') add('limitation', 'model', `${model.name} ainda está sendo baixado.`)
     else add('limitation', 'model', `${model.name} falhou no último carregamento.`)
     if (tools.length > 0 && !model.capabilities.includes('tools')) {
       add('limitation', 'model', `${model.name} não declara suporte a ferramentas.`)
@@ -287,7 +304,7 @@ export function recommendAgent(candidate: RecommendationCandidate, ctx: Recommen
     else if (requirements.minRamGb >= 3) add('limitation', 'gpu', 'Sem GPU dedicada: execução só na CPU, mais lenta.')
     else add('positive', 'gpu', 'Modelo leve, adequado à execução na CPU.')
 
-    if (model?.availability !== 'installed') {
+    if (!model || effectiveModelAvailability(model) !== 'installed') {
       if (hw.storage === null) add('unknown', 'storage', 'Espaço em disco não identificado.')
       else if (hw.storage.freeGb < requirements.diskGb + 2) {
         add('blocker', 'storage', `Requer ~${gb(requirements.diskGb)} livres para o modelo; há ${gb(hw.storage.freeGb)}.`)
@@ -316,7 +333,11 @@ export function recommendAgent(candidate: RecommendationCandidate, ctx: Recommen
         : 'recommended-local'
 
   const executableNow =
-    ctx.engineAvailable && (fit === 'recommended-local' || fit === 'limited') && pendingTools.length === 0 && model?.availability === 'installed'
+    ctx.engineAvailable &&
+    (fit === 'recommended-local' || fit === 'limited') &&
+    pendingTools.length === 0 &&
+    model !== null &&
+    effectiveModelAvailability(model) === 'installed'
 
   return { agentId: candidate.agentId, origin: candidate.origin, fit, taskMatch, executableNow, requirements, reasons }
 }

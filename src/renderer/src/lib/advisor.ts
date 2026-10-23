@@ -9,6 +9,7 @@ import type { Agent, LibraryModel } from '@renderer/data/types'
  * Puros: sem React e sem `window`, para que possam ser testados e reaproveitados.
  */
 
+/** Estado ilustrativo dos exemplos; o motor de recomendações não o trata como real (`source: 'example'`). */
 const MODEL_AVAILABILITY: Record<LibraryModel['status'], ModelAvailability> = {
   loaded: 'installed',
   available: 'installed',
@@ -23,7 +24,9 @@ export function modelProfileFrom(model: LibraryModel): ModelProfile {
     sizeGb: model.sizeGb,
     contextLength: model.contextLength,
     capabilities: model.capabilities,
-    availability: MODEL_AVAILABILITY[model.status]
+    availability: MODEL_AVAILABILITY[model.status],
+    // A biblioteca da interface é de exemplo: nada aqui foi detectado neste computador.
+    source: 'example'
   }
 }
 

@@ -298,6 +298,7 @@
 .select:disabled,
 .textarea:disabled {
   opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .input-icon {

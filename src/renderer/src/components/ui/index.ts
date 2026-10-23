@@ -6,3 +6,4 @@ export { Field, TextInput, TextArea, Select, SearchInput, Switch, SwitchRow, Seg
 export { Notice, EmptyState } from './Notice'
 export { LoadingState, ErrorState, FieldError } from './Feedback'
 export { ConfirmDialog } from './Dialog'
+export { FeatureBadge, FeatureNotice } from './FeatureStatus'

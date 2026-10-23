@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react'
-import { Button, EmptyState, Select, TextArea } from '@renderer/components/ui'
+import { Button, EmptyState, FeatureBadge, Select, TextArea } from '@renderer/components/ui'
 import { conversations } from '@renderer/data/conversations'
 import { agentById } from '@renderer/data/agents'
 import { models } from '@renderer/data/models'
@@ -10,16 +10,25 @@ const chatModels = models.filter((m) => m.capabilities.includes('chat'))
 
 export function ChatPage() {
   const [activeId, setActiveId] = useState(conversations[0].id)
-  const [modelId, setModelId] = useState(chatModels[0].id)
   const active = conversations.find((c) => c.id === activeId) ?? conversations[0]
 
   return (
     <div className="page page--full chat">
       <aside className="chat__list" aria-label="Conversas">
-        <div className="chat__list-head">
-          <Button variant="secondary" icon={<MessageSquarePlus size={16} />} style={{ width: '100%' }} disabled>
+        <div className="chat__list-head stack" style={{ gap: 'var(--space-2)' }}>
+          <Button
+            variant="secondary"
+            icon={<MessageSquarePlus size={16} />}
+            style={{ width: '100%' }}
+            disabled
+            title="Planejado: depende do motor de IA"
+          >
             Nova conversa
           </Button>
+          <div className="row between">
+            <span className="subtle">Conversas de exemplo</span>
+            <FeatureBadge state="example" />
+          </div>
         </div>
         {conversations.map((c) => (
           <button
@@ -41,15 +50,22 @@ export function ChatPage() {
         <header className="chat__head">
           <div className="stack" style={{ gap: 0, minWidth: 0 }}>
             <h2 className="truncate">{active.title}</h2>
-            <span className="subtle">{active.agentId ? agentById[active.agentId]?.name : 'Conversa livre'}</span>
+            <span className="subtle">
+              {active.agentId ? agentById[active.agentId]?.name : 'Conversa livre'} · conversa de exemplo, sem resposta de IA real
+            </span>
           </div>
-          <Select
-            aria-label="Modelo"
-            style={{ width: 220 }}
-            value={modelId}
-            onChange={(e) => setModelId(e.target.value)}
-            options={chatModels.map((m) => ({ value: m.id, label: m.name }))}
-          />
+          <div className="row">
+            <FeatureBadge state="planned">Inferência planejada</FeatureBadge>
+            {/* Sem motor conectado, escolher modelo não teria efeito: o seletor fica desativado. */}
+            <Select
+              aria-label="Modelo (indisponível: motor de IA não conectado)"
+              title="Planejado: a escolha de modelo depende do motor de IA"
+              style={{ width: 220 }}
+              value={chatModels[0].id}
+              disabled
+              options={chatModels.map((m) => ({ value: m.id, label: `${m.name} (exemplo)` }))}
+            />
+          </div>
         </header>
 
         <div className="chat__thread">
@@ -66,7 +82,7 @@ export function ChatPage() {
 
         <footer className="chat__composer">
           <TextArea
-            placeholder="O motor de IA ainda não está conectado neste protótipo."
+            placeholder="Envio planejado: o motor de IA ainda não está conectado."
             rows={2}
             disabled
             aria-label="Mensagem"
