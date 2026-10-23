@@ -1,4 +1,6 @@
 import { join } from 'node:path'
+import { DemoHardwareDetector, UnimplementedLocalDetector } from '../hardware/detectors'
+import { HardwareAdvisorService } from '../hardware/hardware-advisor-service'
 import { DemoRunManager } from '../runs/demo-run-manager'
 import { BUILTIN_TOOLS } from '../tools/catalog'
 import { ToolRegistry } from '../tools/tool-registry'
@@ -10,6 +12,7 @@ export interface Services {
   agents: AgentService
   tools: ToolRegistry
   runs: DemoRunManager
+  hardware: HardwareAdvisorService
 }
 
 /**
@@ -21,10 +24,17 @@ export async function createServices(dataDir: string, options: { stepDelayMs?: n
   const tools = new ToolRegistry(BUILTIN_TOOLS)
   // Nenhum motor de inferência nesta etapa.
   const agents = new AgentService({ filePath: join(dataDir, 'agents.json'), tools, settings, engineAvailable: () => false })
+  // Detecção real ainda não implementada: só o detector demonstrativo funciona.
+  const hardware = new HardwareAdvisorService({
+    filePath: join(dataDir, 'hardware.json'),
+    localDetector: new UnimplementedLocalDetector(),
+    demoDetector: (scenario) => new DemoHardwareDetector(scenario)
+  })
 
   for (const [name, status] of [
     ['settings', await settings.init()],
-    ['agents', await agents.init()]
+    ['agents', await agents.init()],
+    ['hardware', await hardware.init()]
   ] as const) {
     if (status.state === 'recovered' || status.state === 'read-only') {
       console.warn(`[storage] ${name}: ${status.state}`, status.issues, status.backupPath ?? '')
@@ -41,5 +51,5 @@ export async function createServices(dataDir: string, options: { stepDelayMs?: n
     }
   })
 
-  return { settings, agents, tools, runs }
+  return { settings, agents, tools, runs, hardware }
 }

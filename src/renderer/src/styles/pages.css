@@ -298,3 +298,47 @@
   font-size: var(--text-xs);
   color: var(--danger);
 }
+
+/* Hardware Advisor (etapa 3.1) */
+.text-success {
+  color: var(--success);
+}
+
+.text-warning {
+  color: var(--warning);
+}
+
+.text-info {
+  color: var(--info);
+}
+
+.reason-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.reason-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.reason-list svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.disclosure > summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.disclosure[open] > summary {
+  margin-bottom: var(--space-2);
+}

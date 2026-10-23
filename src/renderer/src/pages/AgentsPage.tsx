@@ -4,6 +4,7 @@ import type { AgentDefinition, AgentDraft, AgentRecord } from '@shared/agents'
 import type { StructuredError } from '@shared/errors'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
 import { AgentEditor } from '@renderer/components/agents/AgentEditor'
+import { AgentRecommendations } from '@renderer/components/hardware/AgentRecommendations'
 import {
   Button,
   Card,
@@ -211,6 +212,10 @@ export function AgentsPage() {
           </div>
         )}
       </section>
+
+      {saved.state.status === 'ready' && tools.state.status === 'ready' && (
+        <AgentRecommendations saved={saved.state.data} tools={tools.state.data} />
+      )}
 
       <ExampleAgents
         canDuplicate={saved.state.status === 'ready' && tools.state.status === 'ready'}

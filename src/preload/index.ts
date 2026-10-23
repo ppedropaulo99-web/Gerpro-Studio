@@ -32,6 +32,12 @@ const api: GerproApi = {
         ipcRenderer.removeListener(IpcEvents.runsUpdated, handler)
       }
     }
+  },
+  hardware: {
+    getState: () => ipcRenderer.invoke(IpcChannels.hardwareGetState),
+    setLocalConsent: (change) => ipcRenderer.invoke(IpcChannels.hardwareSetLocalConsent, change),
+    analyze: (request) => ipcRenderer.invoke(IpcChannels.hardwareAnalyze, request),
+    deleteData: () => ipcRenderer.invoke(IpcChannels.hardwareDeleteData)
   }
 }
 

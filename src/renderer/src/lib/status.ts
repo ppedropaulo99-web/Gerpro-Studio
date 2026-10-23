@@ -1,3 +1,5 @@
+import type { ConsentStatus, HardwareAnalysisStatus } from '@shared/hardware'
+import type { LocalCapabilityLevel, RecommendationFit } from '@shared/recommendations'
 import type { AgentAvailabilityStatus, AgentConfigState } from '@shared/agents'
 import type { ModelStatus } from '@shared/engine'
 import type { RunOrigin, RunState } from '@shared/runs'
@@ -50,4 +52,35 @@ export const runState: Record<RunState, StatusMeta> = {
 export const runOrigin: Record<RunOrigin, StatusMeta> = {
   simulated: { tone: 'warning', label: 'Simulada' },
   real: { tone: 'success', label: 'Real' }
+}
+
+export const hardwareStatus: Record<HardwareAnalysisStatus, StatusMeta & { description: string }> = {
+  'not-authorized': { tone: 'neutral', label: 'Não autorizado', description: 'A análise de hardware está desativada. O Gerpro Studio funciona normalmente sem ela.' },
+  'awaiting-analysis': { tone: 'info', label: 'Aguardando análise', description: 'Autorizado. Nenhuma análise foi feita ainda.' },
+  unavailable: { tone: 'warning', label: 'Análise indisponível', description: 'O detector não está disponível neste computador ou nesta versão.' },
+  completed: { tone: 'success', label: 'Análise concluída', description: 'Perfil de hardware disponível para recomendações.' },
+  stale: { tone: 'warning', label: 'Dados desatualizados', description: 'O perfil é antigo e pode não refletir o computador atual.' },
+  error: { tone: 'danger', label: 'Erro na análise', description: 'A última análise falhou.' }
+}
+
+export const consentStatus: Record<ConsentStatus, string> = {
+  'not-asked': 'Ainda não decidido',
+  granted: 'Autorizado',
+  denied: 'Recusado',
+  revoked: 'Autorização desativada'
+}
+
+export const recommendationFit: Record<RecommendationFit, StatusMeta> = {
+  'recommended-local': { tone: 'success', label: 'Recomendado para execução local' },
+  limited: { tone: 'warning', label: 'Compatível com limitações' },
+  'needs-resources': { tone: 'danger', label: 'Requer recursos adicionais' },
+  unknown: { tone: 'neutral', label: 'Compatibilidade desconhecida' }
+}
+
+export const localCapability: Record<LocalCapabilityLevel, StatusMeta> = {
+  high: { tone: 'success', label: 'Alta' },
+  medium: { tone: 'success', label: 'Média' },
+  low: { tone: 'warning', label: 'Baixa' },
+  insufficient: { tone: 'danger', label: 'Insuficiente' },
+  unknown: { tone: 'neutral', label: 'Desconhecida' }
 }

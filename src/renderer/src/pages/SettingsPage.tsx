@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, Save } from 'lucide-react'
 import type { AppSettings } from '@shared/settings'
+import { HardwarePanel } from '@renderer/components/hardware/HardwarePanel'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
 import {
   Button,
@@ -47,6 +48,8 @@ export function SettingsPage() {
           {state.status === 'loading' ? <LoadingState label="Carregando configurações…" /> : <ErrorState error={state.error} onRetry={reload} />}
         </>
       )}
+      {/* Independente do formulário: funciona mesmo se as preferências não carregarem. */}
+      <HardwarePanel />
     </div>
   )
 }

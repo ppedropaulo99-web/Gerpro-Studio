@@ -19,7 +19,7 @@ interface HandlerSpec {
 export type DataChannel = Exclude<(typeof IpcChannels)[keyof typeof IpcChannels], typeof IpcChannels.appGetInfo>
 
 export function createDataHandlers(services: Services): Record<DataChannel, HandlerSpec> {
-  const { settings, agents, tools, runs } = services
+  const { settings, agents, tools, runs, hardware } = services
   return {
     [IpcChannels.settingsGet]: { arity: 0, run: () => settings.get() },
     [IpcChannels.settingsUpdate]: { arity: 1, run: ([patch]) => settings.update(patch) },
@@ -30,7 +30,11 @@ export function createDataHandlers(services: Services): Record<DataChannel, Hand
     [IpcChannels.toolsList]: { arity: 0, run: () => tools.list(settings.get().tools.enabled) },
     [IpcChannels.runsList]: { arity: 0, run: () => runs.list() },
     [IpcChannels.runsStartDemo]: { arity: 1, run: ([request]) => runs.start(request) },
-    [IpcChannels.runsCancel]: { arity: 1, run: ([id]) => runs.cancel(id) }
+    [IpcChannels.runsCancel]: { arity: 1, run: ([id]) => runs.cancel(id) },
+    [IpcChannels.hardwareGetState]: { arity: 0, run: () => hardware.getState() },
+    [IpcChannels.hardwareSetLocalConsent]: { arity: 1, run: ([change]) => hardware.setLocalConsent(change) },
+    [IpcChannels.hardwareAnalyze]: { arity: 1, run: ([request]) => hardware.analyze(request) },
+    [IpcChannels.hardwareDeleteData]: { arity: 0, run: () => hardware.deleteData() }
   }
 }
 

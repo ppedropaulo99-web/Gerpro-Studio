@@ -8,6 +8,7 @@
 
 import type { AgentDraft, AgentRecord } from './agents'
 import type { Result } from './errors'
+import type { AnalysisRequest, HardwareAdvisorState, LocalConsentChange } from './hardware'
 import type { DemoRunRequest, RunRecord } from './runs'
 import type { AppSettings, SettingsPatch } from './settings'
 import type { ToolCatalogEntry } from './tools'
@@ -23,7 +24,11 @@ export const IpcChannels = {
   toolsList: 'tools:list',
   runsList: 'runs:list',
   runsStartDemo: 'runs:start-demo',
-  runsCancel: 'runs:cancel'
+  runsCancel: 'runs:cancel',
+  hardwareGetState: 'hardware:get-state',
+  hardwareSetLocalConsent: 'hardware:set-local-consent',
+  hardwareAnalyze: 'hardware:analyze',
+  hardwareDeleteData: 'hardware:delete-data'
 } as const
 
 /** Canais de evento Main → Renderer. */
@@ -73,5 +78,14 @@ export interface GerproApi {
     cancel(id: string): Promise<Result<RunRecord>>
     /** Recebe cada mudança de execução. Devolve a função que cancela a inscrição. */
     onUpdated(listener: (run: RunRecord) => void): () => void
+  }
+  /** Gerpro Hardware Advisor. Nesta etapa, só análises demonstrativas produzem dados (fictícios). */
+  hardware: {
+    getState(): Promise<Result<HardwareAdvisorState>>
+    /** Autoriza ou revoga a análise local. Revogar pode apagar os dados (`deleteData`). */
+    setLocalConsent(change: LocalConsentChange): Promise<Result<HardwareAdvisorState>>
+    /** Exige autorização. `mode: 'real'` responde "indisponível" nesta etapa. */
+    analyze(request: AnalysisRequest): Promise<Result<HardwareAdvisorState>>
+    deleteData(): Promise<Result<HardwareAdvisorState>>
   }
 }

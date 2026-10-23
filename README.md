@@ -2,8 +2,9 @@
 
 Aplicação desktop de IA. Etapa 1: protótipo visual navegável. Etapa 2.1: núcleo funcional
 (contratos, persistência local e IPC). Etapa 2.2: telas Agentes, Configurações e Execuções
-conectadas ao Main.
-Ainda não há inferência, execução de ferramentas nem integrações externas.
+conectadas ao Main. Etapa 3.1: Gerpro Hardware Advisor (contratos, consentimento e fluxos
+demonstrativos; ver `src/main/hardware/README.md`).
+Ainda não há inferência, detecção real de hardware, execução de ferramentas nem integrações externas.
 
 ## Dados reais × demonstrativos
 
@@ -13,6 +14,8 @@ Ainda não há inferência, execução de ferramentas nem integrações externas
 | Configurações | Todas as preferências, gravadas (ainda sem efeito no app) | — |
 | Execuções | "Execuções simuladas desta sessão" (só em memória, `origin: simulated`) | "Histórico de exemplo" |
 | Barra lateral | Contadores de agentes salvos e simulações em andamento | — |
+| Configurações › Hardware e desempenho | Consentimento (gravado, revogável) e exclusão de dados | Perfis de hardware fictícios |
+| Agentes › Recomendações | Agentes salvos entram na avaliação | Perfil de hardware e biblioteca de modelos fictícios |
 | Início, Chat, Modelos, Ferramentas | — | Inalteradas (protótipo) |
 
 Os estados dos dados de exemplo são convertidos para o contrato por `legacyRunState`
@@ -98,12 +101,13 @@ src/
 - **DevTools** só em desenvolvimento.
 
 Canais IPC: `app:get-info`, `settings:get|update`, `agents:list|create|update|delete`, `tools:list`,
-`runs:list|start-demo|cancel` e o evento `runs:updated`. Os canais de dados recebem argumentos
+`runs:list|start-demo|cancel`, `hardware:get-state|set-local-consent|analyze|delete-data`
+e o evento `runs:updated`. Os canais de dados recebem argumentos
 como `unknown`, validam no Main e respondem `Result<T>` (`{ ok, data }` ou `{ ok, error }`).
 
 ## Persistência local
 
-Arquivos em `<userData>/storage/` (`settings.json`, `agents.json`), gravados só pelo Main:
+Arquivos em `<userData>/storage/` (`settings.json`, `agents.json`, `hardware.json`), gravados só pelo Main:
 
 - Envelope versionado `{ format, formatVersion, savedAt, data }`, com migrações por versão.
 - Escrita atômica (temporário + `fsync` + `rename`), gravações serializadas.
