@@ -168,7 +168,7 @@ describe('motor de recomendações', () => {
     assert.equal(recommendAgent(candidate({ tools: ['calculator'] }), ctx({ engineAvailable: true })).executableNow, false)
   })
 
-  it('hardware insuficiente: requer recursos adicionais, com motivos', () => {
+  it('pouca memória e disco no perfil: não recomendado (needs-resources), com motivos', () => {
     const big = candidate({ model: model({ name: 'Grande', sizeGb: 10.2, availability: 'not-installed' }) })
     const r = recommendAgent(big, ctx({ hardware: profile('modest') }))
     assert.equal(r.fit, 'needs-resources')

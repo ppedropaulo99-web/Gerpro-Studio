@@ -1,7 +1,17 @@
 import type { AgentRecord } from '@shared/agents'
 import type { HardwareAdvisorState, HardwareProfile } from '@shared/hardware'
 import { usableProfile } from '@shared/hardware'
-import { gb, type AgentRequirements, type ModelAvailability, type ModelProfile, type RecommendationCandidate, type TaskType } from '@shared/recommendations'
+import {
+  gb,
+  type AgentRequirements,
+  type LocalCapability,
+  type ModelAvailability,
+  type ModelProfile,
+  type Recommendation,
+  type RecommendationCandidate,
+  type ReasonFactor,
+  type TaskType
+} from '@shared/recommendations'
 import type { Agent, LibraryModel } from '@renderer/data/types'
 
 /**
@@ -118,4 +128,91 @@ export function diagnosticRows(p: HardwareProfile): DiagnosticRow[] {
       ? unknown('Aceleração')
       : { label: 'Aceleração', value: p.acceleration.length ? p.acceleration.map((a) => a.toUpperCase()).join(', ') : 'Nenhuma conhecida', known: true }
   ]
+}
+
+/**
+ * Conclusão simples do Advisor: o que a estimativa indica e o que fazer.
+ * Só apresentação, derivada do resultado já calculado em `@shared`; os detalhes
+ * técnicos ficam recolhidos na tela. Fala do perfil analisado, nunca julga o equipamento.
+ */
+export interface AdvisorConclusion {
+  headline: string
+  action: string
+}
+
+export function capabilityConclusion(estimate: LocalCapability): AdvisorConclusion {
+  const upTo = estimate.maxModelSizeGb === null ? '' : ` de até ~${gb(estimate.maxModelSizeGb)}`
+  switch (estimate.level) {
+    case 'high':
+      return {
+        headline: 'Estimativa: o perfil analisado deve comportar modelos grandes e médios.',
+        action: 'Todos os agentes da biblioteca são opções; os detalhes de cada um aparecem em Agentes.'
+      }
+    case 'medium':
+      return {
+        headline: 'Estimativa: o perfil analisado deve comportar modelos pequenos e médios.',
+        action: `Prefira agentes com modelos${upTo}.`
+      }
+    case 'low':
+      return {
+        headline: 'Estimativa: modelos pequenos são os mais indicados para o perfil analisado.',
+        action: `Prefira agentes com modelos leves${upTo && `,${upTo}`}; modelos maiores tendem a responder mais devagar.`
+      }
+    case 'insufficient':
+      return {
+        headline: 'Estimativa: os modelos locais teriam pouca folga de memória no perfil analisado.',
+        action: 'Prefira os modelos mais leves e feche outros aplicativos antes de usar um agente.'
+      }
+    case 'unknown':
+      return {
+        headline: 'Ainda não há dados suficientes para estimar.',
+        action: 'Execute uma nova análise para obter uma estimativa.'
+      }
+  }
+}
+
+const LIMITATION_ACTION: Partial<Record<ReasonFactor, string>> = {
+  memory: 'Feche outros aplicativos antes de usar, para liberar memória.',
+  gpu: 'Espere respostas mais demoradas do que em um perfil com GPU dedicada.',
+  cpu: 'Espere respostas mais demoradas.',
+  acceleration: 'Espere respostas mais demoradas.',
+  storage: 'Libere espaço em disco antes de baixar o modelo.',
+  model: 'Revise o modelo escolhido para o agente.',
+  tools: 'Revise as ferramentas do agente.'
+}
+
+const BLOCKER_ACTION: Partial<Record<ReasonFactor, string>> = {
+  memory: 'Prefira um agente com modelo menor.',
+  storage: 'Libere espaço em disco ou prefira um agente com modelo menor.'
+}
+
+export function recommendationConclusion(rec: Recommendation): AdvisorConclusion {
+  const first = (kind: string) => rec.reasons.find((r) => r.kind === kind && r.factor !== 'task')
+  switch (rec.fit) {
+    case 'recommended-local':
+      return { headline: 'Estimativa: compatível com o perfil analisado.', action: 'Nenhum ajuste necessário.' }
+    case 'limited': {
+      const limitation = first('limitation')
+      return {
+        headline: 'Estimativa: deve funcionar, com ressalvas.',
+        action: (limitation && LIMITATION_ACTION[limitation.factor]) ?? 'Alguns dados do perfil não foram identificados; uma nova análise pode completar a estimativa.'
+      }
+    }
+    case 'needs-resources': {
+      const blocker = first('blocker')
+      return {
+        headline: 'Não recomendado para o perfil analisado (estimativa).',
+        action: (blocker && BLOCKER_ACTION[blocker.factor]) ?? 'Prefira um agente com modelo menor.'
+      }
+    }
+    case 'unknown': {
+      if (rec.reasons.some((r) => r.factor === 'hardware')) {
+        return { headline: 'Compatibilidade não verificada.', action: 'Execute uma análise em Configurações › Hardware e desempenho.' }
+      }
+      if (rec.reasons.some((r) => r.factor === 'model' && r.kind === 'unknown') || !rec.requirements) {
+        return { headline: 'Compatibilidade não verificada.', action: 'Escolha um modelo da biblioteca para que os requisitos possam ser estimados.' }
+      }
+      return { headline: 'Compatibilidade não verificada.', action: 'Execute uma nova análise para completar os dados do perfil.' }
+    }
+  }
 }

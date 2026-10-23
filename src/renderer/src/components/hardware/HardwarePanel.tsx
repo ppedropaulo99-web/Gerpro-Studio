@@ -1,7 +1,14 @@
 import { useState } from 'react'
 import { Cpu, FlaskConical, ScanSearch, ShieldCheck, Trash2 } from 'lucide-react'
 import type { StructuredError } from '@shared/errors'
-import { DEMO_SCENARIOS, HARDWARE_DATA_POINTS, type DemoScenario, type HardwareAdvisorState, type LocalAnalysisScope } from '@shared/hardware'
+import {
+  DEMO_SCENARIOS,
+  HARDWARE_DATA_POINTS,
+  type DemoScenario,
+  type HardwareAdvisorState,
+  type HardwareProfile,
+  type LocalAnalysisScope
+} from '@shared/hardware'
 import { estimateLocalCapability } from '@shared/recommendations'
 import { ReasonList } from '@renderer/components/hardware/ReasonList'
 import {
@@ -18,18 +25,19 @@ import {
   SwitchRow,
   Tag
 } from '@renderer/components/ui'
-import { diagnosticRows } from '@renderer/lib/advisor'
+import { capabilityConclusion, diagnosticRows } from '@renderer/lib/advisor'
 import { callApi } from '@renderer/lib/api'
 import { formatDateTime } from '@renderer/lib/format'
 import { consentStatus, hardwareStatus, localCapability } from '@renderer/lib/status'
 import { useResource } from '@renderer/lib/use-resource'
 
+/** Perfis fictícios descritos pelos recursos que simulam, sem julgar o equipamento. */
 const scenarioLabels: Record<DemoScenario, string> = {
-  workstation: 'Estação de trabalho com GPU',
-  modest: 'Computador modesto (hardware insuficiente)',
-  partial: 'Dados parciais (GPU e disco desconhecidos)',
+  workstation: 'GPU dedicada e 32 GB',
+  modest: '8 GB, sem GPU dedicada',
+  partial: 'Dados parciais (GPU e disco não identificados)',
   stale: 'Análise antiga (dados desatualizados)',
-  error: 'Falha do detector (erro)'
+  error: 'Falha simulada do detector'
 }
 
 const confidenceLabel = { high: 'alta', medium: 'média', low: 'baixa' } as const
@@ -68,7 +76,7 @@ export function HardwarePanel() {
             Hardware e desempenho
           </span>
         }
-        subtitle="Gerpro Hardware Advisor: avalia os recursos do computador para recomendar agentes e modelos"
+        subtitle="Gerpro Hardware Advisor: estima a compatibilidade de agentes e modelos com os recursos analisados"
       />
       <CardBody className="stack" style={{ gap: 'var(--space-4)' }}>
         <Notice tone="warning" icon={<FlaskConical size={16} />}>
@@ -238,23 +246,13 @@ function AdvisorBody({ s, busy, scenario, onScenario, onGrant, onDeny, onRevoke,
             ) : (
               <StatusBadge tone="success">Detectado neste computador</StatusBadge>
             )}
-            <Tag>Coletado em {formatDateTime(profile.provenance.collectedAt)}</Tag>
-            <Tag>Confiabilidade {confidenceLabel[profile.provenance.confidence]}</Tag>
-            <Tag>{profile.provenance.detectorId}</Tag>
+            <Tag>Estimativa</Tag>
           </div>
           {s.status === 'stale' && (
             <Notice tone="warning">
               Estes dados têm mais de {s.staleAfterDays} dias. Execute uma nova análise para atualizar as recomendações.
             </Notice>
           )}
-          <dl className="specs">
-            {diagnosticRows(profile).map((row) => (
-              <div key={row.label}>
-                <dt>{row.label}</dt>
-                <dd className={row.known ? undefined : 'subtle'}>{row.value}</dd>
-              </div>
-            ))}
-          </dl>
           <CapabilityEstimate profile={profile} />
         </div>
       )}
@@ -270,18 +268,42 @@ function AdvisorBody({ s, busy, scenario, onScenario, onGrant, onDeny, onRevoke,
   )
 }
 
-function CapabilityEstimate({ profile }: { profile: Parameters<typeof estimateLocalCapability>[0] }) {
+/** Conclusão e ação sugerida à vista; perfil, origem e motivos recolhidos em "Ver detalhes técnicos". */
+function CapabilityEstimate({ profile }: { profile: HardwareProfile }) {
   const estimate = estimateLocalCapability(profile)
   const meta = localCapability[estimate.level]
+  const conclusion = capabilityConclusion(estimate)
   return (
     <div className="stack" style={{ gap: 'var(--space-2)' }}>
-      <div className="row between">
+      <div className="row between" style={{ flexWrap: 'wrap' }}>
         <span className="field__label">Compatibilidade estimada com processamento local</span>
         <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
       </div>
-      <span className="muted">{estimate.summary}</span>
-      <ReasonList reasons={estimate.reasons} />
-      <span className="field__hint">Estimativa aproximada. Sem motor de IA, nenhum modelo é executado nesta versão.</span>
+      <span>{conclusion.headline}</span>
+      <span className="muted">Sugestão: {conclusion.action}</span>
+      <details className="disclosure">
+        <summary>Ver detalhes técnicos</summary>
+        <div className="stack" style={{ gap: 'var(--space-3)' }}>
+          <div className="row" style={{ flexWrap: 'wrap' }}>
+            <Tag>Coletado em {formatDateTime(profile.provenance.collectedAt)}</Tag>
+            <Tag>Confiabilidade {confidenceLabel[profile.provenance.confidence]}</Tag>
+            <Tag>{profile.provenance.detectorId}</Tag>
+          </div>
+          <dl className="specs">
+            {diagnosticRows(profile).map((row) => (
+              <div key={row.label}>
+                <dt>{row.label}</dt>
+                <dd className={row.known ? undefined : 'subtle'}>{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+          {estimate.summary && <span className="muted">{estimate.summary}</span>}
+          <ReasonList reasons={estimate.reasons} />
+          <span className="field__hint">
+            Estimativa aproximada, feita só com os dados acima. Sem motor de IA, nenhum modelo é executado nesta versão.
+          </span>
+        </div>
+      </details>
     </div>
   )
 }

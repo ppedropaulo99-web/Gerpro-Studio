@@ -77,7 +77,7 @@ describe('Advisor na interface', () => {
     const workstation = await fitsFor('workstation')
     const modest = await fitsFor('modest')
     assert.ok(!workstation.has('needs-resources'), 'a estação comporta todos os exemplos')
-    assert.ok(modest.has('needs-resources'), 'o computador modesto não comporta alguns')
+    assert.ok(modest.has('needs-resources'), 'o perfil de 8 GB sem GPU tem agentes não recomendados')
     assert.deepEqual(new Set([...workstation, ...modest]), new Set(['recommended-local', 'limited', 'needs-resources', 'unknown']))
   })
 

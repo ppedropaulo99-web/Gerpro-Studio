@@ -10,7 +10,7 @@ import { Button, Card, CardBody, EmptyState, ErrorState, FeatureBadge, LoadingSt
 import { exampleAgentProfiles } from '@renderer/data/agent-requirements'
 import { agents as exampleAgents } from '@renderer/data/agents'
 import { models } from '@renderer/data/models'
-import { advisorHardware, buildCandidates } from '@renderer/lib/advisor'
+import { advisorHardware, buildCandidates, recommendationConclusion } from '@renderer/lib/advisor'
 import { recommendationFit } from '@renderer/lib/status'
 import { useResource } from '@renderer/lib/use-resource'
 
@@ -89,7 +89,10 @@ function Body({
           </div>
         </Notice>
       )}
-      <Notice tone="neutral">Nenhum agente pode ser executado agora: o motor de IA não está disponível. A compatibilidade indica apenas a adequação ao hardware.</Notice>
+      <Notice tone="neutral">
+        Nenhum agente pode ser executado agora: o motor de IA não está disponível. A compatibilidade é uma estimativa feita a partir do
+        perfil de hardware e não foi confirmada em execução.
+      </Notice>
 
       <div className="toolbar">
         <Segmented label="Tipo de tarefa" value={task} onChange={onTask} options={taskOptions} />
@@ -103,7 +106,7 @@ function Body({
             {recs.map((rec) => {
               const candidate = byKey.get(`${rec.origin}:${rec.agentId}`)
               const meta = recommendationFit[rec.fit]
-              const key = rec.reasons.find((r) => r.kind === 'blocker') ?? rec.reasons.find((r) => r.kind === 'limitation') ?? rec.reasons.find((r) => r.kind === 'unknown')
+              const conclusion = recommendationConclusion(rec)
               return (
                 <div key={`${rec.origin}:${rec.agentId}`} className="list-row" style={{ alignItems: 'flex-start' }}>
                   <div className="stack" style={{ gap: 'var(--space-2)', minWidth: 0, flex: 1 }}>
@@ -114,9 +117,10 @@ function Body({
                       {rec.taskMatch === 'mismatch' && <Tag>Outra especialidade</Tag>}
                       {rec.requirements && <Tag>{rec.requirements.source === 'declared' ? 'Requisitos declarados' : 'Requisitos estimados'}</Tag>}
                     </div>
-                    {key && <span className="subtle">{key.message}</span>}
+                    <span>{conclusion.headline}</span>
+                    <span className="subtle">Sugestão: {conclusion.action}</span>
                     <details className="disclosure">
-                      <summary>Ver justificativa</summary>
+                      <summary>Ver detalhes técnicos</summary>
                       <ReasonList reasons={rec.reasons} />
                     </details>
                   </div>

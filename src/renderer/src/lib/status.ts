@@ -86,17 +86,22 @@ export const consentStatus: Record<ConsentStatus, string> = {
   revoked: 'Autorização desativada'
 }
 
+/**
+ * Rótulos das recomendações. São estimativas sobre o perfil analisado, nunca
+ * incompatibilidade confirmada: por isso nenhum usa o tom de erro (`danger`).
+ */
 export const recommendationFit: Record<RecommendationFit, StatusMeta> = {
-  'recommended-local': { tone: 'success', label: 'Recomendado para execução local' },
-  limited: { tone: 'warning', label: 'Compatível com limitações' },
-  'needs-resources': { tone: 'danger', label: 'Requer recursos adicionais' },
-  unknown: { tone: 'neutral', label: 'Compatibilidade desconhecida' }
+  'recommended-local': { tone: 'success', label: 'Compatível (estimativa)' },
+  limited: { tone: 'warning', label: 'Compatível com ressalvas (estimativa)' },
+  'needs-resources': { tone: 'warning', label: 'Não recomendado (estimativa)' },
+  unknown: { tone: 'neutral', label: 'Não verificado' }
 }
 
+/** Capacidade estimada do perfil, descrita pelos modelos que caberiam, sem julgar o equipamento. */
 export const localCapability: Record<LocalCapabilityLevel, StatusMeta> = {
-  high: { tone: 'success', label: 'Alta' },
-  medium: { tone: 'success', label: 'Média' },
-  low: { tone: 'warning', label: 'Baixa' },
-  insufficient: { tone: 'danger', label: 'Insuficiente' },
-  unknown: { tone: 'neutral', label: 'Desconhecida' }
+  high: { tone: 'success', label: 'Modelos grandes e médios' },
+  medium: { tone: 'success', label: 'Modelos pequenos e médios' },
+  low: { tone: 'info', label: 'Modelos pequenos' },
+  insufficient: { tone: 'warning', label: 'Pouca folga para modelos locais' },
+  unknown: { tone: 'neutral', label: 'Não verificado' }
 }

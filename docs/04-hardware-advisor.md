@@ -129,15 +129,34 @@ leitura real".
   - lista do que seria consultado;
   - autorização com escopo;
   - botão de detecção real, que leva a "indisponível";
-  - cenários demonstrativos: estação com GPU, computador modesto, dados
-    parciais, análise antiga e falha do detector;
-  - diagnóstico com selo "Dados fictícios: demonstração", data, confiabilidade
-    e detector;
-  - compatibilidade estimada com processamento local.
+  - cenários demonstrativos, descritos pelos recursos que simulam: estação com
+    GPU dedicada e 32 GB, 8 GB sem GPU dedicada, dados parciais,
+    análise antiga e falha simulada do detector;
+  - resultado com selo "Dados fictícios: demonstração" e marcação
+    "Estimativa", seguido da compatibilidade estimada com processamento local:
+    uma conclusão simples e uma sugestão de ação;
+  - em **Ver detalhes técnicos** (recolhido por padrão): data, confiabilidade,
+    detector, especificações do perfil e motivos da estimativa.
 - **Agentes › Recomendações**
   (`src/renderer/src/components/hardware/AgentRecommendations.tsx`): avalia
   os agentes salvos (exceto os arquivados) e os exemplos, com filtro por tipo
-  de tarefa.
+  de tarefa. Cada agente mostra o rótulo da estimativa, uma conclusão e uma
+  sugestão; os motivos ficam em **Ver detalhes técnicos**, recolhido.
+
+### Linguagem das estimativas
+
+Tudo o que o Advisor conclui é **estimativa** sobre o perfil analisado, nunca
+incompatibilidade confirmada (nenhum modelo foi executado):
+
+- os textos falam do perfil e dos modelos que caberiam, sem julgar o
+  equipamento ("fraco", "modesto", "insuficiente" e semelhantes não são
+  usados);
+- recomendações desfavoráveis usam o tom de alerta (`warning`), nunca o de
+  erro (`danger`); o vermelho fica para falhas reais, como erro do detector;
+- conclusões e sugestões são montadas por `capabilityConclusion` e
+  `recommendationConclusion` (`src/renderer/src/lib/advisor.ts`), só a partir
+  do resultado já calculado, sem alterar o algoritmo;
+- `tests/renderer/advisor-language.test.ts` verifica essas regras.
 
 ## Recomendações demonstrativas (`src/shared/recommendations.ts`)
 
@@ -159,12 +178,12 @@ CPU, aceleração, modelo, ferramentas e motor. Nenhum critério decide sozinho.
 
 **Categorias (`fit`):**
 
-| `fit` | Rótulo | Regra |
+| `fit` | Rótulo (tom) | Regra |
 |---|---|---|
-| `needs-resources` | Requer recursos adicionais | algum bloqueio (memória insuficiente sem VRAM que compense, ou disco insuficiente) |
-| `unknown` | Compatibilidade desconhecida | sem perfil, sem requisitos ou sem memória identificada |
-| `limited` | Compatível com limitações | sem bloqueio, mas com limitação ou dado secundário desconhecido |
-| `recommended-local` | Recomendado para execução local | nenhuma ressalva |
+| `needs-resources` | Não recomendado (estimativa) — alerta | algum bloqueio estimado (memória abaixo do mínimo sem VRAM que compense, ou disco abaixo do necessário para o download) |
+| `unknown` | Não verificado — neutro | sem perfil, sem requisitos ou sem memória identificada |
+| `limited` | Compatível com ressalvas (estimativa) — alerta | sem bloqueio, mas com ressalva ou dado secundário não identificado |
+| `recommended-local` | Compatível (estimativa) — sucesso | nenhuma ressalva |
 
 - **Justificativas:** cada recomendação traz uma lista de motivos
   (`positive`, `limitation`, `blocker`, `unknown`, `notice`), com fator e
@@ -181,4 +200,6 @@ CPU, aceleração, modelo, ferramentas e motor. Nenhum critério decide sozinho.
   declarados (`src/renderer/src/data/agent-requirements.ts`) prevalecem.
 - **Compatibilidade local:** `estimateLocalCapability` resume a
   compatibilidade geral com processamento local em `high`, `medium`, `low`,
-  `insufficient` ou `unknown`.
+  `insufficient` ou `unknown`, exibidos como "Modelos grandes e médios",
+  "Modelos pequenos e médios", "Modelos pequenos", "Pouca folga para modelos
+  locais" (alerta) e "Não verificado".

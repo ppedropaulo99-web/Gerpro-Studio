@@ -95,9 +95,10 @@ export interface RecommendationContext {
 // ---------------------------------------------------------------------------
 
 /**
- * - `recommended-local`: o hardware atende com folga.
- * - `limited`: atende, com ressalvas (CPU apenas, memória justa, dados incompletos...).
- * - `needs-resources`: falta algum recurso essencial.
+ * Todas são estimativas sobre o perfil analisado, nunca incompatibilidade confirmada.
+ * - `recommended-local`: o perfil atende com folga.
+ * - `limited`: atende, com ressalvas (CPU apenas, pouca folga de memória, dados incompletos...).
+ * - `needs-resources`: pela estimativa, falta memória ou disco para o modelo; não recomendado.
  * - `unknown`: não há dados suficientes para avaliar.
  */
 export type RecommendationFit = 'recommended-local' | 'limited' | 'needs-resources' | 'unknown'
@@ -189,25 +190,25 @@ export function estimateLocalCapability(profile: HardwareProfile | null): LocalC
   if (gpus === null) reasons.push({ kind: 'unknown', factor: 'gpu', message: 'GPU não identificada.' })
   else if (vram) reasons.push({ kind: 'positive', factor: 'gpu', message: `GPU dedicada com ${gb(vram)} de VRAM.` })
   else if (unified) reasons.push({ kind: 'positive', factor: 'gpu', message: 'Memória unificada compartilhada com a GPU.' })
-  else reasons.push({ kind: 'limitation', factor: 'gpu', message: 'Sem GPU dedicada: inferência apenas na CPU.' })
+  else reasons.push({ kind: 'limitation', factor: 'gpu', message: 'Nenhuma GPU dedicada identificada: os modelos rodariam na CPU.' })
   if (profile.cpu && profile.cpu.physicalCores < 4) {
-    reasons.push({ kind: 'limitation', factor: 'cpu', message: `Apenas ${profile.cpu.physicalCores} núcleos físicos.` })
+    reasons.push({ kind: 'limitation', factor: 'cpu', message: `${profile.cpu.physicalCores} núcleos físicos: modelos maiores tendem a responder mais devagar.` })
   }
   if (profile.acceleration === null) reasons.push({ kind: 'unknown', factor: 'acceleration', message: 'Aceleração não identificada.' })
   else if (profile.acceleration.length === 0) {
-    reasons.push({ kind: 'limitation', factor: 'acceleration', message: 'Nenhuma instrução de aceleração conhecida.' })
+    reasons.push({ kind: 'limitation', factor: 'acceleration', message: 'Nenhuma instrução de aceleração identificada.' })
   }
   if (profile.storage === null) reasons.push({ kind: 'unknown', factor: 'storage', message: 'Espaço em disco não identificado.' })
   else if (profile.storage.freeGb < 10) {
-    reasons.push({ kind: 'limitation', factor: 'storage', message: `Só ${gb(profile.storage.freeGb)} livres para modelos.` })
+    reasons.push({ kind: 'limitation', factor: 'storage', message: `${gb(profile.storage.freeGb)} livres em disco para novos modelos.` })
   }
 
   const level: LocalCapabilityLevel = budget >= 20 ? 'high' : budget >= 8 ? 'medium' : budget >= 3 ? 'low' : 'insufficient'
   const summary = {
-    high: `Comporta modelos de até ~${gb(maxModelSizeGb)}, incluindo modelos grandes quantizados.`,
-    medium: `Comporta modelos pequenos e médios quantizados, de até ~${gb(maxModelSizeGb)}.`,
-    low: `Apenas modelos pequenos, de até ~${gb(maxModelSizeGb)}.`,
-    insufficient: 'Recursos insuficientes para modelos de linguagem locais.',
+    high: `Estimativa: modelos de até ~${gb(maxModelSizeGb)} devem funcionar, incluindo modelos grandes quantizados.`,
+    medium: `Estimativa: modelos pequenos e médios quantizados, de até ~${gb(maxModelSizeGb)}, devem funcionar.`,
+    low: `Estimativa: modelos pequenos, de até ~${gb(maxModelSizeGb)}, são os mais indicados.`,
+    insufficient: 'Estimativa: os modelos locais da biblioteca teriam pouca folga de memória com os recursos identificados.',
     unknown: ''
   }[level]
   return { level, maxModelSizeGb, summary, reasons }
@@ -285,14 +286,14 @@ export function recommendAgent(candidate: RecommendationCandidate, ctx: Recommen
     if (hw.memory) {
       const { totalGb, availableGb } = hw.memory
       if (totalGb < requirements.minRamGb && !fitsInVram) {
-        add('blocker', 'memory', `Requer cerca de ${gb(requirements.minRamGb)} de memória; o perfil tem ${gb(totalGb)}.`)
+        add('blocker', 'memory', `Estimativa: o modelo precisa de cerca de ${gb(requirements.minRamGb)} de memória; o perfil indica ${gb(totalGb)}.`)
       } else if (totalGb < requirements.recommendedRamGb && !fitsInVram) {
-        add('limitation', 'memory', `Memória justa: ${gb(totalGb)} para ~${gb(requirements.recommendedRamGb)} recomendados.`)
+        add('limitation', 'memory', `Pouca folga de memória: ${gb(totalGb)} para ~${gb(requirements.recommendedRamGb)} recomendados.`)
       } else {
-        add('positive', 'memory', `Memória suficiente: ${gb(totalGb)} para ~${gb(requirements.minRamGb)} necessários.`)
+        add('positive', 'memory', `Memória adequada: ${gb(totalGb)} para ~${gb(requirements.minRamGb)} necessários.`)
       }
       if (availableGb < requirements.minRamGb && totalGb >= requirements.minRamGb && !fitsInVram) {
-        add('limitation', 'memory', `Só ${gb(availableGb)} livres no momento da análise; seria preciso liberar memória.`)
+        add('limitation', 'memory', `${gb(availableGb)} livres no momento da análise; fechar outros aplicativos daria mais folga.`)
       }
     }
 
@@ -301,23 +302,23 @@ export function recommendAgent(candidate: RecommendationCandidate, ctx: Recommen
     else if (unified) add('positive', 'gpu', 'Memória unificada acelera o modelo na GPU integrada.')
     else if (vram !== null && vram > 0) add('limitation', 'gpu', `Cabe parcialmente na VRAM (${vram} de ~${gb(requirements.preferredVramGb)}): parte roda na CPU.`)
     else if (hw.gpus.some((g) => !g.sharedMemory && g.vramGb === null)) add('unknown', 'gpu', 'VRAM da GPU não informada.')
-    else if (requirements.minRamGb >= 3) add('limitation', 'gpu', 'Sem GPU dedicada: execução só na CPU, mais lenta.')
+    else if (requirements.minRamGb >= 3) add('limitation', 'gpu', 'Nenhuma GPU dedicada identificada: o modelo rodaria na CPU, com respostas mais demoradas.')
     else add('positive', 'gpu', 'Modelo leve, adequado à execução na CPU.')
 
     if (!model || effectiveModelAvailability(model) !== 'installed') {
       if (hw.storage === null) add('unknown', 'storage', 'Espaço em disco não identificado.')
       else if (hw.storage.freeGb < requirements.diskGb + 2) {
-        add('blocker', 'storage', `Requer ~${gb(requirements.diskGb)} livres para o modelo; há ${gb(hw.storage.freeGb)}.`)
-      } else add('positive', 'storage', `Espaço em disco suficiente (${gb(hw.storage.freeGb)} livres).`)
+        add('blocker', 'storage', `Estimativa: o download do modelo precisa de ~${gb(requirements.diskGb)} livres; o perfil indica ${gb(hw.storage.freeGb)}.`)
+      } else add('positive', 'storage', `Espaço em disco adequado (${gb(hw.storage.freeGb)} livres).`)
     }
 
     if (hw.cpu === null) add('unknown', 'cpu', 'Processador não identificado.')
     else if (hw.cpu.physicalCores < requirements.minCpuCores && !fitsInVram) {
-      add('limitation', 'cpu', `${hw.cpu.physicalCores} núcleos físicos; recomendado ${requirements.minCpuCores} ou mais.`)
+      add('limitation', 'cpu', `${hw.cpu.physicalCores} núcleos físicos; este modelo responde melhor com ${requirements.minCpuCores} ou mais.`)
     }
 
     if (hw.acceleration === null) add('unknown', 'acceleration', 'Aceleração não identificada.')
-    else if (hw.acceleration.length === 0) add('limitation', 'acceleration', 'Nenhuma instrução de aceleração conhecida.')
+    else if (hw.acceleration.length === 0) add('limitation', 'acceleration', 'Nenhuma instrução de aceleração identificada.')
   }
 
   // Motor
