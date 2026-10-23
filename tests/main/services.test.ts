@@ -5,7 +5,7 @@ import { describe, it } from 'node:test'
 import { AppError } from '../../src/main/errors'
 import { createDataHandlers, invokeHandler } from '../../src/main/ipc-handlers'
 import { createServices } from '../../src/main/services'
-import { AgentService } from '../../src/main/services/agent-service'
+import { AGENTS_FORMAT_VERSION, AgentService } from '../../src/main/services/agent-service'
 import { SettingsService } from '../../src/main/services/settings-service'
 import { BUILTIN_TOOLS } from '../../src/main/tools/catalog'
 import { ToolRegistry } from '../../src/main/tools/tool-registry'
@@ -169,7 +169,7 @@ describe('serviço de agentes', () => {
     const { dir, settings, tools } = await setup()
     const file = join(dir, 'agents.json')
     const good = { ...agentDraft({ id: 'bom' }), createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z' }
-    const original = JSON.stringify({ format: 'gerpro.agents', formatVersion: 1, savedAt: 'x', data: { agents: [good, { id: 'ruim' }] } })
+    const original = JSON.stringify({ format: 'gerpro.agents', formatVersion: AGENTS_FORMAT_VERSION, savedAt: 'x', data: { agents: [good, { id: 'ruim' }] } })
     await writeFile(file, original)
     const service = new AgentService({ filePath: file, tools, settings, engineAvailable: () => false })
     const status = await service.init()

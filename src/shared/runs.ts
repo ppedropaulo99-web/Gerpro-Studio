@@ -4,9 +4,13 @@
  * Toda execução declara sua `origin`. Nesta etapa só existem execuções
  * `simulated`: nenhum modelo ou ferramenta real roda. A interface deve sempre
  * sinalizar essa origem e nunca apresentar uma execução simulada como real.
+ * O tipo garante a separação: só uma execução `real` tem modelo resolvido,
+ * saída gerada e métricas medidas.
  */
 
 import type { StructuredError } from './errors'
+import { readRunOverrides, type ResolvedExecution, type RunOverrides } from './execution'
+import type { InferenceMetrics } from './inference'
 import { Checker, readSlug, type ValidationResult } from './validation'
 
 export type RunState = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
@@ -35,10 +39,9 @@ export interface RunMessage {
   text: string
 }
 
-export interface RunRecord {
+interface RunRecordBase {
   id: string
   agentId: string
-  origin: RunOrigin
   state: RunState
   createdAt: string
   startedAt: string | null
@@ -49,6 +52,24 @@ export interface RunRecord {
   /** O cancelamento é cooperativo: pedido aqui, efetivado pela execução. */
   cancelRequested: boolean
 }
+
+/** Execução demonstrativa: nenhum modelo roda, então não há modelo, saída nem métricas. */
+export interface SimulatedRunRecord extends RunRecordBase {
+  origin: 'simulated'
+  execution: null
+}
+
+/** Execução real (futura): registra o modelo e o perfil efetivamente usados. */
+export interface RealRunRecord extends RunRecordBase {
+  origin: 'real'
+  execution: ResolvedExecution
+  /** Texto gerado até agora (saída em texto simples). */
+  output: string
+  /** Só valores medidos; `null` enquanto não houver medição. */
+  metrics: InferenceMetrics | null
+}
+
+export type RunRecord = SimulatedRunRecord | RealRunRecord
 
 export function isTerminalRunState(state: RunState): boolean {
   return RUN_TRANSITIONS[state].length === 0
@@ -62,7 +83,7 @@ export function canTransitionRun(from: RunState, to: RunState): boolean {
  * Aplica uma transição de estado e ajusta os horários. Lança erro se a
  * transição não for permitida. Não altera o objeto recebido.
  */
-export function applyRunTransition(run: RunRecord, to: RunState, at: Date): RunRecord {
+export function applyRunTransition<T extends RunRecord>(run: T, to: RunState, at: Date): T {
   if (!canTransitionRun(run.state, to)) {
     throw new Error(`Transição de execução inválida: ${run.state} → ${to}`)
   }
@@ -87,6 +108,30 @@ export interface DemoRunRequest {
 }
 
 export const RUN_ID_PATTERN = /^run-[a-z0-9-]{1,64}$/
+
+// ---------------------------------------------------------------------------
+// Execução real (contrato; ainda sem canal IPC nem implementação)
+// ---------------------------------------------------------------------------
+
+export const RUN_INPUT_MAX = 32_000
+
+/** Pedido de execução real: agente, mensagem do usuário e substituições opcionais. */
+export interface RunRequest {
+  agentId: string
+  input: string
+  overrides: RunOverrides | null
+}
+
+export function validateRunRequest(input: unknown): ValidationResult<RunRequest> {
+  const c = new Checker()
+  const obj = c.record(input, '$', ['agentId', 'input', 'overrides'])
+  if (!obj) return c.result<RunRequest>(undefined)
+  const agentId = readSlug(c, obj['agentId'], '$.agentId')
+  const text = c.string(obj['input'], '$.input', { min: 1, max: RUN_INPUT_MAX })
+  if (text !== undefined && !text.trim()) c.fail('$.input', 'não pode ficar em branco')
+  const overrides = c.nullable(obj['overrides'], '$.overrides', (v, p) => readRunOverrides(c, v, p))
+  return c.result(agentId && text !== undefined && overrides !== undefined && c.ok ? { agentId, input: text, overrides } : undefined)
+}
 
 export function validateDemoRunRequest(input: unknown): ValidationResult<DemoRunRequest> {
   const c = new Checker()

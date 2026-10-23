@@ -8,9 +8,12 @@ que ainda não foi tomada.
 
 | Item | Onde | Situação |
 |---|---|---|
-| Interface `InferenceEngine` | `src/shared/engine.ts` | Contrato: `listModels`, `load`, `unload`, `chat` (streaming e cancelamento por `AbortSignal`) |
-| `ModelDescriptor` | `src/shared/engine.ts` | Formato, quantização, tamanho, contexto e capacidades |
-| `ModelReference` no agente | `src/shared/agents.ts` | `engineId` opcional: o agente não fica preso a um motor |
+| Interface `InferenceProvider` | `src/shared/inference.ts` | Contrato: `status`, `listModels`, `generate` (eventos de streaming e cancelamento por `AbortSignal`) |
+| `ModelRef` / `ProviderModel` | `src/shared/inference.ts` | Identidade estável (provedor + modelo), separada de disponibilidade e requisitos |
+| `ExecutionProfile` / `RunOverrides` | `src/shared/execution.ts` | Parâmetros padrão do agente e substituição por execução |
+| `CompatibilityState` | `src/shared/compatibility.ts` | Estimado × testado × confirmado |
+| `defaultModel` / `defaultProfile` no agente | `src/shared/agents.ts` | `providerId` opcional: o agente não fica preso a um provedor |
+| `ModelDescriptor` | `src/shared/engine.ts` | Só para a biblioteca de exemplo |
 | Pasta reservada | `src/main/engine/` | Só um README |
 | `engineAvailable: () => false` | `src/main/services/index.ts` | Todos os agentes ficam com `engine-unavailable` |
 | `engineAvailable: false` | `src/renderer/src/components/hardware/AgentRecommendations.tsx` | Nenhuma recomendação fica executável |
@@ -21,20 +24,28 @@ que ainda não foi tomada.
 
 - **Processo:** o motor roda fora do Renderer, que só o alcança por canais IPC
   declarados em `src/shared/ipc.ts`.
-- **Respostas:** em streaming (`AsyncIterable<string>`), com cancelamento por
-  `AbortSignal`, o que é compatível com o cancelamento cooperativo de
-  `RunRecord`.
-- **Vários motores:** cada um com `id`. Um agente com `engineId: null` aceita
-  qualquer motor que ofereça o modelo.
-- **Execuções reais:** devem usar `origin: 'real'` e seguir `RUN_TRANSITIONS`.
+- **Respostas:** em streaming (`AsyncIterable<InferenceEvent>`), com
+  cancelamento por `AbortSignal`, o que é compatível com o cancelamento
+  cooperativo de `RunRecord`. Cada evento recebido passa por
+  `validateInferenceEvent` antes de seguir adiante.
+- **Vários provedores:** cada um com `id`. O Ollama pode ser usado
+  temporariamente como provedor `external`, e o runtime próprio futuro entra
+  como `embedded`, sem mudar agentes, execuções nem interface. Um agente com
+  `providerId: null` aceita qualquer provedor que ofereça o modelo.
+- **Execuções reais:** devem usar `origin: 'real'` (`RealRunRecord`), registrar
+  a `ResolvedExecution` e seguir `RUN_TRANSITIONS`. Métricas só com valores
+  medidos.
+- **Falhas:** falta de memória é transitória e nunca vira incompatibilidade
+  confirmada (`stateAfterTest`).
 - **Ferramentas:** só podem ser chamadas pelo motor via `ToolExecutor`, com
   validação de esquema e permissões no Main.
 
 ## Questões em aberto para a decisão
 
 1. **Runtime:** biblioteca nativa embutida, processo auxiliar (*sidecar*)
-   empacotado com o app ou execução remota via Gerpro Web. As três opções
-   cabem no contrato `InferenceEngine`.
+   empacotado com o app ou execução remota via Gerpro Web. As duas primeiras
+   cabem no contrato `InferenceProvider`; execução remota exigiria uma
+   decisão própria (hoje bloqueada).
 2. **Isolamento:**
    - *Proposta:* não executar a inferência no processo Main, para não
      bloquear o IPC e a janela.
@@ -56,8 +67,10 @@ Quando o motor existir:
 - **Disponibilidade do motor:** passar `engineAvailable: true` em
   `createServices` e em `AgentRecommendations.tsx`.
 - **Lista de modelos:** substituir a biblioteca fictícia por
-  `InferenceEngine.listModels()`, mapeando para `ModelProfile` com a
+  `InferenceProvider.listModels()`, mapeando para `ModelProfile` com a
   disponibilidade real (`installed`, `downloading`, `error`).
+- **Compatibilidade:** `stateFromEstimate` traduz o `fit` atual; testes reais
+  atualizam o estado com `stateAfterTest`.
 - **Requisitos medidos pelo motor:** entram como `AgentRequirements` com
   `source: 'declared'` e prevalecem sobre a estimativa.
 - **Recomendações:** `executableNow` passa a ser verdadeiro automaticamente

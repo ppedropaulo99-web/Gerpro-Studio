@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after } from 'node:test'
 import type { AgentDraft } from '../../src/shared/agents'
+import { DEFAULT_EXECUTION_PROFILE } from '../../src/shared/execution'
 import type { Scheduler } from '../../src/main/runs/demo-run-manager'
 
 /** Diretório temporário removido ao fim do arquivo de teste. */
@@ -19,8 +20,9 @@ export function agentDraft(overrides: Partial<AgentDraft> = {}): AgentDraft {
     description: 'Responde perguntas.',
     version: '1.0.0',
     instructions: 'Seja objetivo.',
-    model: { engineId: null, modelId: 'aurora-8b-instruct' },
-    settings: { temperature: 0.7, topP: 0.95, maxOutputTokens: null },
+    taskTypes: [],
+    defaultModel: { providerId: null, modelId: 'aurora-8b-instruct' },
+    defaultProfile: { ...DEFAULT_EXECUTION_PROFILE },
     tools: ['calculator'],
     requestedPermissions: [],
     state: 'ready',

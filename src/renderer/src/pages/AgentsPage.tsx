@@ -206,7 +206,7 @@ export function AgentsPage() {
                   <CardFooter>
                     <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
                     <span className="subtle mono truncate" title="Modelo">
-                      {def.model?.modelId ?? 'Sem modelo'}
+                      {def.defaultModel?.modelId ?? 'Sem modelo'}
                     </span>
                     <Button size="sm" icon={<Play size={13} />} disabled title="Execução real desabilitada: nenhum motor de IA configurado">
                       Executar

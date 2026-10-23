@@ -114,14 +114,15 @@ Os arquivos ficam em `<userData>/storage/` e são lidos e gravados só pelo Main
 | Arquivo | Formato | Conteúdo |
 |---|---|---|
 | `settings.json` | `gerpro.settings` | Preferências |
-| `agents.json` | `gerpro.agents` | Definições de agentes (até 500) |
+| `agents.json` | `gerpro.agents` | Definições de agentes (até 500); formato 2, migrado do 1 |
 | `hardware.json` | `gerpro.hardware` | Consentimento e última análise |
 | (cofre) | `gerpro.secrets` | Credenciais cifradas. O cofre ainda não é instanciado pelo app. |
 
 Comportamento do `VersionedStore` (`src/main/storage/versioned-store.ts`):
 
 - Envelope `{ format, formatVersion, savedAt, data }`, com migrações por
-  versão.
+  versão. Com `backupBeforeMigration` (usado em `agents.json`), o arquivo
+  antigo é copiado para `<nome>.v<versão>-<data>.json` antes da migração.
 - Escrita atômica: arquivo temporário, `fsync` e `rename` (com novas
   tentativas). As gravações são serializadas.
 - Arquivo corrompido ou inválido: cópia `*.invalid-<data>.json` e

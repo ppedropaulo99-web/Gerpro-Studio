@@ -76,11 +76,14 @@ src/
 │   ├── ipc.ts            Canais IPC permitidos e tipos da API
 │   ├── agents.ts         Definição, validação e disponibilidade de agentes
 │   ├── tools.ts          Definição, esquemas e executor (futuro) de ferramentas
-│   ├── runs.ts           Estados e transições de execuções
+│   ├── runs.ts           Estados, transições e pedidos de execuções
+│   ├── inference.ts      Provedores de inferência, identidade de modelos, eventos e erros
+│   ├── execution.ts      Perfis de execução e substituição por execução
+│   ├── compatibility.ts  Estados de compatibilidade (estimada, testada, confirmada)
 │   ├── settings.ts       Configurações do app
 │   ├── validation.ts     Validação em tempo de execução
 │   ├── errors.ts         Erros estruturados e Result<T>
-│   ├── engine.ts         Interface InferenceEngine e tipos de modelo
+│   ├── engine.ts         Tipos da biblioteca de modelos de exemplo
 │   └── plugins.ts        Manifesto de plugin
 └── renderer/             Processo Renderer (React, sem acesso a Node)
     ├── index.html
@@ -128,7 +131,7 @@ Arquivos em `<userData>/storage/` (`settings.json`, `agents.json`, `hardware.jso
   1. Declare o canal e o tipo em `shared/ipc.ts`.
   2. Registre o handler em `main/ipc.ts`, chamando `assertTrustedSender`.
   3. Exponha a função em `preload/index.ts`.
-- **Motor de IA:** implemente `InferenceEngine` (`shared/engine.ts`) dentro de `main/engine/` e exponha-o por novos canais IPC. A interface já consome os tipos `ModelDescriptor`.
+- **Motor de IA:** implemente `InferenceProvider` (`shared/inference.ts`) dentro de `main/engine/` e exponha-o por novos canais IPC. Perfis e substituições por execução estão em `shared/execution.ts`.
 - **Plugins:** carregue manifestos `PluginManifest` (`shared/plugins.ts`) em `main/plugins/`. A tela **Ferramentas** já exibe origem e permissões.
 - **Visual:** cores, espaçamentos e tipografia saem de `renderer/src/styles/tokens.css`.
 

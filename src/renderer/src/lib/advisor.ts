@@ -58,11 +58,11 @@ export function buildCandidates(
       agentId: d.id,
       name: d.name,
       origin: 'saved',
-      // A definição de agente ainda não declara tarefas nem requisitos (ver pendências).
-      taskTypes: null,
+      // Finalidade vazia = não declarada. Requisitos ainda não fazem parte do agente (ver pendências).
+      taskTypes: d.taskTypes.length > 0 ? d.taskTypes : null,
       requirements: null,
-      modelRef: d.model?.modelId ?? null,
-      model: modelFor(d.model?.modelId ?? null),
+      modelRef: d.defaultModel?.modelId ?? null,
+      model: modelFor(d.defaultModel?.modelId ?? null),
       tools: d.tools
     }))
 

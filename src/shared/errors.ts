@@ -14,6 +14,8 @@ export type ErrorCode =
   | 'storage-read-only'
   | 'secret-storage-unavailable'
   | 'simulated-failure'
+  /** Falha de um provedor de inferência; o código específico vai em `details.inferenceCode`. */
+  | 'inference'
   | 'internal'
 
 export interface StructuredError {

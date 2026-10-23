@@ -71,7 +71,7 @@ consentimento**, o que o serviço já garante.
 - Quando o motor existir, passe `engineAvailable: true` (hoje fixo em `false`
   em `AgentRecommendations.tsx` e em `createServices`).
 - Substitua a biblioteca demonstrativa de modelos (`renderer/src/data/models.ts`)
-  pela lista do motor (`InferenceEngine.listModels()`), mapeando para
+  pela lista do provedor (`InferenceProvider.listModels()`), mapeando para
   `ModelProfile` com a disponibilidade real (instalado, baixando, erro).
 - O motor pode informar requisitos medidos (memória por token, offload por
   camada); eles entram como `AgentRequirements` com `source: 'declared'` e
@@ -82,9 +82,10 @@ consentimento**, o que o serviço já garante.
 ## Ponto de extensão 3: requisitos e tarefas dos agentes
 
 Os exemplos declaram tipos de tarefa e, opcionalmente, requisitos em
-`renderer/src/data/agent-requirements.ts`. A `AgentDefinition` persistida
-ainda não tem esses campos; adicioná-los exige subir `AGENTS_FORMAT_VERSION`
-para 2 com migração em `agent-service.ts`.
+`renderer/src/data/agent-requirements.ts`. A `AgentDefinition` v2 já guarda
+`taskTypes` (usados pelas recomendações quando declarados); requisitos ainda
+não, e adicioná-los exige subir `AGENTS_FORMAT_VERSION` para 3 com migração
+em `agent-service.ts`.
 
 ## Ponto de extensão 4: Gerpro Web
 

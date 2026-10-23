@@ -1,5 +1,6 @@
 import {
   evaluateAgentAvailability,
+  migrateAgentsV1,
   validateAgentDefinition,
   validateAgentDraft,
   type AgentDefinition,
@@ -11,7 +12,8 @@ import { VersionedStore, type ParseOutcome, type StoreStatus } from '../storage/
 import type { ToolRegistry } from '../tools/tool-registry'
 import type { SettingsService } from './settings-service'
 
-export const AGENTS_FORMAT_VERSION = 1
+/** v2: modelo e perfil de execução padrão (`defaultModel`, `defaultProfile`) e finalidade (`taskTypes`). */
+export const AGENTS_FORMAT_VERSION = 2
 const MAX_AGENTS = 500
 
 interface AgentsFile {
@@ -62,6 +64,9 @@ export class AgentService {
       format: 'gerpro.agents',
       version: AGENTS_FORMAT_VERSION,
       defaults: () => ({ agents: [] }),
+      migrations: { 1: migrateAgentsV1 },
+      // A migração v1 → v2 descarta `engineId` sem correspondência; o original fica copiado.
+      backupBeforeMigration: true,
       parse: parseAgentsFile,
       now: deps.now
     })

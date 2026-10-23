@@ -1,27 +1,19 @@
 /**
  * Contratos de agentes. Uma `AgentDefinition` é o que o usuário configura e o
  * Main persiste; `AgentAvailability` é calculada a cada leitura a partir do
- * catálogo de ferramentas e dos motores presentes, nunca gravada.
+ * catálogo de ferramentas e dos provedores presentes, nunca gravada.
+ *
+ * O agente define identidade, instruções, finalidade e permissões, e aponta
+ * um modelo e um perfil de execução PADRÃO. Cada execução pode substituí-los
+ * (`RunOverrides`, em `execution.ts`). Nada aqui depende de um provedor específico.
  */
 
+import { DEFAULT_EXECUTION_PROFILE, readExecutionProfile, type ExecutionProfile } from './execution'
+import { readModelRef, type ModelRef } from './inference'
+import { TASK_TYPES, type TaskType } from './recommendations'
 import type { ToolCatalogEntry, ToolPermission } from './tools'
 import { TOOL_PERMISSIONS } from './tools'
-import { Checker, readSlug, SEMVER_PATTERN, type ValidationResult } from './validation'
-
-/** Referência a um modelo. Sem `engineId`, qualquer motor que ofereça o modelo serve. */
-export interface ModelReference {
-  engineId: string | null
-  modelId: string
-}
-
-export interface AgentSettings {
-  /** 0–2 */
-  temperature: number
-  /** 0–1 */
-  topP: number
-  /** `null` usa o padrão do motor. */
-  maxOutputTokens: number | null
-}
+import { Checker, isRecord, readSlug, SEMVER_PATTERN, type ValidationResult } from './validation'
 
 /**
  * Intenção do usuário para o agente:
@@ -41,8 +33,12 @@ export interface AgentDefinition {
   version: string
   /** Instruções de sistema. */
   instructions: string
-  model: ModelReference | null
-  settings: AgentSettings
+  /** Finalidade: tipos de tarefa para os quais o agente é indicado. Vazio = não declarado. */
+  taskTypes: TaskType[]
+  /** Modelo usado quando a execução não escolhe outro. */
+  defaultModel: ModelRef | null
+  /** Parâmetros usados quando a execução não os substitui. */
+  defaultProfile: ExecutionProfile
   /** IDs das ferramentas habilitadas para o agente. */
   tools: string[]
   /** Permissões que o agente pede para usar suas ferramentas. Concessão fica para etapa futura. */
@@ -55,8 +51,6 @@ export interface AgentDefinition {
 
 /** O que o Renderer envia para criar ou atualizar um agente. */
 export type AgentDraft = Omit<AgentDefinition, 'createdAt' | 'updatedAt'>
-
-export const DEFAULT_AGENT_SETTINGS: AgentSettings = { temperature: 0.7, topP: 0.95, maxOutputTokens: null }
 
 export const AGENT_LIMITS = {
   name: 120,
@@ -110,7 +104,7 @@ export function evaluateAgentAvailability(agent: AgentDefinition, ctx: Availabil
 
   const issues: AgentIssue[] = []
   if (agent.state === 'draft') issues.push({ code: 'draft', message: 'Agente em rascunho.' })
-  if (!agent.model) issues.push({ code: 'missing-model', message: 'Nenhum modelo selecionado.' })
+  if (!agent.defaultModel) issues.push({ code: 'missing-model', message: 'Nenhum modelo selecionado.' })
   if (!agent.instructions.trim()) issues.push({ code: 'missing-instructions', message: 'Instruções vazias.' })
 
   for (const toolId of agent.tools) {
@@ -136,7 +130,7 @@ export function evaluateAgentAvailability(agent: AgentDefinition, ctx: Availabil
     }
   }
 
-  if (agent.model && !ctx.engineAvailable) {
+  if (agent.defaultModel && !ctx.engineAvailable) {
     issues.push({ code: 'engine-unavailable', message: 'Nenhum motor de inferência disponível.' })
   }
 
@@ -153,33 +147,13 @@ const DRAFT_KEYS = [
   'description',
   'version',
   'instructions',
-  'model',
-  'settings',
+  'taskTypes',
+  'defaultModel',
+  'defaultProfile',
   'tools',
   'requestedPermissions',
   'state'
 ] as const
-
-function readModel(c: Checker, value: unknown, path: string): ModelReference | undefined {
-  const obj = c.record(value, path, ['engineId', 'modelId'])
-  if (!obj) return undefined
-  const engineId = c.nullable(obj['engineId'], `${path}.engineId`, (v, p) => readSlug(c, v, p))
-  const modelId = c.string(obj['modelId'], `${path}.modelId`, { min: 1, max: 200 })
-  if (engineId === undefined || modelId === undefined) return undefined
-  return { engineId, modelId }
-}
-
-function readSettings(c: Checker, value: unknown, path: string): AgentSettings | undefined {
-  const obj = c.record(value, path, ['temperature', 'topP', 'maxOutputTokens'])
-  if (!obj) return undefined
-  const temperature = c.number(obj['temperature'], `${path}.temperature`, { min: 0, max: 2 })
-  const topP = c.number(obj['topP'], `${path}.topP`, { min: 0, max: 1 })
-  const maxOutputTokens = c.nullable(obj['maxOutputTokens'], `${path}.maxOutputTokens`, (v, p) =>
-    c.number(v, p, { integer: true, min: 1, max: 1_000_000 })
-  )
-  if (temperature === undefined || topP === undefined || maxOutputTokens === undefined) return undefined
-  return { temperature, topP, maxOutputTokens }
-}
 
 function readDraft(c: Checker, input: unknown, extraKeys: readonly string[]): AgentDraft | undefined {
   const obj = c.record(input, '$', [...DRAFT_KEYS, ...extraKeys])
@@ -191,8 +165,9 @@ function readDraft(c: Checker, input: unknown, extraKeys: readonly string[]): Ag
     description: c.string(obj['description'], '$.description', { max: AGENT_LIMITS.description }),
     version: c.string(obj['version'], '$.version', { pattern: SEMVER_PATTERN, patternMessage: 'use versão semântica, ex.: 1.0.0' }),
     instructions: c.string(obj['instructions'], '$.instructions', { max: AGENT_LIMITS.instructions }),
-    model: c.nullable(obj['model'], '$.model', (v, p) => readModel(c, v, p)),
-    settings: readSettings(c, obj['settings'], '$.settings'),
+    taskTypes: c.array(obj['taskTypes'], '$.taskTypes', (v, p) => c.oneOf(v, p, TASK_TYPES), { max: TASK_TYPES.length, unique: true }),
+    defaultModel: c.nullable(obj['defaultModel'], '$.defaultModel', (v, p) => readModelRef(c, v, p)),
+    defaultProfile: readExecutionProfile(c, obj['defaultProfile'], '$.defaultProfile'),
     tools: c.array(obj['tools'], '$.tools', (v, p) => readSlug(c, v, p), { max: AGENT_LIMITS.tools, unique: true }),
     requestedPermissions: c.array(obj['requestedPermissions'], '$.requestedPermissions', (v, p) => c.oneOf(v, p, TOOL_PERMISSIONS), {
       unique: true
@@ -202,7 +177,7 @@ function readDraft(c: Checker, input: unknown, extraKeys: readonly string[]): Ag
 
   if (draft.name !== undefined && !draft.name.trim()) c.fail('$.name', 'não pode ficar em branco')
   if (draft.state === 'ready') {
-    if (draft.model === null) c.fail('$.model', 'obrigatório quando o agente está pronto')
+    if (draft.defaultModel === null) c.fail('$.defaultModel', 'obrigatório quando o agente está pronto')
     if (draft.instructions !== undefined && !draft.instructions.trim()) c.fail('$.instructions', 'obrigatório quando o agente está pronto')
   }
 
@@ -222,4 +197,46 @@ export function validateAgentDefinition(input: unknown): ValidationResult<AgentD
   const createdAt = draft && c.isoDate(obj['createdAt'], '$.createdAt')
   const updatedAt = draft && c.isoDate(obj['updatedAt'], '$.updatedAt')
   return c.result(draft && createdAt && updatedAt ? { ...draft, createdAt, updatedAt } : undefined)
+}
+
+// ---------------------------------------------------------------------------
+// Migração do formato gravado
+// ---------------------------------------------------------------------------
+
+/**
+ * Correspondência explícita entre `engineId` da v1 e provedores reais. Vazia:
+ * nenhum motor existiu na v1, então nenhum id antigo aponta para um provedor.
+ */
+export const LEGACY_ENGINE_PROVIDERS: Readonly<Record<string, string>> = {}
+
+/**
+ * `agents.json` v1 → v2:
+ * - `model: { engineId, modelId }` → `defaultModel: { providerId, modelId }`. `engineId` só
+ *   vira provedor se constar em `LEGACY_ENGINE_PROVIDERS`; sem correspondência, o modelo
+ *   fica sem vínculo (`providerId: null`) e o valor antigo permanece na cópia do arquivo v1;
+ * - `settings` → `defaultProfile`, com os demais parâmetros nos padrões;
+ * - `taskTypes: []` (finalidade ainda não declarada).
+ * Formas inesperadas seguem como estão, para a validação recusá-las e o
+ * armazenamento guardar a cópia do original.
+ */
+function legacyProvider(engineId: unknown): unknown {
+  if (typeof engineId !== 'string') return engineId
+  return Object.hasOwn(LEGACY_ENGINE_PROVIDERS, engineId) ? LEGACY_ENGINE_PROVIDERS[engineId] : null
+}
+
+export function migrateAgentsV1(data: unknown): unknown {
+  if (!isRecord(data) || !Array.isArray(data['agents'])) return data
+  return {
+    ...data,
+    agents: data['agents'].map((agent: unknown) => {
+      if (!isRecord(agent) || !('model' in agent) || !('settings' in agent)) return agent
+      const { model, settings, ...rest } = agent
+      return {
+        ...rest,
+        taskTypes: [],
+        defaultModel: isRecord(model) ? { providerId: legacyProvider(model['engineId']), modelId: model['modelId'] } : model,
+        defaultProfile: isRecord(settings) ? { ...DEFAULT_EXECUTION_PROFILE, ...settings } : settings
+      }
+    })
+  }
 }

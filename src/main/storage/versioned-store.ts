@@ -33,6 +33,11 @@ export interface VersionedStoreOptions<T> {
   parse: (data: unknown) => ParseOutcome<T>
   /** `migrations[n]` converte dados da versão `n` para `n + 1`. */
   migrations?: Record<number, Migration>
+  /**
+   * Copia o arquivo original (`<nome>.v<versão>-<data>.json`) antes de usar
+   * dados migrados. Para migrações que descartam valores sem equivalente.
+   */
+  backupBeforeMigration?: boolean
   now?: () => Date
   log?: (message: string) => void
 }
@@ -158,19 +163,31 @@ export class VersionedStore<T> {
     const parsed = this.options.parse(data)
     if (parsed.value === undefined) return this.recover(this.options.defaults(), parsed.issues)
     if (parsed.issues.length > 0) return this.recover(parsed.value, parsed.issues)
-    return this.settle(fileVersion < version ? 'migrated' : 'loaded', parsed.value)
+    if (fileVersion < version) {
+      const backupPath = this.options.backupBeforeMigration ? await this.backup(`v${fileVersion}`) : null
+      if (backupPath === undefined) return this.settle('read-only', parsed.value)
+      return this.settle('migrated', parsed.value, [], backupPath)
+    }
+    return this.settle('loaded', parsed.value)
+  }
+
+  /** Copia o original; `undefined` se a cópia falhar (o original então não é sobrescrito). */
+  private async backup(label: string): Promise<string | undefined> {
+    const stamp = this.now().toISOString().replace(/[:.]/g, '-')
+    const backupPath = this.options.filePath.replace(/\.json$/i, '') + `.${label}-${stamp}.json`
+    try {
+      await copyFile(this.options.filePath, backupPath)
+      return backupPath
+    } catch (error) {
+      this.log(`não foi possível copiar ${this.options.filePath}: ${String(error)}`)
+      return undefined
+    }
   }
 
   private async recover(value: T, issues: ValidationIssue[]): Promise<T> {
-    const stamp = this.now().toISOString().replace(/[:.]/g, '-')
-    const backupPath = this.options.filePath.replace(/\.json$/i, '') + `.invalid-${stamp}.json`
-    try {
-      await copyFile(this.options.filePath, backupPath)
-    } catch (error) {
-      // Sem cópia de segurança, não sobrescreve o original.
-      this.log(`não foi possível copiar ${this.options.filePath}: ${String(error)}`)
-      return this.settle('read-only', value, issues)
-    }
+    const backupPath = await this.backup('invalid')
+    // Sem cópia de segurança, não sobrescreve o original.
+    if (backupPath === undefined) return this.settle('read-only', value, issues)
     this.log(`${this.options.filePath} inválido; cópia em ${backupPath}`)
     return this.settle('recovered', value, issues, backupPath)
   }

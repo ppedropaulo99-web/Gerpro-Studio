@@ -1,8 +1,11 @@
 /**
- * Contratos do futuro motor de IA. Nada aqui é implementado nesta etapa;
- * os tipos existem para que Main, plugins e UI convirjam na mesma forma
- * quando o motor real for adicionado.
+ * Descrição dos modelos da biblioteca de exemplo da interface.
+ *
+ * Os contratos de inferência real (provedores, identidade de modelos,
+ * eventos e métricas) ficam em `inference.ts`.
  */
+
+import type { ModelCapability } from './inference'
 
 export type ModelFormat = 'gguf' | 'safetensors' | 'onnx'
 
@@ -17,19 +20,5 @@ export interface ModelDescriptor {
   quantization: string
   sizeGb: number
   contextLength: number
-  capabilities: Array<'chat' | 'vision' | 'tools' | 'embedding' | 'reasoning'>
-}
-
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool'
-  content: string
-}
-
-/** Interface que qualquer motor de inferência deverá implementar. */
-export interface InferenceEngine {
-  readonly id: string
-  listModels(): Promise<ModelDescriptor[]>
-  load(modelId: string): Promise<void>
-  unload(modelId: string): Promise<void>
-  chat(modelId: string, messages: ChatMessage[], signal?: AbortSignal): AsyncIterable<string>
+  capabilities: ModelCapability[]
 }

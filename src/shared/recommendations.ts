@@ -8,8 +8,8 @@
  * agente é executável, mesmo que o hardware seja suficiente.
  */
 
-import type { ModelDescriptor } from './engine'
 import type { GpuInfo, HardwareProfile } from './hardware'
+import type { ModelAvailability, ModelCapability } from './inference'
 import type { ToolCatalogEntry } from './tools'
 
 // ---------------------------------------------------------------------------
@@ -28,7 +28,7 @@ export const TASK_LABELS: Record<TaskType, string> = {
   support: 'atendimento'
 }
 
-export type ModelAvailability = 'installed' | 'not-installed' | 'downloading' | 'error'
+export type { ModelAvailability }
 
 /**
  * De onde vem o modelo:
@@ -43,7 +43,7 @@ export interface ModelProfile {
   name: string
   sizeGb: number
   contextLength: number
-  capabilities: ModelDescriptor['capabilities']
+  capabilities: ModelCapability[]
   availability: ModelAvailability
   source: ModelSource
 }

@@ -142,7 +142,7 @@ Entregue (detalhes em [Hardware Advisor](04-hardware-advisor.md)):
 | Execuções | Contrato, máquina de estados e cancelamento cooperativo | Todas as execuções (`origin: 'simulated'`, só em memória) | Execuções reais e histórico persistido |
 | Hardware Advisor | Consentimento com escopo, revogação, exclusão de dados e validação do perfil | Perfis de hardware (cenários fictícios) | Detector real; envio ao Gerpro Web |
 | Recomendações | Motor de regras puro e testado | Entradas: perfil e biblioteca de modelos fictícios | Modelos e requisitos vindos do motor |
-| Modelos | Contrato `InferenceEngine` / `ModelDescriptor`; origem `ModelSource` | Tela Modelos (biblioteca de exemplo, sem estado operacional) | Provedor local de modelos e motor de inferência |
+| Modelos | Contratos de inferência local (`InferenceProvider`, `ModelRef`, `ExecutionProfile`, compatibilidade); origem `ModelSource` | Tela Modelos (biblioteca de exemplo, sem estado operacional) | Provedor local de modelos e motor de inferência |
 | Credenciais | `SecretVault` cifrado (testado) | — | Uso pelos serviços; ainda não está ligado a nenhum |
 | Gerpro Web | Espaço reservado para o consentimento `serverSharing`, que hoje não pode ser concedido | — | APIs, autenticação e módulos web |
 | Início | Agentes salvos e simulações da sessão (data local atual) | — | Modelos carregados e tokens |

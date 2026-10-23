@@ -31,6 +31,7 @@ const run = (createdAt: Date, state: RunState = 'completed'): RunRecord => ({
   id: `run-${createdAt.getTime()}-${state}`,
   agentId: 'a',
   origin: 'simulated',
+  execution: null,
   state,
   createdAt: createdAt.toISOString(),
   startedAt: null,

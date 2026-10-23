@@ -29,7 +29,7 @@ const state = (o: Partial<HardwareAdvisorState>): HardwareAdvisorState => ({
 
 describe('Advisor na interface', () => {
   it('candidatos: agentes salvos (exceto arquivados) e todos os exemplos', () => {
-    const saved = [record({ id: 'meu', model: { engineId: null, modelId: 'fora-da-biblioteca' } }), record({ id: 'velho', state: 'archived' })]
+    const saved = [record({ id: 'meu', defaultModel: { providerId: null, modelId: 'fora-da-biblioteca' } }), record({ id: 'velho', state: 'archived' })]
     const candidates = buildCandidates(saved, exampleAgents, models, exampleAgentProfiles)
     assert.equal(candidates.length, 1 + exampleAgents.length)
     const mine = candidates.find((c) => c.origin === 'saved')!
@@ -54,7 +54,7 @@ describe('Advisor na interface', () => {
   })
 
   it('com perfis demonstrativos: as quatro categorias aparecem e nenhuma é executável', async () => {
-    const saved = [record({ id: 'meu', model: { engineId: null, modelId: 'fora-da-biblioteca' } })]
+    const saved = [record({ id: 'meu', defaultModel: { providerId: null, modelId: 'fora-da-biblioteca' } })]
     const fitsFor = async (scenario: 'workstation' | 'modest') => {
       const profile = await new DemoHardwareDetector(scenario).detect(new AbortController().signal)
       const hw = advisorHardware(

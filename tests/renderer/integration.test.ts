@@ -60,6 +60,7 @@ describe('lista de execuções no Renderer', () => {
     id,
     agentId: 'a',
     origin: 'simulated',
+    execution: null,
     state,
     createdAt,
     startedAt: null,
@@ -114,7 +115,14 @@ describe('formulário de agente', () => {
   })
 
   it('ida e volta: definição → formulário → rascunho preserva os dados', () => {
-    const draft = agentDraft({ tools: ['web-search'], requestedPermissions: ['network'], settings: { temperature: 0.2, topP: 0.9, maxOutputTokens: 512 } })
+    // Inclui o que o formulário não edita: finalidade, provedor e demais parâmetros do perfil.
+    const draft = agentDraft({
+      tools: ['web-search'],
+      requestedPermissions: ['network'],
+      taskTypes: ['research'],
+      defaultModel: { providerId: 'provedor-local', modelId: 'aurora-8b-instruct' },
+      defaultProfile: { ...agentDraft().defaultProfile, temperature: 0.2, topP: 0.9, maxOutputTokens: 512, seed: 7, contextLength: 8192 }
+    })
     const back = draftFromForm(formFromDefinition(draft), catalog)
     assert.deepEqual(back, { ok: true, draft })
   })
@@ -136,7 +144,7 @@ describe('formulário de agente', () => {
   })
 
   it('erros do Main são mapeados para campos', () => {
-    assert.deepEqual(agentFormErrors([{ path: '$.model', message: 'obrigatório' }, { path: '$.outro', message: 'x' }]), {
+    assert.deepEqual(agentFormErrors([{ path: '$.defaultModel', message: 'obrigatório' }, { path: '$.outro', message: 'x' }]), {
       modelId: 'obrigatório',
       form: '$.outro: x'
     })

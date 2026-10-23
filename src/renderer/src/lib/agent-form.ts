@@ -1,10 +1,7 @@
-import {
-  DEFAULT_AGENT_SETTINGS,
-  validateAgentDraft,
-  type AgentConfigState,
-  type AgentDefinition,
-  type AgentDraft
-} from '@shared/agents'
+import { validateAgentDraft, type AgentConfigState, type AgentDefinition, type AgentDraft } from '@shared/agents'
+import { DEFAULT_EXECUTION_PROFILE, type ExecutionProfile } from '@shared/execution'
+import type { ModelRef } from '@shared/inference'
+import type { TaskType } from '@shared/recommendations'
 import type { ToolCatalogEntry, ToolPermission } from '@shared/tools'
 import type { ValidationIssue } from '@shared/validation'
 import type { Agent } from '@renderer/data/types'
@@ -26,6 +23,13 @@ export interface AgentFormValues {
   maxOutputTokens: string
   tools: string[]
   state: AgentConfigState
+  /**
+   * Partes do agente que o formulário não edita, preservadas ao salvar:
+   * finalidade, provedor do modelo e os demais parâmetros do perfil.
+   */
+  taskTypes: TaskType[]
+  boundModel: ModelRef | null
+  profileBase: ExecutionProfile
 }
 
 export type AgentFormField = keyof AgentFormValues
@@ -57,11 +61,14 @@ export function emptyAgentForm(): AgentFormValues {
     version: '1.0.0',
     instructions: '',
     modelId: '',
-    temperature: String(DEFAULT_AGENT_SETTINGS.temperature),
-    topP: String(DEFAULT_AGENT_SETTINGS.topP),
+    temperature: String(DEFAULT_EXECUTION_PROFILE.temperature),
+    topP: String(DEFAULT_EXECUTION_PROFILE.topP),
     maxOutputTokens: '',
     tools: [],
-    state: 'draft'
+    state: 'draft',
+    taskTypes: [],
+    boundModel: null,
+    profileBase: DEFAULT_EXECUTION_PROFILE
   }
 }
 
@@ -72,12 +79,15 @@ export function formFromDefinition(def: AgentDefinition | AgentDraft): AgentForm
     description: def.description,
     version: def.version,
     instructions: def.instructions,
-    modelId: def.model?.modelId ?? '',
-    temperature: String(def.settings.temperature),
-    topP: String(def.settings.topP),
-    maxOutputTokens: def.settings.maxOutputTokens === null ? '' : String(def.settings.maxOutputTokens),
+    modelId: def.defaultModel?.modelId ?? '',
+    temperature: String(def.defaultProfile.temperature),
+    topP: String(def.defaultProfile.topP),
+    maxOutputTokens: def.defaultProfile.maxOutputTokens === null ? '' : String(def.defaultProfile.maxOutputTokens),
     tools: [...def.tools],
-    state: def.state
+    state: def.state,
+    taskTypes: [...def.taskTypes],
+    boundModel: def.defaultModel,
+    profileBase: def.defaultProfile
   }
 }
 
@@ -114,10 +124,10 @@ const fieldPaths: Array<[RegExp, AgentFormField]> = [
   [/^\$\.description\b/, 'description'],
   [/^\$\.version\b/, 'version'],
   [/^\$\.instructions\b/, 'instructions'],
-  [/^\$\.model\b/, 'modelId'],
-  [/^\$\.settings\.temperature\b/, 'temperature'],
-  [/^\$\.settings\.topP\b/, 'topP'],
-  [/^\$\.settings\.maxOutputTokens\b/, 'maxOutputTokens'],
+  [/^\$\.defaultModel\b/, 'modelId'],
+  [/^\$\.defaultProfile\.temperature\b/, 'temperature'],
+  [/^\$\.defaultProfile\.topP\b/, 'topP'],
+  [/^\$\.defaultProfile\.maxOutputTokens\b/, 'maxOutputTokens'],
   [/^\$\.tools\b/, 'tools'],
   [/^\$\.requestedPermissions\b/, 'tools'],
   [/^\$\.state\b/, 'state']
@@ -148,8 +158,10 @@ export function draftFromForm(
     description: form.description.trim(),
     version: form.version.trim(),
     instructions: form.instructions,
-    model: modelId ? { engineId: null, modelId } : null,
-    settings: { temperature: parseNumber(form.temperature), topP: parseNumber(form.topP), maxOutputTokens },
+    taskTypes: [...form.taskTypes],
+    // O provedor só se mantém se o modelo for o mesmo; outro modelo começa sem vínculo.
+    defaultModel: modelId ? { providerId: form.boundModel?.modelId === modelId ? form.boundModel.providerId : null, modelId } : null,
+    defaultProfile: { ...form.profileBase, temperature: parseNumber(form.temperature), topP: parseNumber(form.topP), maxOutputTokens },
     tools: [...form.tools],
     requestedPermissions: requestedPermissionsFor(form.tools, catalog),
     state: form.state

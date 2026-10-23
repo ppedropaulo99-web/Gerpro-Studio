@@ -25,10 +25,14 @@ obrigatórios. Nenhum deles está implementado.
 
 ## 2. Motor de inferência
 
-- **Contrato:** `InferenceEngine` (`src/shared/engine.ts`).
+- **Contrato:** `InferenceProvider` e tipos de `src/shared/inference.ts`;
+  perfis em `src/shared/execution.ts`; compatibilidade em
+  `src/shared/compatibility.ts`.
 - **A fazer:**
-  - Decidir o runtime.
-  - Implementar em `src/main/engine/`.
+  - Decidir o runtime (Ollama temporário como provedor `external`; runtime
+    próprio futuro como `embedded`).
+  - Implementar em `src/main/engine/`, validando inventário e eventos com
+    `validateProviderModel` e `validateInferenceEvent`.
   - Criar canais IPC para modelos e chat.
   - Ligar `engineAvailable`.
   - Substituir a biblioteca fictícia de modelos.
@@ -38,8 +42,9 @@ obrigatórios. Nenhum deles está implementado.
 
 ## 3. Execuções reais
 
-- **Contrato:** `RunRecord` com `origin: 'real'`, `RUN_TRANSITIONS` e
-  `applyRunTransition` (`src/shared/runs.ts`).
+- **Contrato:** `RunRequest` / `validateRunRequest`, `RealRunRecord`,
+  `resolveExecution`, `RUN_TRANSITIONS` e `applyRunTransition`
+  (`src/shared/runs.ts`, `src/shared/execution.ts`).
 - **A fazer:**
   - Criar um gerenciador de execuções reais ao lado do `DemoRunManager` (não
     no lugar dele).
@@ -111,11 +116,13 @@ obrigatórios. Nenhum deles está implementado.
 
 ## 8. Evolução dos contratos persistidos
 
-- **Requisitos e tipos de tarefa nos agentes salvos:** hoje só os exemplos
-  têm (`src/renderer/src/data/agent-requirements.ts`). Para incluí-los na
-  `AgentDefinition`:
-  - subir `AGENTS_FORMAT_VERSION` para 2;
-  - escrever a migração em `src/main/services/agent-service.ts`;
+- **Tipos de tarefa nos agentes salvos:** já fazem parte da
+  `AgentDefinition` v2 (`taskTypes`), mas a tela ainda não os edita.
+- **Requisitos nos agentes salvos:** hoje só os exemplos têm
+  (`src/renderer/src/data/agent-requirements.ts`). Para incluí-los:
+  - subir `AGENTS_FORMAT_VERSION` para 3;
+  - escrever `migrateAgentsV2` e registrá-la em
+    `src/main/services/agent-service.ts`;
   - atualizar `validateAgentDraft`.
 - **Qualquer formato novo:** usar `VersionedStore` com migrações. Nunca
   editar um formato publicado sem subir a versão.

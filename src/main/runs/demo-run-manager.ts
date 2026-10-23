@@ -6,7 +6,8 @@ import {
   validateRunId,
   type DemoRunRequest,
   type RunMessage,
-  type RunRecord
+  type RunRecord,
+  type SimulatedRunRecord
 } from '@shared/runs'
 import { AppError, unwrap } from '../errors'
 
@@ -54,7 +55,7 @@ const defaultScheduler: Scheduler = {
 }
 
 interface Entry {
-  run: RunRecord
+  run: SimulatedRunRecord
   scenario: DemoRunRequest['scenario']
   /** Próxima etapa a executar; -1 antes de começar. */
   step: number
@@ -99,10 +100,11 @@ export class DemoRunManager {
     if (!check.ok) throw new AppError('invalid-state', check.reason)
 
     const createdAt = this.iso()
-    const run: RunRecord = {
+    const run: SimulatedRunRecord = {
       id: this.options.newId(),
       agentId: request.agentId,
       origin: 'simulated',
+      execution: null,
       state: 'pending',
       createdAt,
       startedAt: null,

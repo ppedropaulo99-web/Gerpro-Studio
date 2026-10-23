@@ -30,15 +30,16 @@ describe('agentes: validação', () => {
   })
 
   it('rejeita valores de tipo errado vindos de fora do TypeScript', () => {
-    const result = validateAgentDraft({ ...agentDraft(), settings: { temperature: '0.7', topP: 3, maxOutputTokens: 1.5 } })
-    assert.deepEqual(paths(result).sort(), ['$.settings.maxOutputTokens', '$.settings.temperature', '$.settings.topP'])
+    const defaultProfile = { ...agentDraft().defaultProfile, temperature: '0.7', topP: 3, maxOutputTokens: 1.5 }
+    const result = validateAgentDraft({ ...agentDraft(), defaultProfile })
+    assert.deepEqual(paths(result).sort(), ['$.defaultProfile.maxOutputTokens', '$.defaultProfile.temperature', '$.defaultProfile.topP'])
     assert.equal(validateAgentDraft(null).ok, false)
     assert.equal(validateAgentDraft([]).ok, false)
   })
 
   it('exige modelo e instruções quando o estado é "ready", mas não em rascunho', () => {
-    const incomplete = { model: null, instructions: '  ' }
-    assert.deepEqual(paths(validateAgentDraft(agentDraft({ ...incomplete, state: 'ready' }))).sort(), ['$.instructions', '$.model'])
+    const incomplete = { defaultModel: null, instructions: '  ' }
+    assert.deepEqual(paths(validateAgentDraft(agentDraft({ ...incomplete, state: 'ready' }))).sort(), ['$.defaultModel', '$.instructions'])
     assert.equal(validateAgentDraft(agentDraft({ ...incomplete, state: 'draft' })).ok, true)
   })
 
@@ -107,6 +108,7 @@ describe('execuções: transições de estado', () => {
     id: 'run-1',
     agentId: 'a',
     origin: 'simulated',
+    execution: null,
     state: 'pending',
     createdAt: '2026-10-23T12:00:00.000Z',
     startedAt: null,

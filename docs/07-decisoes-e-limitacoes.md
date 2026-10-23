@@ -31,6 +31,8 @@
 | D25 | 3.2.2 | Confirmação de ferramentas sensíveis e telemetria bloqueadas nos valores seguros; o Main recusa alterá-las; valores antigos preservados, mas sem efeito | Uma escolha feita sem a função existir não pode virar decisão efetiva depois (achado 2) |
 | D26 | 3.2.2 | Vocabulário único Real / Simulado / Planejado / Exemplo; modelos de exemplo sem estado operacional; controles sem efeito desativados | Nada fictício pode parecer operacional, e a demonstração futura precisa distinguir execuções reais de simuladas (Lote 2) |
 | D27 | 3.2.2 | Temas escuro (padrão, grafite e âmbar) e claro (azul e branco); cores só em tokens; tema aplicado e gravado na hora, fora do formulário Salvar/Descartar | Mudança visual reversível com um clique; segue o padrão das ações imediatas do Hardware Advisor e não mistura com o fluxo de alterações não salvas |
+| D28 | 3.3.3 | Agente, modelo e perfil de execução separados; provedores atrás de `InferenceProvider`; perfil embutido no agente com substituição por execução; `agents.json` v2 com migração | Usar o Ollama temporariamente e um runtime próprio depois sem refazer agentes, execuções e interface; perfis nomeados só quando houver onde guardá-los |
+| D29 | 3.3.3 | Compatibilidade em cinco estados; só teste real confirma; falta de memória é transitória | Estimativa nunca é apresentada como confirmação, e uma falha momentânea não marca o modelo como incompatível para sempre |
 
 ## Limitações conhecidas
 
@@ -60,9 +62,25 @@
   `settings.tools.enabled` existe, mas nenhuma tela o altera.
 - A detecção real de hardware não existe. O botão sempre leva a
   "indisponível".
-- Requisitos e tipos de tarefa só existem nos agentes de exemplo. Agentes
-  salvos são avaliados por estimativa do modelo ou ficam com tarefa
-  "desconhecida".
+- Requisitos só existem nos agentes de exemplo. Agentes salvos já guardam
+  tipos de tarefa (`taskTypes`), mas a tela ainda não os edita; sem eles, a
+  tarefa fica "desconhecida" nas recomendações.
+- `agents.json` passou à versão 2. Uma versão anterior do app que abra o
+  arquivo regravado o trata como "mais novo": usa os padrões e não grava.
+- Os contratos de inferência local (provedores, perfis, compatibilidade e
+  execução real) existem, mas nada os implementa: não há provedor, canal IPC
+  de execução real nem avaliação de compatibilidade produzida.
+- Lacunas que dependem de lotes futuros:
+  - `deviceKey` (identificador do dispositivo e da configuração de hardware)
+    não é gerado por ninguém: depende do lote de detecção real de hardware.
+    Até lá, nenhum resultado de teste vale como confirmação
+    (`effectiveState` exige dispositivo conhecido).
+  - `digest` dos modelos só existirá quando um provedor real preencher o
+    inventário (lote do primeiro provedor de inferência).
+  - Perfis nomeados e reutilizáveis: lote que criar o armazenamento de
+    perfis (migração `agents.json` v2 → v3).
+  - Ligar `stateFromEstimate`, `stateAfterTest` e `effectiveState` a um
+    serviço de compatibilidade: lote das execuções reais e testes de modelo.
 - Modelos que não estão na biblioteca fictícia têm requisitos desconhecidos.
 - A interface está só em português. A preferência de idioma não tem efeito.
 

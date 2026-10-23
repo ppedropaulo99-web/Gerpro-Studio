@@ -18,7 +18,7 @@ export async function callApi<T>(fn: () => Promise<Result<T>>): Promise<Result<T
 
 /**
  * Agrupa os problemas de validação por campo do formulário. `fieldOf` traduz
- * o caminho do contrato (`$.settings.topP`) para o nome do campo (`topP`);
+ * o caminho do contrato (`$.defaultProfile.topP`) para o nome do campo (`topP`);
  * o que não tiver campo cai em `form`.
  */
 export function issuesByField<F extends string>(
