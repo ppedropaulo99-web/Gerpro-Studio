@@ -1,0 +1,53 @@
+import { useEffect, useState } from 'react'
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { routeById } from '@renderer/app/routes'
+import { useNavigation } from '@renderer/app/navigation'
+import { Button } from '@renderer/components/ui'
+import { cx } from '@renderer/lib/cx'
+import { Sidebar } from './Sidebar'
+
+const COLLAPSE_BREAKPOINT = 1100
+
+export function AppShell() {
+  const { current } = useNavigation()
+  const route = routeById[current]
+  const Page = route.component
+
+  // Recolhe automaticamente em janelas estreitas; o usuário pode alternar manualmente.
+  const [collapsed, setCollapsed] = useState(() => window.innerWidth < COLLAPSE_BREAKPOINT)
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${COLLAPSE_BREAKPOINT - 1}px)`)
+    const onChange = (e: MediaQueryListEvent) => setCollapsed(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  return (
+    <div className={cx('shell', collapsed && 'shell--collapsed')}>
+      <header className="titlebar">
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={collapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'}
+          icon={collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          onClick={() => setCollapsed((v) => !v)}
+        />
+        <div className="brand">
+          <span className="brand__mark" aria-hidden>
+            G
+          </span>
+          Gerpro Studio
+        </div>
+        <span className="titlebar__crumb">/ {route.label}</span>
+        <div className="titlebar__spacer" />
+      </header>
+
+      <Sidebar />
+
+      <main className="main">
+        <Page key={route.id} />
+      </main>
+    </div>
+  )
+}

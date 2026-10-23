@@ -1,0 +1,43 @@
+# Dependências
+node_modules/
+
+# Builds e saídas
+out/
+dist/
+release/
+*.tsbuildinfo
+
+# Caches e ferramentas
+.cache/
+.vite/
+.eslintcache
+coverage/
+*.log
+npm-debug.log*
+
+# Variáveis de ambiente e credenciais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.json
+credentials*.json
+
+# Dados locais do aplicativo (userData copiado para o projeto, testes manuais)
+/storage/
+*.invalid-*.json
+/.gerpro-data/
+
+# Pesquisa local com trechos de software de terceiros: não versionar
+relatorio-lmstudio-rea.md
+
+# Sistema operacional e editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
