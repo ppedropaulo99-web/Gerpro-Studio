@@ -5,6 +5,12 @@ import { applyWindowTheme, createMainWindow } from './window'
 import { applySessionSecurity } from './security'
 import { registerIpcHandlers } from './ipc'
 
+// Identidade própria no Windows (agrupamento e fixação na barra de tarefas).
+// Precisa ser definida antes de criar janelas e coincidir com o
+// `System.AppUserModel.ID` dos atalhos (scripts/windows/install-shortcuts.ps1).
+const APP_USER_MODEL_ID = 'br.com.gerpro.studio'
+if (process.platform === 'win32') app.setAppUserModelId(APP_USER_MODEL_ID)
+
 // Um único processo do app: uma segunda instância só foca a janela existente.
 if (!app.requestSingleInstanceLock()) {
   app.quit()

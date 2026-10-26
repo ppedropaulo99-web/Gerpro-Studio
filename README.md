@@ -51,6 +51,29 @@ Outros scripts:
 
 > Se `npm run dev` falhar com `Electron uninstall`, o binário não foi baixado. Rode `npx install-electron`.
 
+### Abrir pelo Windows, sem terminal (desenvolvimento)
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install-shortcuts.ps1          # cria os atalhos
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install-shortcuts.ps1 -Remove  # remove
+```
+
+- Cria o atalho **Gerpro Studio** na Área de Trabalho e no Menu Iniciar. Os
+  dois executam `scripts\windows\start-gerpro-studio.ps1`, que roda
+  `npm run dev` sem janela de terminal e com o hot reload de sempre.
+- Os atalhos e o processo Main usam o mesmo AppUserModelID
+  (`br.com.gerpro.studio`). Por isso a janela aparece na barra de tarefas
+  como Gerpro Studio, não como Electron.
+- **Fixar na barra de tarefas:** Menu Iniciar → "Gerpro Studio" → botão
+  direito → **Fixar na barra de tarefas**. Também funciona com o botão direito
+  no ícone do app aberto.
+- Abrir de novo com o app aberto só traz a janela para a frente.
+- **Logs:** `%LOCALAPPDATA%\Gerpro Studio\logs` (`inicializador-*.log` e
+  `dev-*.log`, os 10 mais recentes de cada). Se o app não abrir, uma mensagem
+  informa o motivo e o caminho do log.
+- **Ícone provisório:** o do Electron. O ícone próprio aguarda aprovação.
+- Se a pasta do projeto mudar de lugar, rode `install-shortcuts.ps1` de novo.
+
 ## Estrutura
 
 ```text
