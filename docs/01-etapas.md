@@ -140,10 +140,10 @@ Entregue (detalhes em [Hardware Advisor](04-hardware-advisor.md)):
 | Agentes | CRUD persistido, validação e cálculo de disponibilidade | Biblioteca de exemplos | Execução real; requisitos e tipos de tarefa na definição persistida |
 | Configurações | Gravação, validação e persistência | — | Efeito real de cada preferência |
 | Ferramentas | Catálogo declarado (7 itens) com esquemas e permissões, exibido na tela | — | Executores, ativação, concessão de permissões e plugins |
-| Execuções | `RunService` (Lote 3.3.5): fila FIFO com uma execução ativa, cancelamento por `AbortController`, tempo limite, limites e eventos agrupados; canal `runs:start` | Quem responde: o provedor simulado determinístico (`origin: 'simulated'`, só em memória) | Provedor real e histórico persistido |
+| Execuções | `RunService` (Lote 3.3.5): fila FIFO com uma execução ativa, cancelamento por `AbortController`, tempo limite, limites e eventos agrupados; canal `runs:start`. Provedor real Ollama (Lote 3.3.6), validado pelo `RunService` | Na interface, quem responde ainda é o provedor simulado determinístico (`origin: 'simulated'`, só em memória) | Iniciar execuções reais pela interface (Lote 3.3.7) e histórico persistido |
 | Hardware Advisor | Consentimento com escopo, revogação, exclusão de dados e validação do perfil | Perfis de hardware (cenários fictícios) | Detector real; envio ao Gerpro Web |
 | Recomendações | Motor de regras puro e testado | Entradas: perfil e biblioteca de modelos fictícios | Modelos e requisitos vindos do motor |
-| Modelos | Contratos de inferência local (`InferenceProvider`, `ModelRef`, `ExecutionProfile`, compatibilidade); origem `ModelSource` | Tela Modelos (biblioteca de exemplo, sem estado operacional) | Provedor local de modelos e motor de inferência |
+| Modelos | Contratos de inferência local (`InferenceProvider`, `ModelRef`, `ExecutionProfile`, compatibilidade); origem `ModelSource`; modelos realmente instalados no Ollama, listados na tela Modelos (Lote 3.3.6) | Biblioteca de exemplo da tela Modelos, sem estado operacional | Download e gerenciamento de modelos; motor de inferência próprio |
 | Credenciais | `SecretVault` cifrado (testado) | — | Uso pelos serviços; ainda não está ligado a nenhum |
 | Gerpro Web | Espaço reservado para o consentimento `serverSharing`, que hoje não pode ser concedido | — | APIs, autenticação e módulos web |
 | Início | Agentes salvos e simulações da sessão (data local atual) | — | Modelos carregados e tokens |

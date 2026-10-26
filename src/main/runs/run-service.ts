@@ -4,6 +4,8 @@ import { resolveExecution, type ExecutionResolutionError, type ResolvedExecution
 import {
   inferenceError,
   isRealProvider,
+  PROVIDER_STATES,
+  sameModel,
   toStructuredError,
   validateInferenceEvent,
   validateProviderModel,
@@ -12,8 +14,11 @@ import {
   type InferenceErrorCode,
   type InferenceProvider,
   type InferenceRequest,
+  type ModelRef,
   type ProviderInfo,
-  type ProviderModelEntry
+  type ProviderModelEntry,
+  type ProviderOverview,
+  type ProviderStatus
 } from '@shared/inference'
 import {
   applyRunTransition,
@@ -26,6 +31,7 @@ import {
   type RunRequest,
   type RunState
 } from '@shared/runs'
+import { InferenceProviderError } from '../engine/provider-error'
 import { AppError, unwrap } from '../errors'
 import { defaultScheduler, type Scheduler } from './scheduler'
 
@@ -38,9 +44,14 @@ import { defaultScheduler, type Scheduler } from './scheduler'
  * partir do início da geração. Cada execução é finalizada uma única vez,
  * mesmo quando cancelamento, tempo limite e conclusão chegam juntos.
  *
- * Origem: execuções atendidas por provedor `simulated` são `origin:
- * 'simulated'` e nunca têm métricas. Histórico só em memória, sem nova
- * tentativa automática. Independe do Renderer: avisa ouvintes com cópias.
+ * Origem: decorre do provedor que atende a execução. Provedor `simulated`
+ * gera `origin: 'simulated'` (nunca com métricas); qualquer outro, `real`.
+ * Histórico só em memória, sem nova tentativa automática. Independe do
+ * Renderer: avisa ouvintes com cópias.
+ *
+ * Provedores: o serviço guarda o último estado verificado e o inventário de
+ * cada um (`refreshProviders`). O motor real só conta como disponível quando
+ * um provedor real respondeu `ready`; estar registrado não basta.
  */
 
 export type RunListener = (run: RunRecord) => void
@@ -59,7 +70,7 @@ export type RunLimits = { [K in keyof typeof RUN_LIMITS]: number }
  * Situação da execução de agentes, em três níveis independentes:
  * - `infrastructure`: fila, cancelamento, tempo limite e eventos funcionam;
  * - `simulation`: há provedor simulado para exercitá-los;
- * - `realEngine`: há provedor capaz de inferência real.
+ * - `realEngine`: um provedor capaz de inferência real respondeu na última verificação.
  * Só `realEngine` diz se um agente pode rodar de verdade.
  */
 export interface RunCapabilities {
@@ -78,9 +89,14 @@ export interface RunServiceOptions {
   now?: () => Date
   scheduler?: Scheduler
   newId?: () => string
+  /** Prazo de cada verificação de provedor (estado e inventário). */
+  providerCheckTimeoutMs?: number
 }
 
 export const DEFAULT_FLUSH_INTERVAL_MS = 75
+
+/** Verificações mais recentes que isto são reaproveitadas por `refreshProviders(maxAgeMs)`. */
+export const PROVIDER_REFRESH_MAX_AGE_MS = 5_000
 
 const RESOLUTION_TO_INFERENCE: Record<ExecutionResolutionError['code'], InferenceErrorCode> = {
   'no-model': 'invalid-request',
@@ -111,6 +127,9 @@ export class RunService {
   /** Inventário em andamento; abortado em `dispose`. */
   private readonly lifetime = new AbortController()
   private disposed = false
+  /** Última verificação de cada provedor: estado e modelos locais (`null` = não consultado). */
+  private readonly checked = new Map<string, { status: ProviderStatus; models: ProviderModelEntry[] | null }>()
+  private lastRefresh: { at: number; promise: Promise<void> } | null = null
 
   constructor(options: RunServiceOptions) {
     const ids = options.providers.map((p) => p.info.id)
@@ -124,17 +143,54 @@ export class RunService {
       resourcePolicy: options.resourcePolicy ?? (() => null),
       now: options.now ?? (() => new Date()),
       scheduler: options.scheduler ?? defaultScheduler,
-      newId: options.newId ?? (() => `run-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`)
+      newId: options.newId ?? (() => `run-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`),
+      providerCheckTimeoutMs: options.providerCheckTimeoutMs ?? 10_000
     }
   }
 
+  /** Síncrono: usa a última verificação (`refreshProviders`). */
   capabilities(): RunCapabilities {
     const { providers } = this.options
     return {
       infrastructure: 'functional',
       simulation: providers.some((p) => p.info.kind === 'simulated') ? 'available' : 'unavailable',
-      realEngine: providers.some((p) => isRealProvider(p.info)) ? 'available' : 'unavailable'
+      realEngine: providers.some((p) => isRealProvider(p.info) && this.isReady(p)) ? 'available' : 'unavailable'
     }
+  }
+
+  /**
+   * Se um provedor real pronto tem `model` instalado, segundo a última
+   * verificação. `providerId: null` aceita qualquer provedor real.
+   */
+  canRunReal(model: ModelRef | null): boolean {
+    if (!model) return false
+    return this.options.providers.some((p) => {
+      if (!isRealProvider(p.info) || !this.isReady(p)) return false
+      const models = this.checked.get(p.info.id)?.models ?? []
+      return models.some((e) => (model.providerId === null ? e.model.ref.modelId === model.modelId : sameModel(e.model.ref, model)))
+    })
+  }
+
+  /**
+   * Verifica estado e inventário de todos os provedores, em paralelo e com
+   * prazo. Nunca rejeita: falhas viram estado (`unreachable`, `error`).
+   * Com `maxAgeMs`, reaproveita a verificação em andamento ou recente.
+   */
+  refreshProviders(maxAgeMs = 0): Promise<void> {
+    const now = Date.now()
+    if (this.lastRefresh && now - this.lastRefresh.at <= maxAgeMs) return this.lastRefresh.promise
+    const promise = Promise.all(this.options.providers.map((p) => this.check(p))).then(() => undefined)
+    this.lastRefresh = { at: now, promise }
+    return promise
+  }
+
+  /** Situação atual dos provedores, depois de uma verificação nova. */
+  async providers(): Promise<ProviderOverview[]> {
+    await this.refreshProviders()
+    return this.options.providers.map((p) => {
+      const checked = this.checked.get(p.info.id)
+      return structuredClone({ info: p.info, status: checked?.status ?? neverChecked(p), models: checked?.models ?? null })
+    })
   }
 
   onUpdate(listener: RunListener): () => void {
@@ -161,13 +217,17 @@ export class RunService {
     if (agent.state === 'archived') throw new AppError('invalid-state', 'Agente arquivado não pode ser executado.')
     this.assertQueueRoom()
 
-    const resolved = resolveExecution(
-      { model: agent.defaultModel, profile: agent.defaultProfile },
-      request.overrides,
-      await this.inventory()
-    )
+    const inventory = await this.inventory()
+    const resolved = resolveExecution({ model: agent.defaultModel, profile: agent.defaultProfile }, request.overrides, inventory.entries)
     if (!resolved.ok) {
       const { code, message } = resolved.error
+      // "Não instalado" só é afirmado se o provedor em questão respondeu.
+      const wanted = request.overrides?.model ?? agent.defaultModel
+      const unreachable =
+        code === 'model-not-installed' && wanted
+          ? [...inventory.failures].find(([id]) => wanted.providerId === null || wanted.providerId === id)
+          : undefined
+      if (unreachable) throw inferenceAppError(unreachable[1], { resolution: code, providerId: unreachable[0] })
       throw inferenceAppError(inferenceError(RESOLUTION_TO_INFERENCE[code], message), { resolution: code })
     }
     const execution = resolved.value
@@ -283,6 +343,19 @@ export class RunService {
             this.finish(entry, 'cancelled', { message: { level: 'warning', text: 'O provedor encerrou a geração antes do fim.' } })
           } else {
             if (event.metrics && entry.run.origin === 'real') this.commit(entry, { ...entry.run, metrics: event.metrics })
+            // Limite atingido sem nenhum texto (ex.: o modelo gastou os tokens raciocinando):
+            // não há resposta, então não é uma conclusão bem-sucedida.
+            if (event.finishReason === 'length' && !entry.run.output.trim()) {
+              const limit = entry.request.profile.maxOutputTokens
+              this.fail(
+                entry,
+                inferenceError(
+                  'invalid-request',
+                  `O limite de saída do perfil${limit === null ? '' : ` (${limit} tokens)`} foi atingido antes de qualquer texto de resposta. Modelos com raciocínio podem consumir o limite antes de responder; aumente o limite de saída.`
+                )
+              )
+              break
+            }
             const text =
               event.finishReason === 'length' ? 'Geração interrompida no limite de saída do perfil.' : completedText(entry.run.origin)
             this.finish(entry, 'completed', { message: { level: event.finishReason === 'length' ? 'warning' : 'info', text } })
@@ -386,24 +459,79 @@ export class RunService {
   // Auxiliares
   // -------------------------------------------------------------------------
 
-  private async inventory(): Promise<ProviderModelEntry[]> {
+  /**
+   * Modelos locais de todos os provedores e, à parte, os provedores que não
+   * puderam ser consultados (com o erro). Atualiza a última verificação.
+   */
+  private async inventory(): Promise<{ entries: ProviderModelEntry[]; failures: Map<string, InferenceError> }> {
+    const failures = new Map<string, InferenceError>()
     const lists = await Promise.all(
       this.options.providers.map(async (provider) => {
-        try {
-          const raw: unknown[] = await provider.listModels(this.lifetime.signal)
-          // Dados externos: só entram modelos locais, válidos e do próprio provedor.
-          return raw.flatMap((item) => {
-            const checked = validateProviderModel(item)
-            if (!checked.ok) return []
-            const { model } = checked.value
-            return model.ref.providerId === provider.info.id && model.location === 'local' ? [checked.value] : []
-          })
-        } catch {
+        const result = await this.listProviderModels(provider)
+        const previous = this.checked.get(provider.info.id)
+        if (!result.ok) {
+          failures.set(provider.info.id, result.error)
+          if (result.error.code === 'provider-unavailable') {
+            const status: ProviderStatus = {
+              ...(previous?.status ?? neverChecked(provider)),
+              state: 'unreachable',
+              checkedAt: this.iso(),
+              message: result.error.message
+            }
+            this.checked.set(provider.info.id, { status, models: null })
+          }
           return []
         }
+        if (previous) this.checked.set(provider.info.id, { ...previous, models: result.models })
+        return result.models
       })
     )
-    return lists.flat()
+    return { entries: lists.flat(), failures }
+  }
+
+  /** Inventário de um provedor. Dados externos: só entram modelos locais, válidos e do próprio provedor. */
+  private async listProviderModels(
+    provider: InferenceProvider
+  ): Promise<{ ok: true; models: ProviderModelEntry[] } | { ok: false; error: InferenceError }> {
+    try {
+      const raw: unknown = await withDeadline((signal) => provider.listModels(signal), this.lifetime.signal, this.options.providerCheckTimeoutMs)
+      if (!Array.isArray(raw)) {
+        return { ok: false, error: inferenceError('provider-error', `${provider.info.displayName}: inventário em formato inválido.`) }
+      }
+      const models = raw.flatMap((item: unknown) => {
+        const checked = validateProviderModel(item)
+        if (!checked.ok) return []
+        const { model } = checked.value
+        return model.ref.providerId === provider.info.id && model.location === 'local' ? [checked.value] : []
+      })
+      return { ok: true, models }
+    } catch (error) {
+      if (error instanceof InferenceProviderError) return { ok: false, error: error.error }
+      return { ok: false, error: inferenceError('provider-error', `Falha ao consultar os modelos de ${provider.info.displayName}.`) }
+    }
+  }
+
+  /** Estado e, se pronto, inventário de um provedor. Nunca rejeita. */
+  private async check(provider: InferenceProvider): Promise<void> {
+    const failed = (message: string): ProviderStatus => ({ ...neverChecked(provider), state: 'error', checkedAt: this.iso(), message })
+    let status: ProviderStatus
+    try {
+      const raw = await withDeadline((signal) => provider.status(signal), this.lifetime.signal, this.options.providerCheckTimeoutMs)
+      status = raw.providerId === provider.info.id && PROVIDER_STATES.includes(raw.state) ? raw : failed('Estado inválido informado pelo provedor.')
+    } catch {
+      status = failed('Falha ao verificar o provedor.')
+    }
+    let models: ProviderModelEntry[] | null = null
+    if (status.state === 'ready') {
+      const result = await this.listProviderModels(provider)
+      if (result.ok) models = result.models
+      else status = { ...status, state: result.error.code === 'provider-unavailable' ? 'unreachable' : 'error', message: result.error.message }
+    }
+    if (!this.disposed) this.checked.set(provider.info.id, { status, models })
+  }
+
+  private isReady(provider: InferenceProvider): boolean {
+    return this.checked.get(provider.info.id)?.status.state === 'ready'
   }
 
   private newRecord(agentId: string, provider: InferenceProvider, execution: ResolvedExecution): RunRecord {
@@ -476,6 +604,26 @@ export class RunService {
   private iso(): string {
     return this.options.now().toISOString()
   }
+}
+
+function neverChecked(provider: InferenceProvider): ProviderStatus {
+  return { providerId: provider.info.id, state: 'not-detected', version: null, checkedAt: null, message: 'Ainda não verificado.' }
+}
+
+/**
+ * Roda `task` com um sinal que aborta com `lifetime` ou ao fim do prazo. Se
+ * o provedor ignorar o sinal, a espera termina mesmo assim.
+ */
+function withDeadline<T>(task: (signal: AbortSignal) => Promise<T>, lifetime: AbortSignal, timeoutMs: number): Promise<T> {
+  const signal = AbortSignal.any([lifetime, AbortSignal.timeout(timeoutMs)])
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new Error('Verificação do provedor interrompida.'))
+    if (signal.aborted) return onAbort()
+    signal.addEventListener('abort', onAbort, { once: true })
+    task(signal)
+      .then(resolve, reject)
+      .finally(() => signal.removeEventListener('abort', onAbort))
+  })
 }
 
 function buildMessages(agent: AgentDefinition, request: RunRequest): ChatMessage[] {

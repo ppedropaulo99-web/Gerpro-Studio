@@ -1,4 +1,6 @@
 import { join } from 'node:path'
+import type { InferenceProvider } from '@shared/inference'
+import { OllamaInferenceProvider } from '../engine/ollama/ollama-provider'
 import { DemoHardwareDetector, UnimplementedLocalDetector } from '../hardware/detectors'
 import { HardwareAdvisorService } from '../hardware/hardware-advisor-service'
 import { RunService } from '../runs/run-service'
@@ -22,19 +24,27 @@ export interface Services {
  */
 export async function createServices(
   dataDir: string,
-  options: { stepDelayMs?: number; flushIntervalMs?: number } = {}
+  options: {
+    stepDelayMs?: number
+    flushIntervalMs?: number
+    /**
+     * Endereço (loopback) do Ollama. Sem ele, o adaptador não é registrado:
+     * o app de produção passa `OLLAMA_DEFAULT_URL`; testes não dependem de
+     * um Ollama instalado.
+     */
+    ollamaBaseUrl?: string
+  } = {}
 ): Promise<Services> {
   const settings = new SettingsService(join(dataDir, 'settings.json'))
   const tools = new ToolRegistry(BUILTIN_TOOLS)
-  // Só o provedor simulado está registrado: a infraestrutura de execução
-  // funciona, mas não há motor real. `engineAvailable` responde só pelo motor
-  // real; a simulação nunca deixa um agente operacional.
+  // `engineAvailable` responde só pelo motor real (provedor real pronto e com
+  // o modelo do agente instalado); a simulação nunca deixa um agente operacional.
   let runs: RunService | undefined
   const agents = new AgentService({
     filePath: join(dataDir, 'agents.json'),
     tools,
     settings,
-    engineAvailable: () => runs?.capabilities().realEngine === 'available'
+    engineAvailable: (model) => runs?.canRunReal(model) ?? false
   })
   // Detecção real ainda não implementada: só o detector demonstrativo funciona.
   const hardware = new HardwareAdvisorService({
@@ -53,11 +63,15 @@ export async function createServices(
     }
   }
 
+  const providers: InferenceProvider[] = [new SimulatedInferenceProvider({ stepDelayMs: options.stepDelayMs })]
+  if (options.ollamaBaseUrl !== undefined) providers.push(new OllamaInferenceProvider({ baseUrl: options.ollamaBaseUrl }))
   runs = new RunService({
-    providers: [new SimulatedInferenceProvider({ stepDelayMs: options.stepDelayMs })],
+    providers,
     findAgent: (id) => agents.find(id),
     flushIntervalMs: options.flushIntervalMs
   })
+  // Sem esperar: o app abre mesmo com o Ollama desligado ou lento.
+  void runs.refreshProviders()
 
   return { settings, agents, tools, runs, hardware }
 }

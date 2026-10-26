@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Download, FolderOpen, HardDrive } from 'lucide-react'
+import { Download, FolderOpen, HardDrive, RefreshCw } from 'lucide-react'
 import type { ModelSource } from '@shared/recommendations'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
 import {
@@ -7,8 +7,10 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ErrorState,
   FeatureBadge,
   FeatureNotice,
+  LoadingState,
   ProgressBar,
   SearchInput,
   Segmented,
@@ -17,8 +19,10 @@ import {
 } from '@renderer/components/ui'
 import { models } from '@renderer/data/models'
 import type { LibraryModel } from '@renderer/data/types'
+import { providerState, summarizeEngine } from '@renderer/lib/engine'
 import { capabilityLabel, formatContext, formatGb } from '@renderer/lib/format'
 import { displayedModelStatus } from '@renderer/lib/status'
+import { useResource } from '@renderer/lib/use-resource'
 
 type Filter = 'all' | 'chat' | 'vision' | 'reasoning' | 'embedding'
 
@@ -53,7 +57,7 @@ export function ModelsPage() {
     <div className="page">
       <PageHeader
         title="Modelos"
-        description={`Biblioteca de exemplo com ${models.length} modelos · nenhum modelo instalado ou carregado`}
+        description={`Modelos instalados nos provedores locais e biblioteca de exemplo com ${models.length} modelos`}
         actions={
           <>
             <Button icon={<FolderOpen size={16} />} disabled title="Planejado: depende do provedor local de modelos">
@@ -66,9 +70,11 @@ export function ModelsPage() {
         }
       />
 
+      <InstalledModels />
+
       <FeatureNotice state="example">
-        Estes modelos ilustram a biblioteca: não estão neste computador e não podem ser carregados. Carregar, baixar e gerenciar
-        modelos depende do motor de IA, ainda planejado.
+        Os modelos abaixo ilustram a biblioteca: não estão neste computador e não podem ser carregados. Baixar e gerenciar modelos
+        pelo Gerpro Studio ainda está planejado.
       </FeatureNotice>
 
       <div className="toolbar">
@@ -93,6 +99,84 @@ export function ModelsPage() {
         <ModelDetail model={selected} source={LIBRARY_SOURCE} />
       </div>
     </div>
+  )
+}
+
+/**
+ * Modelos realmente instalados nos provedores locais (ex.: Ollama), como o
+ * Main os informa. Só leitura: nada é baixado, carregado ou removido daqui.
+ */
+function InstalledModels() {
+  const providers = useResource(() => window.gerpro.providers.list())
+  const real = providers.state.status === 'ready' ? summarizeEngine(providers.state.data).real : []
+
+  return (
+    <section className="section" aria-labelledby="installed-models">
+      <div className="section__head">
+        <h2 id="installed-models">Instalados neste computador</h2>
+        <div className="row">
+          <Button size="sm" variant="ghost" icon={<RefreshCw size={14} />} disabled={providers.state.status === 'loading'} onClick={providers.reload}>
+            Verificar de novo
+          </Button>
+          <FeatureBadge state="real" />
+        </div>
+      </div>
+      {providers.state.status === 'loading' && <LoadingState label="Consultando provedores locais…" />}
+      {providers.state.status === 'error' && <ErrorState error={providers.state.error} onRetry={providers.reload} />}
+      {providers.state.status === 'ready' && real.length === 0 && <p className="muted">Nenhum provedor local registrado.</p>}
+      {real.map(({ info, status, models: installed }) => {
+        const meta = providerState[status.state]
+        return (
+          <Card key={info.id}>
+            <CardHeader
+              title={info.displayName}
+              subtitle={status.message ?? undefined}
+              actions={
+                <StatusBadge tone={meta.tone}>
+                  {meta.label}
+                  {status.version ? ` · ${status.version}` : ''}
+                </StatusBadge>
+              }
+            />
+            {installed && installed.length === 0 && (
+              <CardBody>
+                <p className="muted">O provedor respondeu, mas não há modelos instalados nele.</p>
+              </CardBody>
+            )}
+            {installed && installed.length > 0 && (
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Modelo</th>
+                      <th>Família</th>
+                      <th>Parâmetros</th>
+                      <th>Quantização</th>
+                      <th>Contexto máximo</th>
+                      <th style={{ textAlign: 'right' }}>Tamanho</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {installed.map(({ model }) => (
+                      <tr key={model.ref.modelId}>
+                        <td className="mono">{model.ref.modelId}</td>
+                        <td className="muted">{model.family ?? '—'}</td>
+                        <td className="muted">{model.parameterSize ?? '—'}</td>
+                        <td className="muted">{model.quantization ?? '—'}</td>
+                        <td className="muted">{model.contextLength ? `${formatContext(model.contextLength)} tokens` : '—'}</td>
+                        <td className="mono" style={{ textAlign: 'right' }}>
+                          {model.sizeBytes === null ? '—' : formatGb(model.sizeBytes / 1e9)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        )
+      })}
+    </section>
   )
 }
 

@@ -180,7 +180,8 @@ export function AgentEditor({ mode, initial, tools, onRetryTools, takenIds, onCa
 
       <Section title="Modelo" description="Referência ao modelo e parâmetros de geração">
         <Notice tone="warning">
-          Nenhum motor de IA está configurado. O modelo é apenas registrado na definição; o agente não poderá ser executado.
+          O modelo é registrado na definição. O agente só fica disponível quando um motor de IA local responde com
+          este modelo instalado, e a execução pela interface ainda está planejada.
         </Notice>
         <Field label="ID do modelo" hint="Obrigatório quando o estado é Pronto. Não vinculado a um motor específico.">
           {(id) => (

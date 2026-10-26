@@ -38,15 +38,18 @@
 | D32 | UX-B1 | Identidade oficial Gerpro: cores extraídas do PDF do logo (marinho #333366, azul #58AED9, azul-claro #ACD7EC) substituem o âmbar e a paleta clara provisória (D2, D27); logo convertido do PDF para SVG sem alterar geometria; no tema escuro, logo sobre placa branca; barra de título só com o nome | Usar a marca real, sem redesenho; o logo não tem versão para fundo escuro nem versão reduzida, e abaixo de ~44 px de altura deixa de ser legível |
 | D33 | UX-B1.1 | Logo só na barra lateral (113 × 52 px); saudação no Início com nome de exibição opcional em `profile.displayName` (`settings.json` v3, migração explícita); ícone do aplicativo sem alteração até a aprovação de uma versão reduzida | Evitar a marca repetida na mesma tela; nome digitado pelo usuário, local e fora de logs; nenhum símbolo reduzido é escolhido sem aprovação |
 | D34 | 3.3.5 | `RunService` único no Main (fila FIFO, uma ativa, até 10 pendentes, `AbortController`, prazo a partir de `running`, finalização única) com provedor simulado determinístico; execuções simuladas registram modelo e texto simulados, nunca métricas (Opção A); `runs:start-demo` vira adaptador da mesma fila; texto agrupado a cada 75 ms com `revision`; `engineAvailable` só considera provedor real | Validar todo o ciclo de vida antes do motor real, sem segunda fila nem simulação confundida com inferência ou com prova de compatibilidade |
+| D35 | 3.3.6 | Ollama como primeiro provedor real, atrás de `InferenceProvider` (`kind: 'external'`): conversão só no adaptador, comunicação só no Main e só loopback, sem redirecionamentos, com limites de tamanho; motor real disponível só após resposta `ready`; agente disponível só com o modelo instalado num provedor real pronto; limite atingido sem texto é falha | Ter inferência real sem prender o app ao Ollama: o motor próprio futuro entra como outro provedor, e nada simulado, remoto ou vazio parece resposta real |
 
 ## Limitações conhecidas
 
 ### Funcionais
 
-- Não há inferência, download de modelos nem chat real. Chat, Modelos e os
-  logs do Desenvolvedor usam dados de exemplo, identificados com o selo
-  "Exemplo". No Início, modelos carregados e tokens aparecem como
-  "Planejado", sem valor.
+- A inferência real existe no Main pelo adaptador Ollama (Lote 3.3.6), mas a
+  interface ainda não inicia uma execução real (integração visual no Lote
+  3.3.7). Não há download de modelos nem chat real. Chat, a biblioteca da
+  tela Modelos e os logs do Desenvolvedor usam dados de exemplo,
+  identificados com o selo "Exemplo". No Início, modelos carregados e
+  tokens aparecem como "Planejado", sem valor.
 - Nenhuma ferramenta executa. Todas aparecem como `not-implemented`.
 - Nenhum agente fica `available`, porque falta o motor. O provedor simulado
   não muda isso.
@@ -108,8 +111,8 @@
     não é gerado por ninguém: depende do lote de detecção real de hardware.
     Até lá, nenhum resultado de teste vale como confirmação
     (`effectiveState` exige dispositivo conhecido).
-  - `digest` dos modelos só existirá quando um provedor real preencher o
-    inventário (lote do primeiro provedor de inferência).
+  - `digest` dos modelos já vem do inventário do Ollama (Lote 3.3.6), mas
+    ainda não é usado pelo avaliador de compatibilidade.
   - Perfis nomeados e reutilizáveis: lote que criar o armazenamento de
     perfis (migração `agents.json` v2 → v3).
   - Ligar o avaliador a dados reais: inventário de um provedor (com
@@ -125,6 +128,40 @@
     executar sem esse aviso.
 - Modelos que não estão na biblioteca fictícia têm requisitos desconhecidos.
 - A interface está só em português. A preferência de idioma não tem efeito.
+
+### Inferência local (Ollama, Lote 3.3.6)
+
+- **Sem início pela interface:** a inferência real foi validada pelo
+  `RunService` (fora da interface). A tela Execuções e a Apresentação
+  Guiada continuam usando o provedor simulado. Menor integração proposta
+  para o Lote 3.3.7: seletor de modelo instalado e campo de mensagem no card
+  da tela Execuções, chamando `runs:start`.
+- **Modelos com raciocínio (ex.: `qwen3:8b`):** o Ollama envia o raciocínio
+  em `message.thinking`, que não entra na resposta nem é exibido. Os tokens
+  de raciocínio contam no limite de saída e em `outputTokens`, e o tempo até
+  o primeiro texto inclui o raciocínio (47 s no teste com `qwen3:8b`). Se o
+  limite acabar antes de qualquer texto, a execução falha com
+  `invalid-request` e uma mensagem explícita, nunca como conclusão. Exibir
+  o raciocínio fica para etapa posterior. Versões do Ollama que não separam
+  o raciocínio o entregariam dentro do texto.
+- **Motivo de encerramento:** preservado no evento `done` e registrado nas
+  mensagens da execução; o `RunRecord` ainda não tem um campo estruturado
+  para ele.
+- **Atualização na interface:** a barra lateral verifica os provedores a
+  cada navegação; a tela Modelos ao abrir e no botão "Verificar de novo";
+  a lista de agentes reaproveita verificações de até 5 s. Não há
+  atualização contínua enquanto uma tela fica aberta.
+- **Identificador exato:** `llama3.1` não corresponde a `llama3.1:8b`; não
+  há apelidos.
+- **Endereço fixo:** `127.0.0.1:11434`, sem configuração na interface nem
+  leitura de `OLLAMA_HOST`.
+- **Métricas:** `peakMemoryBytes` fica sempre `null` (o Ollama não informa).
+- **Estados:** o Ollama aparece como `ready`, `unreachable` ou `error`;
+  `not-detected` e `incompatible-version` não são usados.
+- **Textos ainda desatualizados:** passos da Apresentação Guiada, cards do
+  Início, Chat, Desenvolvedor e as notas técnicas das recomendações ainda
+  descrevem o motor como não conectado. Subestimam, não prometem
+  funcionalidade inexistente; revisão no Lote 3.3.7.
 
 ### Técnicas
 

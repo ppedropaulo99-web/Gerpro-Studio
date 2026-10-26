@@ -28,15 +28,21 @@ obrigatórios. Nenhum deles está implementado.
 - **Contrato:** `InferenceProvider` e tipos de `src/shared/inference.ts`;
   perfis em `src/shared/execution.ts`; compatibilidade em
   `src/shared/compatibility.ts`.
-- **A fazer:**
-  - Decidir o runtime (Ollama temporário como provedor `external`; runtime
-    próprio futuro como `embedded`).
-  - Implementar em `src/main/engine/`, validando inventário e eventos com
+- **Pronto (Lote 3.3.6):**
+  - Adaptador Ollama em `src/main/engine/ollama/` (provedor `external`,
+    substituível), validando inventário e eventos com
     `validateProviderModel` e `validateInferenceEvent`.
-  - Criar canais IPC para modelos e chat.
-  - Ligar `engineAvailable`.
-  - Substituir a biblioteca fictícia de modelos.
-- **Cuidados:** não rodar a inferência no processo Main, nem expor caminhos de
+  - Canal `providers:list` (estado e modelos instalados).
+  - `engineAvailable` ligado: agente disponível só com o modelo instalado
+    num provedor real pronto.
+  - Tela Modelos mostra os modelos instalados, separados da biblioteca de
+    exemplo.
+- **A fazer:**
+  - Integração visual da execução real (Lote 3.3.7) e canal de chat.
+  - Motor próprio (`embedded`): decisão do runtime ainda em aberto.
+  - Substituir de vez a biblioteca fictícia de modelos.
+- **Cuidados:** não rodar a inferência no processo Main (o Ollama roda no
+  próprio processo; o Main só faz a comunicação HTTP), nem expor caminhos de
   arquivo arbitrários ao Renderer.
 - **Detalhes:** [Motor de inferência](05-motor-de-inferencia.md).
 
@@ -47,10 +53,11 @@ obrigatórios. Nenhum deles está implementado.
   (`src/shared/runs.ts`, `src/shared/execution.ts`).
 - **Pronto (Lote 3.3.5):** `RunService` com fila, cancelamento, tempo
   limite, limites e eventos agrupados; canal `runs:start`; provedor simulado.
+- **Pronto (Lote 3.3.6):** provedor real (Ollama) registrado; execuções dele
+  saem `origin: 'real'` com métricas medidas. Validado pelo `RunService`; a
+  interface ainda não inicia uma execução real.
 - **A fazer:**
-  - Registrar um provedor real na lista `providers` do `RunService`
-    (`src/main/services/index.ts`). As execuções dele já saem `origin:
-    'real'`.
+  - Iniciar execuções reais pela interface (Lote 3.3.7).
   - Implementar uma `resourcePolicy` com memória medida.
   - Decidir se o histórico será persistido.
   - Retirar `runs:start-demo` quando a tela Execuções e a Apresentação

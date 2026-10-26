@@ -4,9 +4,11 @@
  * Um provedor é quem roda modelos neste computador: um processo externo
  * (ex.: Ollama, temporariamente) ou, no futuro, o runtime próprio do Gerpro
  * Studio. Agentes, execuções e interface dependem só destes contratos, nunca
- * de um provedor específico. O único provedor implementado é o simulado
- * (`kind: 'simulated'`), que exercita o ciclo de vida sem inferência real:
- * não há chamadas HTTP nem modelos rodando.
+ * de um provedor específico. Provedores implementados: o simulado
+ * (`kind: 'simulated'`), que exercita o ciclo de vida sem inferência real, e
+ * o adaptador do Ollama (`kind: 'external'`, em `src/main/engine/ollama`),
+ * que roda modelos instalados neste computador. Formatos e URLs de cada
+ * provedor ficam no seu adaptador, no Main.
  *
  * Separação deliberada:
  * - identidade do modelo (`ModelRef`, `ProviderModel`);
@@ -40,6 +42,11 @@ export const MODEL_ID_MAX = 200
 
 /** Sem caracteres de controle e sem espaços nas pontas. Aceita ids como `llama3.2:3b` ou `org/modelo:q4_k_m`. */
 const MODEL_ID_PATTERN = /^[^\s\x00-\x1f\x7f](?:[^\x00-\x1f\x7f]*[^\s\x00-\x1f\x7f])?$/
+
+/** Mesma regra de `readModelRef`, para adaptadores que recebem ids de fora. */
+export function isValidModelId(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= MODEL_ID_MAX && MODEL_ID_PATTERN.test(value)
+}
 
 export function sameModel(a: ModelRef, b: ModelRef): boolean {
   return a.providerId === b.providerId && a.modelId === b.modelId
@@ -131,6 +138,18 @@ export interface ProviderStatus {
   /** Momento da última verificação; `null` se nunca verificado. */
   checkedAt: string | null
   message: string | null
+}
+
+/**
+ * Situação de um provedor como o Main a entrega ao Renderer (canal
+ * `providers:list`): identidade, último estado verificado e modelos locais
+ * instalados. `models` é `null` quando o provedor não pôde ser consultado,
+ * o que é diferente de uma lista vazia (respondeu, sem modelos).
+ */
+export interface ProviderOverview {
+  info: ProviderInfo
+  status: ProviderStatus
+  models: ProviderModelEntry[] | null
 }
 
 // ---------------------------------------------------------------------------

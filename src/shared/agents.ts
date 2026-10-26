@@ -95,7 +95,7 @@ export interface AgentRecord {
 
 export interface AvailabilityContext {
   tools: readonly ToolCatalogEntry[]
-  /** Se há um motor de inferência capaz de rodar o modelo. Sempre `false` nesta etapa. */
+  /** Se um motor de inferência real, pronto, tem o modelo do agente instalado. */
   engineAvailable: boolean
 }
 
@@ -131,7 +131,7 @@ export function evaluateAgentAvailability(agent: AgentDefinition, ctx: Availabil
   }
 
   if (agent.defaultModel && !ctx.engineAvailable) {
-    issues.push({ code: 'engine-unavailable', message: 'Nenhum motor de inferência disponível.' })
+    issues.push({ code: 'engine-unavailable', message: 'Nenhum motor de inferência disponível com este modelo instalado.' })
   }
 
   return { status: issues.length === 0 ? 'available' : 'unavailable', issues }

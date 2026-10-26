@@ -124,8 +124,8 @@ export function AgentsPage() {
       />
 
       <FeatureNotice state="planned">
-        A execução de agentes depende do motor de IA, ainda não conectado. Os agentes salvos são reais e ficam gravados neste
-        computador, mas aparecem como indisponíveis.
+        Executar agentes pela interface ainda está planejado. Os agentes salvos são reais e ficam gravados neste computador; só
+        aparecem como disponíveis quando um motor de IA local responde com o modelo do agente instalado.
       </FeatureNotice>
 
       <section className="section" aria-labelledby="saved-agents" data-tour="agents.saved">
@@ -208,7 +208,7 @@ export function AgentsPage() {
                     <span className="subtle mono truncate" title="Modelo">
                       {def.defaultModel?.modelId ?? 'Sem modelo'}
                     </span>
-                    <Button size="sm" icon={<Play size={13} />} disabled title="Execução real desabilitada: nenhum motor de IA configurado">
+                    <Button size="sm" icon={<Play size={13} />} disabled title="Planejado: execução de agentes pela interface">
                       Executar
                     </Button>
                   </CardFooter>

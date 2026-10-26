@@ -9,6 +9,7 @@
 import type { AgentDraft, AgentRecord } from './agents'
 import type { Result } from './errors'
 import type { AnalysisRequest, HardwareAdvisorState, LocalConsentChange } from './hardware'
+import type { ProviderOverview } from './inference'
 import type { DemoRunRequest, RunRecord, RunRequest } from './runs'
 import type { AppSettings, SettingsPatch, Theme } from './settings'
 import type { ToolCatalogEntry } from './tools'
@@ -27,6 +28,7 @@ export const IpcChannels = {
   /** Compatibilidade: convertido no Main em `runs:start` com o provedor simulado. */
   runsStartDemo: 'runs:start-demo',
   runsCancel: 'runs:cancel',
+  providersList: 'providers:list',
   hardwareGetState: 'hardware:get-state',
   hardwareSetLocalConsent: 'hardware:set-local-consent',
   hardwareAnalyze: 'hardware:analyze',
@@ -75,7 +77,7 @@ export interface GerproApi {
     list(): Promise<Result<ToolCatalogEntry[]>>
   }
   runs: {
-    /** Somente execuções desta sessão. Todas têm `origin: 'simulated'` nesta etapa. */
+    /** Somente execuções desta sessão. `origin` vem do provedor que atendeu (simulado ou real). */
     list(): Promise<Result<RunRecord[]>>
     /**
      * Valida, resolve modelo e perfil e enfileira (uma execução ativa, até 10
@@ -97,6 +99,14 @@ export interface GerproApi {
      * Devolve a função que cancela a inscrição.
      */
     onUpdated(listener: (run: RunRecord) => void): () => void
+  }
+  /**
+   * Provedores de inferência registrados no Main, com estado verificado na
+   * hora e modelos locais instalados (`models: null` = não foi possível consultar).
+   * O Renderer nunca fala com um provedor diretamente.
+   */
+  providers: {
+    list(): Promise<Result<ProviderOverview[]>>
   }
   /** Gerpro Hardware Advisor. Nesta etapa, só análises demonstrativas produzem dados (fictícios). */
   hardware: {

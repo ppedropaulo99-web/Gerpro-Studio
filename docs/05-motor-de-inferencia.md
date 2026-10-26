@@ -1,8 +1,35 @@
 # Motor de inferência próprio
 
-**Status: planejado.** Não há motor, download nem carregamento de modelos,
-nem inferência. A escolha da tecnologia é uma **decisão arquitetural futura**,
-que ainda não foi tomada.
+**Status do motor próprio: planejado.** A escolha da tecnologia continua uma
+**decisão arquitetural futura**, ainda não tomada.
+
+**Status da inferência local (Lote 3.3.6): implementada com o Ollama como
+provedor substituível.** O adaptador Ollama roda modelos já instalados neste
+computador pelo `RunService` (inferência real validada com `llama3.1:8b` e
+`qwen3:8b`). Download e gerenciamento de modelos continuam fora do app, e a
+**interface ainda não inicia uma execução real**: a integração visual fica
+para o Lote 3.3.7.
+
+## Adaptador Ollama (Lote 3.3.6)
+
+- **Onde:** `src/main/engine/ollama/ollama-provider.ts`, `kind: 'external'`.
+  Detalhes técnicos em [`src/main/engine/README.md`](../src/main/engine/README.md).
+- **Isolamento do formato:** só esse arquivo conhece a API do Ollama
+  (`/api/version`, `/api/tags`, `/api/chat` com NDJSON). Contratos
+  genéricos, `RunService`, agentes e React não citam o Ollama (há um teste
+  que verifica isso).
+- **Comunicação:** só no Main, só loopback (`http://127.0.0.1:11434`), sem
+  seguir redirecionamentos, com limites de tamanho por resposta, por evento e
+  por streaming. Não instala, não inicia o serviço e não baixa modelos.
+- **Disponibilidade:** `capabilities().realEngine` só fica `available` depois
+  que o Ollama responde `ready`; com ele desligado, o app abre normalmente e
+  as recusas vêm como `provider-unavailable`. As transições (serviço cai,
+  volta, modelos mudam) são reconhecidas sem reiniciar o app.
+- **Substituível:** é um provedor como qualquer outro. O motor próprio entra
+  como novo `InferenceProvider` (`kind: 'embedded'`) registrado em
+  `createServices`, sem mudar agentes, execuções nem interface.
+- **Limitações:** ver "Inferência local (Ollama)" em
+  [Decisões e limitações](07-decisoes-e-limitacoes.md).
 
 ## O que existe hoje
 
@@ -15,12 +42,13 @@ que ainda não foi tomada.
 | `evaluateCompatibility` / `recommendModels` | `src/shared/compatibility-evaluator.ts` | Avaliação por regras e recomendação de alternativas; puras, testadas, ainda sem chamador |
 | `defaultModel` / `defaultProfile` no agente | `src/shared/agents.ts` | `providerId` opcional: o agente não fica preso a um provedor |
 | `ModelDescriptor` | `src/shared/engine.ts` | Só para a biblioteca de exemplo |
-| Pasta reservada | `src/main/engine/` | Só um README |
-| `RunService` | `src/main/runs/run-service.ts` | Fila, cancelamento, tempo limite, limites e eventos funcionais (Lote 3.3.5) |
+| Provedores locais | `src/main/engine/` | Adaptador Ollama, HTTP restrito a loopback (`local-http.ts`) e `InferenceProviderError` (Lote 3.3.6) |
+| `RunService` | `src/main/runs/run-service.ts` | Fila, cancelamento, tempo limite, limites e eventos funcionais (Lote 3.3.5); verificação de provedores, `providers()` e `canRunReal` (Lote 3.3.6) |
 | Provedor simulado | `src/main/runs/simulated-provider.ts` | `kind: 'simulated'`, roteiros determinísticos; **não é motor** |
-| `engineAvailable` | `src/main/services/index.ts` | Verdadeiro só com provedor real registrado (`capabilities().realEngine`); hoje todos os agentes ficam com `engine-unavailable` |
-| `engineAvailable: false` | `src/renderer/src/components/hardware/AgentRecommendations.tsx` | Nenhuma recomendação fica executável |
-| Biblioteca de modelos | `src/renderer/src/data/models.ts` | **Fictícia** |
+| `engineAvailable` | `src/main/services/index.ts` | Verdadeiro só quando um provedor real pronto tem o modelo do agente instalado (`canRunReal`) |
+| Canal `providers:list` | `src/shared/ipc.ts` | Estado verificado e modelos instalados de cada provedor, para a interface |
+| `engineAvailable: false` | `src/renderer/src/components/hardware/AgentRecommendations.tsx` | Nenhuma recomendação fica executável enquanto a interface não inicia execuções reais |
+| Biblioteca de modelos | `src/renderer/src/data/models.ts` | **Fictícia**; a tela Modelos mostra à parte os modelos realmente instalados |
 | Preferências `models.directory` e `models.maxRamGb` | `src/shared/settings.ts` | Gravadas, sem efeito |
 
 ## Requisitos que o contrato já impõe

@@ -2,6 +2,7 @@ import type { Result } from '@shared/errors'
 import { IpcChannels } from '@shared/ipc'
 import { validateDemoRunRequest } from '@shared/runs'
 import { AppError, toStructuredError, unwrap } from './errors'
+import { PROVIDER_REFRESH_MAX_AGE_MS } from './runs/run-service'
 import { demoRunRequest } from './runs/simulated-provider'
 import type { Services } from './services'
 
@@ -25,7 +26,8 @@ export function createDataHandlers(services: Services): Record<DataChannel, Hand
   return {
     [IpcChannels.settingsGet]: { arity: 0, run: () => settings.get() },
     [IpcChannels.settingsUpdate]: { arity: 1, run: ([patch]) => settings.update(patch) },
-    [IpcChannels.agentsList]: { arity: 0, run: () => agents.list() },
+    // A disponibilidade dos agentes depende do motor real: usa uma verificação recente dos provedores.
+    [IpcChannels.agentsList]: { arity: 0, run: async () => (await runs.refreshProviders(PROVIDER_REFRESH_MAX_AGE_MS), agents.list()) },
     [IpcChannels.agentsCreate]: { arity: 1, run: ([draft]) => agents.create(draft) },
     [IpcChannels.agentsUpdate]: { arity: 1, run: ([draft]) => agents.update(draft) },
     [IpcChannels.agentsDelete]: { arity: 1, run: async ([id]) => (await agents.remove(id), null) },
@@ -35,6 +37,7 @@ export function createDataHandlers(services: Services): Record<DataChannel, Hand
     // Compatibilidade: a demonstração vira um pedido ao provedor simulado, na mesma fila.
     [IpcChannels.runsStartDemo]: { arity: 1, run: ([request]) => runs.start(demoRunRequest(unwrap(validateDemoRunRequest(request)))) },
     [IpcChannels.runsCancel]: { arity: 1, run: ([id]) => runs.cancel(id) },
+    [IpcChannels.providersList]: { arity: 0, run: () => runs.providers() },
     [IpcChannels.hardwareGetState]: { arity: 0, run: () => hardware.getState() },
     [IpcChannels.hardwareSetLocalConsent]: { arity: 1, run: ([change]) => hardware.setLocalConsent(change) },
     [IpcChannels.hardwareAnalyze]: { arity: 1, run: ([request]) => hardware.analyze(request) },

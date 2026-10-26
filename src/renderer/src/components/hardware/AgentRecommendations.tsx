@@ -90,7 +90,7 @@ function Body({
         </Notice>
       )}
       <Notice tone="neutral">
-        Nenhum agente pode ser executado agora: o motor de IA não está disponível. A compatibilidade é uma estimativa feita a partir do
+        Nenhum agente pode ser executado agora pela interface: a execução real ainda está planejada. A compatibilidade é uma estimativa feita a partir do
         perfil de hardware e não foi confirmada em execução.
       </Notice>
 

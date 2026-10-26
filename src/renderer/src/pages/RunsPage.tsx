@@ -27,6 +27,7 @@ import { modelById } from '@renderer/data/models'
 import { runs as exampleRuns } from '@renderer/data/runs'
 import { useNavigation } from '@renderer/app/navigation'
 import { callApi } from '@renderer/lib/api'
+import { summarizeEngine } from '@renderer/lib/engine'
 import { formatDateTime, formatDuration, formatNumber } from '@renderer/lib/format'
 import { legacyRunState, runDurationSec, upsertRun } from '@renderer/lib/runs'
 import { runOrigin, runState } from '@renderer/lib/status'
@@ -37,13 +38,25 @@ export function RunsPage() {
   return (
     <div className="page">
       <PageHeader title="Execuções" description="Execuções simuladas desta sessão e histórico de exemplo." />
-      <FeatureNotice state="simulated">
-        Nenhum motor de IA está configurado. As execuções iniciadas aqui passam pela fila real de execuções, mas quem responde é o
-        provedor simulado: o texto é fixo, nenhum modelo ou ferramenta é executado e nada é gravado no disco.
-      </FeatureNotice>
+      <EngineNotice />
       <SimulatedRuns />
       <ExampleHistory />
     </div>
+  )
+}
+
+/** O launcher desta tela usa sempre o provedor simulado, mesmo com um motor real conectado. */
+function EngineNotice() {
+  const providers = useResource(() => window.gerpro.providers.list())
+  const engine = providers.state.status === 'ready' ? summarizeEngine(providers.state.data) : null
+  const simulatedOnly =
+    'As execuções iniciadas aqui passam pela fila real de execuções, mas quem responde é o provedor simulado: o texto é fixo, nenhum modelo ou ferramenta é executado e nada é gravado no disco.'
+  return (
+    <FeatureNotice state="simulated">
+      {engine?.connected
+        ? `${engine.label} com ${engine.installedModels} modelo(s) instalado(s), mas esta tela ainda não inicia execuções reais. ${simulatedOnly}`
+        : `Nenhum motor de IA local está respondendo. ${simulatedOnly}`}
+    </FeatureNotice>
   )
 }
 

@@ -4,6 +4,7 @@ import { isTerminalRunState } from '@shared/runs'
 import { routes, type RouteDef } from '@renderer/app/routes'
 import { useNavigation } from '@renderer/app/navigation'
 import { callApi } from '@renderer/lib/api'
+import { summarizeEngine, type EngineSummary } from '@renderer/lib/engine'
 import { upsertRun } from '@renderer/lib/runs'
 
 const sections: Array<{ id: RouteDef['section']; label: string }> = [
@@ -44,9 +45,26 @@ function useBadges(current: RouteDef['id']): Partial<Record<RouteDef['id'], numb
   return { agents: agents || undefined, runs: activeRuns }
 }
 
+/** Estado do motor real, verificado no Main a cada navegação. `undefined` enquanto carrega ou se a consulta falhar. */
+function useEngine(current: RouteDef['id']): EngineSummary | undefined {
+  const [engine, setEngine] = useState<EngineSummary>()
+  useEffect(() => {
+    let active = true
+    void callApi(() => window.gerpro.providers.list()).then((r) => active && setEngine(r.ok ? summarizeEngine(r.data) : undefined))
+    return () => {
+      active = false
+    }
+  }, [current])
+  return engine
+}
+
 export function Sidebar() {
   const { current, navigate } = useNavigation()
   const badges = useBadges(current)
+  const engine = useEngine(current)
+  const engineTitle = engine?.connected
+    ? `Motor de IA: ${engine.ready.map((p) => `${p.info.displayName} ${p.status.version ?? ''}`.trim()).join(', ')} · ${engine.installedModels} modelo(s) instalado(s)`
+    : 'Motor de IA: nenhum provedor local respondendo'
 
   return (
     <nav className="sidebar" aria-label="Navegação principal" data-tour="shell.sidebar">
@@ -77,11 +95,11 @@ export function Sidebar() {
       ))}
 
       <div className="sidebar__footer">
-        <div className="engine-pill" title="Motor de IA: não conectado (protótipo)" data-tour="shell.engine">
-          <span className="status tone-neutral" style={{ padding: 0, background: 'none' }}>
+        <div className="engine-pill" title={engineTitle} data-tour="shell.engine">
+          <span className={`status ${engine?.connected ? 'tone-success' : 'tone-neutral'}`} style={{ padding: 0, background: 'none' }}>
             <span className="status__dot" />
           </span>
-          <span className="engine-pill__label">Motor de IA não conectado</span>
+          <span className="engine-pill__label">{engine?.label ?? 'Motor de IA não conectado'}</span>
         </div>
       </div>
     </nav>

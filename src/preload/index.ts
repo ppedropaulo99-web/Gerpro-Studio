@@ -37,6 +37,9 @@ const api: GerproApi = {
       }
     }
   },
+  providers: {
+    list: () => ipcRenderer.invoke(IpcChannels.providersList)
+  },
   hardware: {
     getState: () => ipcRenderer.invoke(IpcChannels.hardwareGetState),
     setLocalConsent: (change) => ipcRenderer.invoke(IpcChannels.hardwareSetLocalConsent, change),

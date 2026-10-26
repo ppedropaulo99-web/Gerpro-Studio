@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { app, BrowserWindow } from 'electron'
+import { OLLAMA_DEFAULT_URL } from './engine/ollama/ollama-provider'
 import { createServices } from './services'
 import { applyWindowTheme, createMainWindow } from './window'
 import { applySessionSecurity } from './security'
@@ -27,7 +28,8 @@ app.on('second-instance', () => {
 app.whenReady().then(async () => {
   applySessionSecurity()
   // Dados locais ficam em <userData>/storage, lidos e gravados só pelo Main.
-  const services = await createServices(join(app.getPath('userData'), 'storage'))
+  // O Ollama só é consultado neste computador; se estiver desligado, o app funciona sem ele.
+  const services = await createServices(join(app.getPath('userData'), 'storage'), { ollamaBaseUrl: OLLAMA_DEFAULT_URL })
   registerIpcHandlers(services)
   app.on('before-quit', () => services.runs.dispose())
   // Tema trocado em Configurações: as partes nativas da janela acompanham na hora.

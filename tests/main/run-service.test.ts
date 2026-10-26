@@ -579,6 +579,9 @@ describe('RunService: real × simulado', () => {
 
     // Um provedor de outro tipo gera execução `real` (aqui, um dublê de teste).
     const external = setup({ provider: () => fakeProvider(async function* () { yield done }, { id: 'externo', kind: 'external' }) })
+    // Registrado não basta: o motor real só conta depois que o provedor respondeu.
+    assert.equal(external.service.capabilities().realEngine, 'unavailable')
+    await external.service.refreshProviders()
     assert.equal(external.service.capabilities().realEngine, 'available')
     const r = await external.service.start({ ...request('modelo-teste'), overrides: { model: { providerId: 'externo', modelId: 'modelo-teste' }, profile: null } })
     await external.scheduler.advance(10)

@@ -6,6 +6,7 @@ import {
   type AgentDefinition,
   type AgentRecord
 } from '@shared/agents'
+import type { ModelRef } from '@shared/inference'
 import { Checker, isRecord, readSlug } from '@shared/validation'
 import { AppError, unwrap } from '../errors'
 import { VersionedStore, type ParseOutcome, type StoreStatus } from '../storage/versioned-store'
@@ -48,8 +49,8 @@ export interface AgentServiceDeps {
   filePath: string
   tools: ToolRegistry
   settings: SettingsService
-  /** Há motor de inferência? Sempre `false` nesta etapa. */
-  engineAvailable: () => boolean
+  /** Um motor real pronto tem o modelo do agente instalado? (última verificação dos provedores) */
+  engineAvailable: (model: ModelRef | null) => boolean
   now?: () => Date
 }
 
@@ -132,7 +133,7 @@ export class AgentService {
     const tools = this.deps.tools.list(this.deps.settings.get().tools.enabled)
     return {
       definition,
-      availability: evaluateAgentAvailability(definition, { tools, engineAvailable: this.deps.engineAvailable() })
+      availability: evaluateAgentAvailability(definition, { tools, engineAvailable: this.deps.engineAvailable(definition.defaultModel) })
     }
   }
 }
