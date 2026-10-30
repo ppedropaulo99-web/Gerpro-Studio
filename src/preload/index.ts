@@ -19,7 +19,8 @@ const api: GerproApi = {
     list: () => ipcRenderer.invoke(IpcChannels.agentsList),
     create: (draft) => ipcRenderer.invoke(IpcChannels.agentsCreate, draft),
     update: (draft) => ipcRenderer.invoke(IpcChannels.agentsUpdate, draft),
-    remove: (id) => ipcRenderer.invoke(IpcChannels.agentsDelete, id)
+    remove: (id) => ipcRenderer.invoke(IpcChannels.agentsDelete, id),
+    storageStatus: () => ipcRenderer.invoke(IpcChannels.agentsStorageStatus)
   },
   tools: {
     list: () => ipcRenderer.invoke(IpcChannels.toolsList)

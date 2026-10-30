@@ -6,8 +6,9 @@ em tempo de execução, que rejeita campos desconhecidos.
 
 ## Agentes (`src/shared/agents.ts`)
 
-**Status:** implementado (definição, validação e persistência). A execução é
-planejada.
+**Status:** implementado (definição, validação e persistência). Agentes
+conversam com modelos instalados; execução de ferramentas e ação autônoma são
+planejadas.
 
 `AgentDefinition` é o que o usuário configura e o Main grava:
 
@@ -43,11 +44,70 @@ converte arquivos da versão 1:
   a cópia falhar, nada é gravado (modo somente leitura).
 
 O arquivo só é regravado na próxima alteração. Agentes v1 inválidos seguem a
-recuperação normal (cópia do original e manutenção dos válidos).
+[proteção de `agents.json`](02-arquitetura.md#proteção-de-agentsjson): os
+válidos ficam legíveis, e as alterações, bloqueadas. Agentes que já existiam
+continuam sem mudança de comportamento: sem tipos de tarefa e com o modelo sem
+vínculo a um provedor.
 
-O formulário da tela Agentes edita só modelo, `temperature`, `topP` e
-`maxOutputTokens`; ao salvar, preserva a finalidade, os demais parâmetros do
-perfil e o provedor do modelo (este só enquanto o modelo não muda).
+### Metadados × configurações que influenciam a execução
+
+| Campo | Classe | Efeito hoje |
+|---|---|---|
+| `name`, `description`, `version` | Metadado | Só identificação |
+| `id` | Metadado | Chave do agente e da conversa; imutável |
+| `taskTypes` | Metadado | Só alimenta as recomendações do Advisor; não muda conversas |
+| `tools`, `requestedPermissions` | Metadado | Guardados; **não chegam ao modelo** nem concedem nada |
+| `state` | Regra de acesso | `archived` é recusado; `draft` e `ready` conversam |
+| `instructions` | Execução | Mensagem de sistema enviada ao modelo |
+| `defaultModel` | Execução | Vem selecionado em Conversas; é usado se a execução não indicar modelo |
+| `defaultProfile` | Execução | Enviado ao provedor, salvo `timeoutSeconds`, aplicado pelo app |
+
+### Estado, executabilidade e observações
+
+São três informações distintas (`renderer/src/lib/agent-status.ts`):
+
+- **Estado (gravado):** Rascunho, Pronto ou Arquivado.
+- **Executabilidade (calculada na tela):** `conversable` ("Pode conversar"),
+  `checking`, `unverified`, `no-engine`, `no-model` ou `blocked` (arquivado). A
+  tela reflete o `RunService`, sem substituí-lo: Conversas sempre envia um
+  modelo instalado escolhido na hora, então rascunho, falta de instruções,
+  ferramentas e modelo padrão ausente não bloqueiam.
+- **Observações:** avisos que não impedem a conversa.
+
+Por isso um agente pode ter `availability: 'unavailable'` no Main, por exemplo
+com o modelo padrão ausente, e "Pode conversar" na tela. O contrato responde "o
+padrão dele está pronto?"; a tela responde "dá para conversar agora?".
+
+### Seleção de modelo no editor
+
+`renderer/src/lib/agent-model.ts` lista só modelos locais, instalados e de
+conversa, de provedores prontos. Nada é escolhido automaticamente.
+
+| Situação do modelo | Tela | Ao salvar |
+|---|---|---|
+| Instalado | Selecionado | Mantém |
+| Ausente | Aviso | Preservado até o usuário escolher outro |
+| Incompatível (sem `chat`) | Aviso; fora da lista | Preservado até o usuário escolher outro |
+| Ambíguo (mais de um provedor) | Pede para indicar o provedor | Preservado |
+| Provedor indisponível | "Não verificado" | Preservado |
+| Capacidade desconhecida | Na lista: quem não declara capacidades é aceito | Mantém |
+| `providerId: null` | Corresponde a um modelo instalado sem criar vínculo | Permanece `null`, enquanto o modelo não muda |
+
+### Editor
+
+- **Básicas:** nome, estado, descrição, instruções, modelo e tipos de tarefa.
+- **Avançadas (recolhíveis):** temperatura, Top P, máximo de tokens, contexto,
+  semente, GPU, threads, tempo limite, identificação técnica (`id`, `version`)
+  e ferramentas. Recolher não apaga valores.
+- **Validação:** `agentFormErrors` orienta na tela; `validateAgentDraft`, no
+  Main, decide. Estado Pronto exige modelo e instruções.
+- **Ferramentas desconhecidas:** um ID fora do catálogo é preservado e
+  identificado. O Main recusa gravar um agente que o referencie, inclusive ao
+  arquivar, e a tela orienta a remoção em Configurações avançadas. A remoção é
+  explícita e não altera as permissões solicitadas.
+- **Permissões:** derivadas das ferramentas marcadas. Nenhuma é concedida.
+- **Alterações pendentes:** navegar pelo app pede confirmação; "Cancelar"
+  descarta.
 
 **Disponibilidade:** `AgentAvailability` é calculada a cada leitura e nunca
 gravada. `evaluateAgentAvailability` gera problemas com código:
@@ -56,8 +116,9 @@ gravada. `evaluateAgentAvailability` gera problemas com código:
 - `unknown-tool`, `tool-disabled`, `tool-not-implemented`
 - `missing-permission`, `engine-unavailable`
 
-Nesta versão não há motor nem ferramenta executável. Portanto **nenhum
-agente fica `available`**, e a interface mostra os motivos.
+`available` exige modelo padrão instalado em provedor real pronto. Não há
+ferramenta executável, portanto um agente com ferramentas segue indisponível
+nesse contrato, embora possa conversar sem elas.
 
 ## Ferramentas (`src/shared/tools.ts`)
 
@@ -86,8 +147,8 @@ Conhecimento. **Nenhuma tem executor**, então todas aparecem como
 
 ## Inferência local: contratos
 
-**Status:** só contratos e validadores (Lote 3.3.3). Não há provedor, chamada
-HTTP, inferência nem streaming funcional.
+**Status:** implementados e em uso pelo `RunService` e pelo adaptador Ollama.
+O avaliador de compatibilidade é testado, mas ainda não tem chamador.
 
 ### Provedores e modelos (`src/shared/inference.ts`)
 
@@ -152,9 +213,13 @@ HTTP, inferência nem streaming funcional.
 - `resolveExecution(padrões, substituições, inventário)` é pura: escolhe o
   modelo (substituição ou padrão), vincula o provedor entre os modelos
   **instalados** e combina o perfil. Erros: `no-model`,
-  `model-not-installed` e `ambiguous-provider`. Com `providerId: null`, o
-  vínculo só é automático quando exatamente um provedor oferece o modelo;
-  com mais de um, nada é escolhido e o usuário precisa indicar o provedor.
+  `model-not-installed`, `ambiguous-provider` e `model-unsupported`. Com
+  `providerId: null`, o vínculo só é automático quando exatamente um provedor
+  oferece o modelo; com mais de um, nada é escolhido e o usuário precisa
+  indicar o provedor.
+- **Capacidade:** depois de localizar o modelo, lista vazia de capacidades
+  significa "não declarou" e é aceita; lista sem `chat` é recusada. A mensagem
+  é "Este modelo não oferece suporte a conversas. Escolha um modelo compatível."
 - **Extração futura para perfis nomeados:** o perfil é um objeto completo,
   sem campos implícitos (a migração v1 → v2 grava os padrões por extenso), e
   a resolução o usa tal como está. Um perfil nomeado pode receber o mesmo
@@ -295,8 +360,8 @@ A tela Modelos e a biblioteca usada nas recomendações
 
 ## Execuções (`src/shared/runs.ts`)
 
-**Status:** o contrato e a máquina de estados estão implementados; as
-execuções são simuladas.
+**Status:** implementado. Execuções reais usam o Ollama; as simuladas seguem
+identificadas. Nada é gravado: o histórico fica na memória do Main.
 
 - `RunRecord`: `id` (`run-...`), `agentId`, `origin` (`simulated` | `real`),
   `state`, `createdAt`, `startedAt`, `finishedAt`, `progress`
@@ -308,7 +373,7 @@ execuções são simuladas.
   - `SimulatedRunRecord` (Opção A, Lote 3.3.5): `execution`
     (`ResolvedExecution` do modelo simulado, ou `null`), `output` (texto
     simulado) e `metrics: null` sempre. Continua simulada: nenhum modelo roda.
-  - `RealRunRecord` (futuro): `execution` (`ResolvedExecution`: modelo
+  - `RealRunRecord`: `execution` (`ResolvedExecution`: modelo
     resolvido, perfil efetivo e o que foi substituído), `output` (texto
     simples) e `metrics` (só valores medidos, ou `null`).
   - A origem vem do provedor: `kind: 'simulated'` → `simulated`; qualquer
@@ -334,12 +399,15 @@ pending ──► running ──► completed
 
 - **`RunService`** (`src/main/runs/run-service.ts`):
   - `start` valida o pedido, exige agente existente (`not-found`) e não
-    arquivado (`invalid-state`), lê o inventário dos provedores (validado por
-    `validateProviderModel`; modelos remotos ou de outro provedor são
-    ignorados), resolve modelo e perfil (`resolveExecution`) e enfileira.
+    arquivado (`invalid-state`), confere a vaga na fila, lê o inventário dos
+    provedores (validado por `validateProviderModel`; modelos remotos ou de
+    outro provedor são ignorados), resolve modelo e perfil
+    (`resolveExecution`), monta as mensagens, aplica o limite de prompt e a
+    política de recursos, e enfileira. Rascunhos são aceitos.
   - Recusas antes da fila: `validation`; `conflict` (fila cheia, `retryable`);
-    `inference` com `details.inferenceCode` (`model-not-found` ou
-    `invalid-request` na resolução, com `details.resolution`;
+    `inference` com `details.inferenceCode` (`model-not-found`,
+    `model-unsupported` ou `invalid-request` na resolução, com
+    `details.resolution`;
     `context-too-long` no limite de prompt; o código que a política de
     recursos devolver).
   - Fila FIFO, uma execução ativa, até 10 aguardando; ao terminar (sucesso,
@@ -424,6 +492,10 @@ Três conceitos separados: `Conversation` (sessão gravada), `ConversationMessag
 - **`RunService.start(request, { history })`:** o histórico entra só pelo
   Main (`ConversationService`); o canal `runs:start` continua recebendo só o
   `RunRequest`, que não mudou.
+- **Associação com agentes:** o `agentId` é fixo depois da primeira mensagem, e
+  nada troca esse vínculo. Agente excluído ou não carregado deixa a conversa
+  legível e sem envio (`not-found`); a tela só afirma "excluído ou arquivado"
+  quando o armazenamento dos agentes não está protegido.
 
 ## Configurações (`src/shared/settings.ts`)
 
@@ -508,6 +580,8 @@ ter foco.
   `message`, `retryable`, `issues?` (validação) e `details?`.
 - `inference`: falha de inferência; o código específico vai em
   `details.inferenceCode`.
+- `storage-read-only`: gravação recusada porque o arquivo está protegido.
+  `storage`: falha de disco ao gravar (`retryable`).
 - `simulated-failure`: legado. Não é mais emitido desde o Lote 3.3.5 (a falha
   simulada vira `inference` com `provider-error`); continua no tipo para não
   quebrar quem ainda o trate.

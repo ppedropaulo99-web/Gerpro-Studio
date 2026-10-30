@@ -1,27 +1,30 @@
 # Gerpro Studio
 
-Aplicação desktop de IA. Etapa 1: protótipo visual navegável. Etapa 2.1: núcleo funcional
-(contratos, persistência local e IPC). Etapa 2.2: telas Agentes, Configurações e Execuções
-conectadas ao Main. Etapa 3.1: Gerpro Hardware Advisor (contratos, consentimento e fluxos
-demonstrativos; ver `src/main/hardware/README.md`).
-Ainda não há inferência, detecção real de hardware, execução de ferramentas nem integrações externas.
+Aplicação desktop de IA para conversar com modelos instalados neste computador, por meio de
+agentes configuráveis. A inferência é real e local, pelo Ollama. As conversas ficam gravadas
+neste computador.
 
-Documentação completa (arquitetura, contratos, Hardware Advisor, pontos de integração e decisões): [`docs/`](docs/README.md).
+Ainda não há execução de ferramentas, detecção real de hardware, instalador nem integração com
+o Gerpro Web.
+
+Documentação completa: [`docs/`](docs/README.md). Para continuar o desenvolvimento, comece pelo
+[Handoff](docs/08-handoff.md) e pelo [Inventário e riscos](docs/09-inventario-e-riscos.md).
 
 ## Dados reais × demonstrativos
 
 | Tela | Dados do Main (reais) | Dados de exemplo (fictícios, identificados) |
 |---|---|---|
-| Agentes | "Meus agentes": criar, editar, arquivar, excluir | "Exemplos": podem ser duplicados como novo agente |
+| Agentes | "Meus agentes": criar, editar, arquivar, restaurar, excluir; modelo escolhido entre os instalados, tipos de tarefa e configurações avançadas | "Exemplos": podem ser duplicados como novo agente |
+| Conversas | Conversas gravadas, com contexto, com modelos instalados | — |
 | Configurações | Tema escuro/claro (aplicado na hora); demais preferências gravadas, ainda sem efeito; as de privacidade ficam bloqueadas nos valores seguros | — |
-| Execuções | "Execuções simuladas desta sessão" (só em memória, `origin: simulated`) | "Histórico de exemplo" |
-| Barra lateral | Contadores de agentes salvos e simulações em andamento | — |
+| Execuções | Execuções reais da sessão, com métricas medidas (só em memória) | "Demonstração simulada", identificada |
+| Barra lateral | Contadores de agentes salvos e execuções em andamento; estado do motor | — |
 | Configurações › Hardware e desempenho | Consentimento (gravado, revogável) e exclusão de dados | Perfis de hardware fictícios |
 | Agentes › Recomendações | Agentes salvos entram na avaliação | Perfil de hardware e biblioteca de modelos fictícios |
-| Início | Agentes salvos e simulações da sessão | — (modelos e tokens: planejado) |
+| Início | Agentes salvos e execuções da sessão | — (modelos carregados e tokens: planejado) |
 | Ferramentas | Catálogo e permissões declaradas (execução planejada) | — |
 | Gerpro AI | — | — (em desenvolvimento) |
-| Modelos | — | Biblioteca de modelos de exemplo |
+| Modelos | Modelos instalados no Ollama | Biblioteca de modelos de exemplo |
 | Desenvolvedor | Informações do aplicativo | Logs de exemplo (servidor local: planejado) |
 
 Os estados dos dados de exemplo são convertidos para o contrato por `legacyRunState`
@@ -31,8 +34,9 @@ Os estados dos dados de exemplo são convertidos para o contrato por `legacyRunS
 
 ## Requisitos
 
-- Node.js ≥ 22.12 (testado com 24.14)
+- Node.js ≥ 22.12 (testado com 24.22)
 - npm ≥ 10
+- Ollama, opcional: sem ele o app abre, mas Conversas não envia mensagens
 
 ## Como iniciar
 
@@ -87,11 +91,12 @@ src/
 │   ├── ipc-handlers.ts   Handlers de dados (aridade + Result estruturado)
 │   ├── errors.ts         AppError → StructuredError
 │   ├── env.ts            Detecção de dev/produção e URLs confiáveis
-│   ├── services/         Configurações e agentes (persistidos), montagem dos serviços
+│   ├── services/         Configurações, agentes, conversas e montagem dos serviços
 │   ├── storage/          Escrita atômica, arquivo JSON versionado, cofre cifrado
 │   ├── tools/            Catálogo e registro de ferramentas (só declarações)
-│   ├── runs/             Gerenciador DEMONSTRATIVO de execuções
-│   ├── engine/           (reservado) motor de IA
+│   ├── runs/             RunService (fila, cancelamento, prazo) e provedor simulado
+│   ├── engine/           Provedores de inferência (adaptador Ollama, HTTP local)
+│   ├── hardware/         Hardware Advisor e detectores
 │   └── plugins/          (reservado) sistema de plugins
 ├── preload/
 │   ├── index.ts          Ponte contextBridge → window.gerpro (API mínima)
@@ -99,10 +104,11 @@ src/
 ├── shared/               Contratos usados pelos três processos
 │   ├── ipc.ts            Canais IPC permitidos e tipos da API
 │   ├── agents.ts         Definição, validação e disponibilidade de agentes
+│   ├── conversations.ts  Conversas, mensagens e recorte de contexto
 │   ├── tools.ts          Definição, esquemas e executor (futuro) de ferramentas
 │   ├── runs.ts           Estados, transições e pedidos de execuções
 │   ├── inference.ts      Provedores de inferência, identidade de modelos, eventos e erros
-│   ├── execution.ts      Perfis de execução e substituição por execução
+│   ├── execution.ts      Perfis, substituição por execução e resolução do modelo
 │   ├── compatibility.ts  Estados de compatibilidade (estimada, testada, confirmada)
 │   ├── settings.ts       Configurações do app
 │   ├── validation.ts     Validação em tempo de execução
@@ -132,19 +138,21 @@ src/
 - **Permissões** de câmera, microfone, notificações etc. são negadas por padrão.
 - **DevTools** só em desenvolvimento.
 
-Canais IPC: `app:get-info`, `settings:get|update`, `agents:list|create|update|delete`, `tools:list`,
-`runs:list|start|start-demo|cancel`, `hardware:get-state|set-local-consent|analyze|delete-data`
-e o evento `runs:updated`. Os canais de dados recebem argumentos
+Canais IPC: `app:get-info`, `settings:get|update`, `agents:list|create|update|delete|storage-status`,
+`tools:list`, `runs:list|start|start-demo|cancel`, `providers:list`,
+`conversations:list|get|send|rename|delete|retry-save`,
+`hardware:get-state|set-local-consent|analyze|delete-data` e os eventos `runs:updated`,
+`conversations:updated` e `conversations:save-changed`. Os canais de dados recebem argumentos
 como `unknown`, validam no Main e respondem `Result<T>` (`{ ok, data }` ou `{ ok, error }`).
 
 ## Persistência local
 
-Arquivos em `<userData>/storage/` (`settings.json`, `agents.json`, `hardware.json`), gravados só pelo Main:
+Arquivos em `<userData>/storage/` (`settings.json`, `agents.json`, `hardware.json` e `conversations/`), gravados só pelo Main:
 
 - Envelope versionado `{ format, formatVersion, savedAt, data }`, com migrações por versão.
 - Escrita atômica (temporário + `fsync` + `rename`), gravações serializadas.
-- Arquivo corrompido ou inválido: cópia `*.invalid-<data>.json` e recuperação dos dados válidos.
-- Arquivo de versão mais nova: carregado como padrão e **nunca sobrescrito**.
+- Arquivo corrompido ou inválido: cópia `*.invalid-<data>.json`. Em `agents.json`, as alterações ficam bloqueadas até a correção manual; em `settings.json` e `hardware.json`, o app segue com o que foi recuperado.
+- Arquivo de versão mais nova: **nunca sobrescrito**.
 - Esquemas estritos (campos desconhecidos são rejeitados). Credenciais só no cofre
   `SecretVault`, cifrado pelo `safeStorage` do sistema; sem cifra disponível, nada é gravado.
 
@@ -153,9 +161,9 @@ Arquivos em `<userData>/storage/` (`settings.json`, `agents.json`, `hardware.jso
 - **Nova tela:** crie o componente em `renderer/src/pages/` e adicione uma entrada em `renderer/src/app/routes.ts`. A barra lateral e a navegação se atualizam sozinhas.
 - **Novo canal IPC:**
   1. Declare o canal e o tipo em `shared/ipc.ts`.
-  2. Registre o handler em `main/ipc.ts`, chamando `assertTrustedSender`.
+  2. Registre o handler em `main/ipc-handlers.ts`, com validação e aridade.
   3. Exponha a função em `preload/index.ts`.
-- **Motor de IA:** implemente `InferenceProvider` (`shared/inference.ts`) dentro de `main/engine/` e exponha-o por novos canais IPC. Perfis e substituições por execução estão em `shared/execution.ts`.
+- **Provedor de inferência:** implemente `InferenceProvider` (`shared/inference.ts`) em `main/engine/` e registre-o em `createServices`. Fila, interface e agentes não mudam (ver `src/main/engine/README.md`).
 - **Plugins:** carregue manifestos `PluginManifest` (`shared/plugins.ts`) em `main/plugins/`. A tela **Ferramentas** já exibe origem e permissões.
 - **Visual:** cores, espaçamentos e tipografia saem de `renderer/src/styles/tokens.css`.
 

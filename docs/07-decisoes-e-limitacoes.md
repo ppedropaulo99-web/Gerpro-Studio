@@ -46,6 +46,13 @@
 | D37 | 3.3.7 (UX) | Papéis separados: Início como dashboard (saudação, indicadores, execuções recentes, atalhos), Conversas para interagir com modelos locais (lista lateral, mensagens, campo de entrada), Execuções para monitorar (resumo, histórico, métricas, erros, registro, demonstração simulada) e Chat reservado ao futuro assistente interno; nomes amigáveis derivados só do identificador (a lista de mensagens independentes foi substituída pelas conversas contínuas, D38) | Interface simples por padrão, com o técnico a um clique; preparar conversas futuras sem criar uma camada provisória que precise ser descartada |
 | D40 | 3.3.7 (identidade) | Tela Chat renomeada para Gerpro AI só no que o usuário vê (menu, página, Apresentação Guiada); rota `chat`, `ChatPage`, classes CSS e marcas `data-tour` preservadas; a palavra chat continua com o sentido técnico em contratos, capacidades de modelo e na integração Ollama; a tela segue sem chamar o motor | Alinha o nome à função de assistente do produto sem tocar em arquitetura nem invalidar referências internas. |
 
+| D41 | 3.3.8 | Modelo do agente escolhido na lista de instalados, sem seleção automática; modelo ausente, incompatível ou não verificado fica preservado e identificado | Uma indisponibilidade momentânea não pode reescrever a configuração do usuário |
+| D42 | 3.3.8 | Estado gravado, executabilidade e observações separados na tela, seguindo as regras do `RunService` | Evitar que a tela prometa ou negue o que o Main faz |
+| D43 | 3.3.8 | Regra de capacidade em `resolveExecution`: lista sem `chat` é recusada; lista vazia significa "não declarou" e é aceita | Bloquear embeddings antes do motor sem rejeitar modelos e provedores que não informam capacidades |
+| D44 | 3.3.8 | `protectOnRecovery` só em `agents.json`: dados inválidos bloqueiam gravações, sem reparo automático; cópia conferida e sem repetição; `agents:storage-status` expõe só o motivo | Um agente recusado existe só no arquivo; regravar a lista o apagaria. Os demais arquivos mantêm a política anterior |
+| D45 | 3.3.8 | Rascunhos conversam, e `tools`, `requestedPermissions` e `taskTypes` não afetam conversas | Mantém a política existente, sem promessa de ferramentas; os avisos dizem isso na tela |
+| D46 | 3.3.8 | Conversa com agente indisponível fica só para leitura, sem exclusão, troca automática ou alteração do arquivo; escolher agente em conversa nova aplica o padrão dele | Histórico é do usuário; a promessa do editor precisa valer em Conversas |
+
 ## Limitações conhecidas
 
 ### Funcionais
@@ -89,21 +96,18 @@
   grava.
 - A proteção de alterações não salvas cobre a navegação pelo app (barra
   lateral e atalhos internos). Fechar a janela ou sair do aplicativo descarta
-  as alterações sem perguntar.
+  as alterações sem perguntar, e "Cancelar" no editor de agentes também.
 - A tela Ferramentas só exibe o catálogo; não há controle de ativação.
   `settings.tools.enabled` existe, mas nenhuma tela o altera.
 - A detecção real de hardware não existe. O botão sempre leva a
   "indisponível".
-- Requisitos só existem nos agentes de exemplo. Agentes salvos já guardam
-  tipos de tarefa (`taskTypes`), mas a tela ainda não os edita; sem eles, a
-  tarefa fica "desconhecida" nas recomendações.
+- Requisitos só existem nos agentes de exemplo. Tipos de tarefa são editáveis,
+  mas só influenciam as recomendações; sem eles, a tarefa fica "desconhecida".
 - `agents.json` passou à versão 2. Uma versão anterior do app que abra o
   arquivo regravado o trata como "mais novo": usa os padrões e não grava.
-- Os contratos de inferência local (provedores, perfis, compatibilidade e
-  execução real) existem, mas não há provedor nem canal IPC de execução
-  real. O avaliador de compatibilidade e a recomendação de alternativas
-  (`compatibility-evaluator.ts`) existem e são testados, mas nada na
-  interface ou no Main os chama ainda.
+- O avaliador de compatibilidade e a recomendação de alternativas
+  (`compatibility-evaluator.ts`) existem e são testados, mas nada na interface
+  ou no Main os chama ainda.
 - A estimativa de memória do avaliador é deliberadamente simples (pesos +
   contexto, reservas fixas de RAM e VRAM). Não considera sobrecarga do
   runtime, buffers de computação nem a divisão real de camadas entre GPU e
@@ -177,9 +181,11 @@
   mais antigas continuam gravadas e visíveis, mas deixam de ser enviadas. Não
   há resumo automático nem memória entre conversas.
 - **Agente fixo por conversa:** para usar outro agente, crie uma nova
-  conversa. Se o agente for excluído ou arquivado, a conversa fica só para
-  leitura. As ferramentas do agente não são usadas; Conversas avisa quando o
-  agente tem alguma.
+  conversa. Se o agente for excluído, arquivado ou não puder ser carregado, a
+  conversa fica só para leitura. As ferramentas do agente não são usadas;
+  Conversas avisa quando o agente tem alguma.
+- **Conversas não são protegidas como agentes:** arquivo de conversa inválido é
+  copiado e retirado da pasta, e a tela informa quantos ficaram de fora.
 - **Uma resposta por vez em cada conversa:** enquanto uma resposta é gerada,
   a mesma conversa não aceita outro envio (outras conversas entram na fila do
   `RunService`).
@@ -241,8 +247,13 @@
 - Não há lint configurado. A qualidade é verificada por `typecheck` estrito e
   testes.
 - **Testes de interface:** os testes cobrem contratos, serviços e a lógica
-  pura da interface. As telas React não têm testes automatizados, e a
+  pura da interface. As telas React não têm testes de renderização, e a
   verificação visual foi manual (via DevTools Protocol, fora do repositório).
+- **Protegido enquanto aberto:** o bloqueio de `agents.json` é avaliado ao
+  iniciar. Mudanças no arquivo com o app aberto só valem depois de reiniciar.
+- **Teclado:** o menu de ações não tem navegação por setas; Tab percorre os
+  itens, e Esc fecha e devolve o foco ao botão. A exclusão de agente usa o
+  diálogo nativo do sistema.
 
 ### Segurança e privacidade
 

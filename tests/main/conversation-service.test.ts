@@ -3,8 +3,9 @@ import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
 import { AppError } from '../../src/main/errors'
-import { createDataHandlers } from '../../src/main/ipc-handlers'
+import { createDataHandlers, invokeHandler } from '../../src/main/ipc-handlers'
 import { RunService } from '../../src/main/runs/run-service'
+import { createServices } from '../../src/main/services'
 import { CHECKPOINT_INTERVAL_MS, ConversationService } from '../../src/main/services/conversation-service'
 import { writeFileAtomic } from '../../src/main/storage/atomic-file'
 import type { AgentDefinition } from '../../src/shared/agents'
@@ -15,11 +16,13 @@ import {
   titleFromMessage,
   validateConversation,
   type Conversation,
+  type ConversationList,
   type ConversationMessage,
   type ConversationSaveChange
 } from '../../src/shared/conversations'
 import { inferenceError, type InferenceEvent, type InferenceProvider, type InferenceRequest } from '../../src/shared/inference'
 import { IpcChannels } from '../../src/shared/ipc'
+import { chunk, fakeOllama, final, json, stream, tag, wait } from '../support/fake-ollama'
 import { agentDraft, settle, tempDir, VirtualScheduler } from '../support/fixtures'
 
 const MODEL_A = { providerId: 'local', modelId: 'modelo-a' }
@@ -572,6 +575,65 @@ describe('Conversas: resposta interrompida pelo fechamento', () => {
     s.disk.fail = false
     await s.service.retrySave(conversation.id)
     assert.equal((await onDisk(s.dir, conversation.id)).messages[1]!.content, 'Olá mundo')
+  })
+})
+
+describe('Conversa cujo agente não foi carregado', () => {
+  it('fica legível e intacta, recusa envios e volta a funcionar com o agente de volta', async () => {
+    const fake = await fakeOllama({ 'GET /api/tags': json({ models: [tag('llama3.2:3b')] }), 'POST /api/chat': stream([chunk('Olá'), final()]) })
+    const dir = await tempDir()
+    const open = async () => {
+      const services = await createServices(dir, { stepDelayMs: 1, ollamaBaseUrl: fake.url })
+      const handlers = createDataHandlers(services)
+      return { services, call: (channel: keyof typeof handlers, ...args: unknown[]) => invokeHandler('x', handlers[channel], args) }
+    }
+    const draft = agentDraft({ tools: [] })
+    const first = await open()
+    assert.ok((await first.call(IpcChannels.agentsCreate, draft)).ok)
+    const request = { conversationId: null as string | null, agentId: draft.id, input: 'Olá', model: { providerId: 'ollama', modelId: 'llama3.2:3b' } }
+    const sent = await first.call(IpcChannels.conversationsSend, request)
+    assert.ok(sent.ok)
+    const id = (sent.data as { conversation: Conversation }).conversation.id
+    const deadline = Date.now() + 3_000
+    while ((first.services.conversations.get(id).messages.at(-1)?.state ?? 'pending') === 'pending') {
+      assert.ok(Date.now() < deadline, 'resposta não terminou')
+      await wait(5)
+    }
+    await settle()
+    await first.services.conversations.whenSaved()
+    first.services.runs.dispose()
+
+    const agentsFile = join(dir, 'agents.json')
+    const healthy = await readFile(agentsFile, 'utf8')
+    const parsed = JSON.parse(healthy)
+    parsed.data.agents[0].campoNovo = true
+    await writeFile(agentsFile, JSON.stringify(parsed))
+    const conversationFile = join(dir, 'conversations', `${id}.json`)
+    const before = await readFile(conversationFile, 'utf8')
+
+    const blocked = await open()
+    assert.deepEqual(blocked.services.agents.storageStatus(), { block: 'damaged' })
+    const listed = await blocked.call(IpcChannels.conversationsList)
+    assert.ok(listed.ok)
+    assert.deepEqual((listed.data as ConversationList).conversations.map((c) => c.id), [id])
+    const opened = await blocked.call(IpcChannels.conversationsGet, id)
+    assert.ok(opened.ok)
+    assert.equal((opened.data as Conversation).agentId, draft.id, 'não vincula a outro agente')
+    assert.deepEqual((opened.data as Conversation).messages.map((m) => m.state), ['complete', 'complete'])
+
+    const refused = await blocked.call(IpcChannels.conversationsSend, { ...request, conversationId: id })
+    assert.equal(!refused.ok && refused.error.code, 'not-found')
+    assert.equal(fake.chats.length, 1, 'nada foi gerado')
+    assert.equal(await readFile(conversationFile, 'utf8'), before, 'nem a recusa nem a abertura alteram a conversa')
+    blocked.services.runs.dispose()
+
+    await writeFile(agentsFile, healthy)
+    const healed = await open()
+    const again = await healed.call(IpcChannels.conversationsSend, { ...request, conversationId: id })
+    assert.ok(again.ok, 'o vínculo com o agente foi mantido')
+    await settle()
+    await healed.services.conversations.whenSaved()
+    healed.services.runs.dispose()
   })
 })
 

@@ -6,7 +6,7 @@
  * começa neste arquivo.
  */
 
-import type { AgentDraft, AgentRecord } from './agents'
+import type { AgentDraft, AgentRecord, AgentsStorageStatus } from './agents'
 import type { Conversation, ConversationList, ConversationSaveChange, ConversationSaveStatus, ConversationSendRequest } from './conversations'
 import type { Result } from './errors'
 import type { AnalysisRequest, HardwareAdvisorState, LocalConsentChange } from './hardware'
@@ -23,6 +23,7 @@ export const IpcChannels = {
   agentsCreate: 'agents:create',
   agentsUpdate: 'agents:update',
   agentsDelete: 'agents:delete',
+  agentsStorageStatus: 'agents:storage-status',
   toolsList: 'tools:list',
   runsList: 'runs:list',
   runsStart: 'runs:start',
@@ -81,6 +82,8 @@ export interface GerproApi {
     /** Falha com `not-found` se o agente não existir. */
     update(draft: AgentDraft): Promise<Result<AgentRecord>>
     remove(id: string): Promise<Result<null>>
+    /** As gravações podem estar bloqueadas para proteger o arquivo; o Main recusa de qualquer forma. */
+    storageStatus(): Promise<Result<AgentsStorageStatus>>
   }
   tools: {
     list(): Promise<Result<ToolCatalogEntry[]>>

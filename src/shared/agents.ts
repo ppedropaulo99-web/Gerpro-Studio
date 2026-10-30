@@ -87,6 +87,14 @@ export interface AgentAvailability {
   issues: AgentIssue[]
 }
 
+/** Por que os agentes não podem ser alterados agora. */
+export type AgentsStorageBlock = 'newer-version' | 'unreadable' | 'damaged' | 'backup-failed'
+
+/** Estado do armazenamento de agentes. `block: null` significa que gravar é permitido. */
+export interface AgentsStorageStatus {
+  block: AgentsStorageBlock | null
+}
+
 /** Agente como entregue ao Renderer: definição persistida + disponibilidade calculada. */
 export interface AgentRecord {
   definition: AgentDefinition

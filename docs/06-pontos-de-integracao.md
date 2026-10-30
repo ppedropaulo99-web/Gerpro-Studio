@@ -1,7 +1,9 @@
 # Pontos de integração (responsabilidade da equipe)
 
 Cada item tem o contrato que já existe, o que falta fazer e os cuidados
-obrigatórios. Nenhum deles está implementado.
+obrigatórios. Os itens 2 e 3 têm partes prontas, indicadas neles; os demais não
+estão implementados. A situação de cada funcionalidade está em
+[Inventário e riscos](09-inventario-e-riscos.md).
 
 ## 1. Detector real de hardware
 
@@ -72,7 +74,8 @@ obrigatórios. Nenhum deles está implementado.
     Guiada passarem a usar `runs:start`.
 - **Cuidados:**
   - Manter a distinção visual simulada × real.
-  - Exigir agente `available` antes de iniciar.
+  - Manter as recusas no `RunService`: a tela só antecipa. Hoje só arquivado é
+    recusado pelo estado; rascunhos conversam por decisão registrada (D45).
   - Propagar o cancelamento até o motor e as ferramentas.
 
 ## 4. Ferramentas e permissões
@@ -119,8 +122,12 @@ obrigatórios. Nenhum deles está implementado.
   - Enviar o perfil de hardware ou outros dados só com `serverSharing`
     concedido em fluxo próprio. Isso exige liberar `granted` na validação de
     forma deliberada.
+- **Não presumir:** endpoints, formatos e autenticação do Gerpro Web não estão
+  definidos neste repositório. A equipe de integração os define conforme as
+  capacidades reais do sistema.
 - **Detalhes:** [Arquitetura › Arquitetura híbrida
-  planejada](02-arquitetura.md#arquitetura-híbrida-planejada-gerpro-web).
+  planejada](02-arquitetura.md#arquitetura-híbrida-planejada-gerpro-web) e
+  [Handoff](08-handoff.md#extensão-para-o-gerpro-web).
 
 ## 7. Gerpro Web: módulos incorporados durante a migração
 
@@ -136,8 +143,9 @@ obrigatórios. Nenhum deles está implementado.
 
 ## 8. Evolução dos contratos persistidos
 
-- **Tipos de tarefa nos agentes salvos:** já fazem parte da
-  `AgentDefinition` v2 (`taskTypes`), mas a tela ainda não os edita.
+- **Tipos de tarefa nos agentes salvos:** fazem parte da `AgentDefinition` v2
+  (`taskTypes`) e são editados no editor (Lote 3.3.8). Por ora, só alimentam as
+  recomendações.
 - **Requisitos nos agentes salvos:** hoje só os exemplos têm
   (`src/renderer/src/data/agent-requirements.ts`). Para incluí-los:
   - subir `AGENTS_FORMAT_VERSION` para 3;

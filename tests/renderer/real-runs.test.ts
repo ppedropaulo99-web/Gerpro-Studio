@@ -18,6 +18,7 @@ import {
   completedWithWarning,
   defaultModelKey,
   eligibleModels,
+  modelForAgent,
   friendlyError,
   friendlyModelName,
   inventoryProblem,
@@ -145,6 +146,10 @@ describe('Execução real: modelos elegíveis', () => {
     assert.equal(defaultModelKey(many, '', null), '')
     assert.equal(defaultModelKey(many, '', { providerId: null, modelId: 'b:1b' }), many[1]!.key)
     assert.equal(defaultModelKey(many, many[0]!.key, { providerId: null, modelId: 'b:1b' }), many[0]!.key)
+    assert.equal(modelForAgent(many, many[0]!.key, { providerId: null, modelId: 'b:1b' }), many[1]!.key, 'outro agente: vale o padrão dele')
+    assert.equal(modelForAgent(many, many[0]!.key, null), many[0]!.key, 'sem padrão, mantém a escolha')
+    assert.equal(modelForAgent(many, many[0]!.key, { providerId: null, modelId: 'sumiu:1b' }), many[0]!.key, 'padrão ausente não apaga a escolha')
+    assert.equal(modelForAgent(many, many[1]!.key, { providerId: null, modelId: 'b:1b' }, many[0]!.ref), many[0]!.key, 'o pedido por "Usar em Conversas" prevalece')
     assert.equal(defaultModelKey(many, 'sumiu', null), '', 'escolha que não existe mais é descartada')
     assert.equal(defaultModelKey(many, '', { providerId: 'outro', modelId: 'b:1b' }), '')
   })

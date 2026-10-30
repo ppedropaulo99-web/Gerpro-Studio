@@ -141,6 +141,7 @@ export type ExecutionResolutionError =
   | { code: 'no-model'; message: string }
   | { code: 'model-not-installed'; message: string }
   | { code: 'ambiguous-provider'; message: string }
+  | { code: 'model-unsupported'; message: string }
 
 export function applyProfileOverride(base: ExecutionProfile, override: ExecutionProfileOverride | null): ExecutionProfile {
   return override ? { ...base, ...override } : base
@@ -149,7 +150,9 @@ export function applyProfileOverride(base: ExecutionProfile, override: Execution
 /**
  * Combina o padrão do agente com as substituições da execução e vincula o
  * modelo a um provedor do inventário. Só modelos instalados servem; um
- * `modelId` sem provedor oferecido por mais de um provedor é ambíguo.
+ * `modelId` sem provedor oferecido por mais de um provedor é ambíguo. Um modelo
+ * que declara capacidades sem `chat` não conversa; lista vazia é capacidade
+ * desconhecida (motor antigo) e não impede a execução.
  */
 export function resolveExecution(
   defaults: { model: ModelRef | null; profile: ExecutionProfile },
@@ -169,11 +172,15 @@ export function resolveExecution(
   if (matches.length > 1) {
     return { ok: false, error: { code: 'ambiguous-provider', message: `O modelo "${wanted.modelId}" existe em mais de um provedor; escolha qual usar.` } }
   }
+  const { model } = matches[0]!
+  if (model.capabilities.length > 0 && !model.capabilities.includes('chat')) {
+    return { ok: false, error: { code: 'model-unsupported', message: 'Este modelo não oferece suporte a conversas. Escolha um modelo compatível.' } }
+  }
 
   return {
     ok: true,
     value: {
-      model: matches[0]!.model.ref,
+      model: model.ref,
       profile: applyProfileOverride(defaults.profile, overrides?.profile ?? null),
       overridden: { model: overrides?.model != null, profile: overrides?.profile != null }
     }

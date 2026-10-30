@@ -27,6 +27,8 @@ import {
   validateInferenceEvent,
   validateModelRef,
   validateProviderModel,
+  type ModelCapability,
+  type ModelRef,
   type ProviderModelEntry
 } from '../../src/shared/inference'
 import { validateRunRequest } from '../../src/shared/runs'
@@ -131,6 +133,58 @@ describe('resolução de modelo e perfil por execução', () => {
     assert.equal(code(resolveExecution({ model: { providerId: null, modelId: 'baixando:1b' }, profile }, null, inventory)), 'model-not-installed')
     assert.equal(code(resolveExecution({ model: { providerId: 'provedor-b', modelId: 'llama3.2:3b' }, profile }, null, inventory)), 'model-not-installed')
     assert.equal(code(resolveExecution({ model: { providerId: null, modelId: 'qwen:7b' }, profile }, null, inventory)), 'ambiguous-provider')
+  })
+
+  describe('capacidade de conversa', () => {
+    const capable = (providerId: string, modelId: string, capabilities: ModelCapability[]): ProviderModelEntry => {
+      const base = entry(providerId, modelId)
+      return { ...base, model: { ...base.model, capabilities } }
+    }
+    const code = (model: ModelRef | null, list: ProviderModelEntry[], overrides: ModelRef | null = null) => {
+      const r = resolveExecution({ model, profile }, overrides ? { model: overrides, profile: null } : null, list)
+      return r.ok ? 'ok' : r.error.code
+    }
+    const named = (modelId: string, providerId: string | null = null): ModelRef => ({ providerId, modelId })
+
+    it('aceita chat, sozinho ou com outras capacidades', () => {
+      assert.equal(code(named('m'), [capable('a', 'm', ['chat'])]), 'ok')
+      assert.equal(code(named('m'), [capable('a', 'm', ['chat', 'vision', 'tools', 'embedding'])]), 'ok')
+    })
+
+    it('recusa quem declara capacidades sem chat, com mensagem para o usuário', () => {
+      assert.equal(code(named('m'), [capable('a', 'm', ['embedding'])]), 'model-unsupported')
+      assert.equal(code(named('m'), [capable('a', 'm', ['vision', 'tools'])]), 'model-unsupported')
+      const r = resolveExecution({ model: named('m'), profile }, null, [capable('a', 'm', ['embedding'])])
+      assert.ok(!r.ok)
+      assert.equal(r.error.message, 'Este modelo não oferece suporte a conversas. Escolha um modelo compatível.')
+    })
+
+    it('lista vazia é capacidade desconhecida: não impede', () => {
+      assert.equal(code(named('m'), [capable('a', 'm', [])]), 'ok')
+    })
+
+    it('modelo inexistente continua sendo "não instalado"', () => {
+      assert.equal(code(named('outro'), [capable('a', 'm', ['embedding'])]), 'model-not-installed')
+    })
+
+    it('vale para o modelo da execução, não para o padrão do agente', () => {
+      const list = [capable('a', 'embed', ['embedding']), capable('a', 'chat', ['chat'])]
+      assert.equal(code(named('embed'), list, named('chat', 'a')), 'ok')
+      assert.equal(code(named('chat'), list, named('embed', 'a')), 'model-unsupported')
+    })
+
+    it('em mais de um provedor: decide o escolhido; sem provedor segue ambíguo', () => {
+      const list = [capable('a', 'm', ['embedding']), capable('b', 'm', ['chat'])]
+      assert.equal(code(named('m', 'a'), list), 'model-unsupported')
+      assert.equal(code(named('m', 'b'), list), 'ok')
+      assert.equal(code(named('m'), list), 'ambiguous-provider')
+    })
+
+    it('providerId null vincula ao único provedor antes de avaliar', () => {
+      const r = resolveExecution({ model: named('m'), profile }, null, [capable('a', 'm', ['chat'])])
+      assert.ok(r.ok)
+      assert.deepEqual(r.value.model, { providerId: 'a', modelId: 'm' })
+    })
   })
 })
 

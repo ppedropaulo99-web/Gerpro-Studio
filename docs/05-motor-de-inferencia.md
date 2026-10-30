@@ -8,8 +8,8 @@ provedor substituível.** O adaptador Ollama roda modelos já instalados neste
 computador pelo `RunService` (inferência real validada com `llama3.1:8b` e
 `qwen3:8b`). Download e gerenciamento de modelos continuam fora do app.
 
-**Execução pela interface (Lote 3.3.7): implementada na tela Execuções.** Ver
-"Execução real pela interface" abaixo.
+**Execução pela interface (Lote 3.3.7): iniciada em Conversas e monitorada em
+Execuções.** Ver "Execução real pela interface" abaixo.
 
 ## Adaptador Ollama (Lote 3.3.6)
 
@@ -51,9 +51,11 @@ Fluxo em Conversas (`pages/ConversationsPage.tsx`):
    (`friendlyModelName`: `llama3.1:8b` → "Llama 3.1 (8B)"); o identificador
    exato fica nos detalhes. Modelos de raciocínio aparecem marcados. O botão
    de atualizar consulta de novo.
-2. O usuário escolhe o modelo e o agente (instruções e perfil) e escreve a
+2. O usuário escolhe o agente (instruções e perfil), o modelo e escreve a
    mensagem (até 32.000 caracteres; Enter envia, Shift+Enter quebra a
-   linha). O pedido vai por
+   linha). Em conversa nova, escolher um agente seleciona o modelo padrão dele,
+   se estiver disponível; senão, a escolha atual fica. "Usar em Conversas" tem
+   prioridade. O pedido vai por
    `conversations:send` (ver "Conversas contínuas" abaixo), que chama o
    `RunService` com `overrides.model` = modelo escolhido; o perfil é o do
    agente.
@@ -86,6 +88,26 @@ Conversas" (Modelos) abrem Conversas, os dois últimos com o agente ou o
 modelo pré-selecionado; "Detalhes técnicos" e "Histórico e métricas"
 (Conversas) abrem Execuções; "Nova mensagem" (Execuções) volta a Conversas
 (`renderer/src/lib/run-intent.ts`, só em memória).
+
+## Resolução do modelo e capacidade
+
+Toda execução passa por `resolveExecution`, função pura em
+`src/shared/execution.ts`, nesta ordem:
+
+1. Modelo: o de `overrides.model`, senão o padrão do agente. Sem nenhum:
+   `no-model`.
+2. Localização entre os modelos instalados, com o provedor indicado ou em
+   qualquer um. Nenhum: `model-not-installed`. Mais de um: `ambiguous-provider`.
+3. Capacidade: lista vazia é aceita; lista sem `chat` dá `model-unsupported`.
+4. Perfil: o do agente com as substituições da execução.
+
+A recusa acontece antes da fila, sem chamar o provedor. Assim, um modelo de
+embedding nunca chega ao motor, tanto como padrão quanto como escolha direta.
+
+**Disponibilidade × capacidade:** `canRunReal` responde se o modelo do agente
+está instalado em provedor real pronto; não olha capacidades. A recusa por
+capacidade vem de `resolveExecution`, e a tela de agentes avisa pelo estado
+`incompatible`.
 
 ## Conversas contínuas
 
@@ -157,10 +179,13 @@ continua e vai inteiro (dentro do limite) para o novo modelo. Cada resposta
 registra o modelo que a gerou, e a tela mostra "Modelo alterado para …". O
 agente (instruções e perfil) não muda com o modelo: fica fixo na conversa.
 
+Agentes indisponíveis: arquivados ficam fora da lista de novas conversas; uma
+conversa cujo agente foi excluído, arquivado ou não carregado continua legível,
+com o envio desativado, sem troca automática de agente.
+
 Ficam para etapas futuras: resumo automático de conversas longas, memória
 entre conversas, contagem exata de tokens pelo motor, o assistente interno
-Gerpro AI, a seleção de modelos por lista na criação de agentes, ferramentas,
-instalação assistida de modelos, recomendações conforme o hardware e a
+Gerpro AI, ferramentas, instalação assistida de modelos, recomendações conforme o hardware e a
 integração opcional com o VS Code.
 
 ## O que existe hoje
@@ -179,7 +204,7 @@ integração opcional com o VS Code.
 | Provedor simulado | `src/main/runs/simulated-provider.ts` | `kind: 'simulated'`, roteiros determinísticos; **não é motor** |
 | `engineAvailable` | `src/main/services/index.ts` | Verdadeiro só quando um provedor real pronto tem o modelo do agente instalado (`canRunReal`) |
 | Canal `providers:list` | `src/shared/ipc.ts` | Estado verificado e modelos instalados de cada provedor, para a interface |
-| `engineAvailable: false` | `src/renderer/src/components/hardware/AgentRecommendations.tsx` | Nenhuma recomendação fica executável enquanto a interface não inicia execuções reais |
+| `engineAvailable` nas recomendações | `src/renderer/src/components/hardware/AgentRecommendations.tsx` | Verdadeiro com motor conectado; exemplos seguem sem execução |
 | Biblioteca de modelos | `src/renderer/src/data/models.ts` | **Fictícia**; a tela Modelos mostra à parte os modelos realmente instalados |
 | Preferências `models.directory` e `models.maxRamGb` | `src/shared/settings.ts` | Gravadas, sem efeito |
 
@@ -227,10 +252,9 @@ integração opcional com o VS Code.
 
 ## Integração com o Hardware Advisor
 
-Quando o motor existir:
+`engineAvailable` já reflete o motor real, em `createServices` e em
+`AgentRecommendations.tsx`. Falta ligar:
 
-- **Disponibilidade do motor:** passar `engineAvailable: true` em
-  `createServices` e em `AgentRecommendations.tsx`.
 - **Lista de modelos:** substituir a biblioteca fictícia por
   `InferenceProvider.listModels()`, mapeando para `ModelProfile` com a
   disponibilidade real (`installed`, `downloading`, `error`).

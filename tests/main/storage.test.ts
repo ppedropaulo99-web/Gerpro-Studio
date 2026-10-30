@@ -115,6 +115,17 @@ describe('armazenamento versionado', () => {
     })
   }
 
+  it('sem `protectOnRecovery`, o arquivo recuperado segue gravável e sem bloqueio declarado', async () => {
+    const dir = await tempDir()
+    const file = join(dir, 'c.json')
+    await writeFile(file, '{ quebrado')
+    const store = counterStore(file)
+    await store.load()
+    assert.equal(store.status.writeBlock, null)
+    await store.update(() => ({ count: 1 }))
+    assert.deepEqual(JSON.parse(await readFile(file, 'utf8')).data, { count: 1 })
+  })
+
   it('versão mais nova: não sobrescreve', async () => {
     const dir = await tempDir()
     const file = join(dir, 'c.json')

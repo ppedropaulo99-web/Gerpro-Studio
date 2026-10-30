@@ -8,12 +8,12 @@
 │ security.ts   CSP, permissões de dispositivo negadas                            │
 │ window.ts     BrowserWindow com sandbox; navegação e novas janelas bloqueadas   │
 │ ipc.ts        valida o remetente → ipc-handlers.ts (aridade + validação)        │
-│ services/     SettingsService, AgentService                                     │
+│ services/     SettingsService, AgentService, ConversationService                │
 │ tools/        ToolRegistry (catálogo declarado)                                 │
 │ runs/         RunService (fila, cancelamento, prazo) + provedor simulado        │
 │ hardware/     HardwareAdvisorService + detectores                               │
 │ storage/      VersionedStore, escrita atômica, SecretVault                      │
-│ engine/       (reservado)          plugins/  (reservado)                        │
+│ engine/       provedores (adaptador Ollama)     plugins/  (reservado)           │
 └───────────────────────────────▲──────────────────────────────────────────────────┘
                                 │ ipcRenderer.invoke / on (só canais de shared/ipc.ts)
 ┌───────────────────────────────┴── Preload (sandbox, CommonJS) ───────────────────┐
@@ -93,11 +93,13 @@ problemas de validação), sem stack trace. Eventos Main → Renderer
 | `agents:list` | — | `Result<AgentRecord[]>` |
 | `agents:create` / `agents:update` | `AgentDraft` | `Result<AgentRecord>` |
 | `agents:delete` | `id` | `Result<null>` |
+| `agents:storage-status` | — | `Result<AgentsStorageStatus>` (só o motivo do bloqueio, sem caminhos nem conteúdo) |
 | `tools:list` | — | `Result<ToolCatalogEntry[]>` |
 | `runs:list` | — | `Result<RunRecord[]>` |
 | `runs:start` | `RunRequest` | `Result<RunRecord>` |
 | `runs:start-demo` (compatibilidade) | `DemoRunRequest` | `Result<RunRecord>` |
 | `runs:cancel` | `id` | `Result<RunRecord>` |
+| `providers:list` | — | `Result<ProviderOverview[]>` |
 | `conversations:list` | — | `Result<ConversationList>` |
 | `conversations:get` | `id` | `Result<Conversation>` |
 | `conversations:send` | `ConversationSendRequest` | `Result<{ conversation, run }>` |
@@ -115,6 +117,25 @@ problemas de validação), sem stack trace. Eventos Main → Renderer
 Para criar um canal: declare-o em `src/shared/ipc.ts`, registre o handler em
 `src/main/ipc-handlers.ts` com validação e aridade, e exponha a função em
 `src/preload/index.ts`.
+
+### Fluxos principais
+
+```text
+Salvar agente:   AgentEditor → agents:create/update → validateAgentDraft
+                 → AgentService → VersionedStore (bloqueado se protegido)
+
+Enviar mensagem: Conversas → conversations:send → ConversationService (conflitos,
+                 limites, contexto) → RunService.start (agente, inventário,
+                 resolveExecution, limites) → fila → InferenceProvider
+
+Acompanhar:      provedor → RunService → runs:updated → Renderer
+                 RunService → ConversationService → gravação → conversations:updated
+```
+
+Uma recusa do `RunService` chega à tela antes de a conversa gravar qualquer
+coisa. Erros seguem um caminho único: `AppError` no Main, `StructuredError` no
+`Result<T>` e um texto simples na tela (`friendlyError`,
+`agentActionMessage`), com o código preservado para diagnóstico.
 
 ## Persistência local
 
@@ -140,6 +161,7 @@ Comportamento do `VersionedStore` (`src/main/storage/versioned-store.ts`):
   sobrescrito.
 - Arquivo de versão mais nova: o app usa os padrões e **não grava**, para não
   destruir dados de uma versão futura.
+- Arquivo ilegível (permissão, disco): padrões, sem gravar.
 - `hardware.json` ilegível volta ao padrão seguro: não autorizado e sem dados.
 - Conversa com arquivo inválido: não é usada pela metade. O original é
   copiado (`*.invalid-<data>.json`) e retirado da pasta, e as outras
@@ -148,6 +170,68 @@ Comportamento do `VersionedStore` (`src/main/storage/versioned-store.ts`):
 
 Execuções (reais e simuladas) não são persistidas: cada conversa guarda o
 texto final de cada resposta, o modelo que a gerou e o `runId`.
+
+### Proteção de `agents.json`
+
+Um agente recusado na leitura existe só no arquivo. Se o app regravasse a
+lista, ele seria perdido. Por isso `agents.json` usa `protectOnRecovery`, opção
+do `VersionedStore` que os demais arquivos não usam.
+
+Estados de carregamento (`StoreStatus.state`): `missing`, `loaded`, `migrated`,
+`recovered` e `read-only`. O bloqueio é informado à parte:
+
+| `writeBlock` | Quando | Leitura | Cópia |
+|---|---|---|---|
+| `null` | Arquivo normal, ausente ou migrado | Todos os agentes | Só a de migração |
+| `damaged` | JSON corrompido, formato errado ou registros inválidos | Os agentes que puderam ser lidos | Confirmada byte a byte |
+| `backup-failed` | Dados inválidos e cópia não confirmada, ou cópia de migração falhou | Os agentes que puderam ser lidos, se houver | Não há |
+| `newer-version` | Formato mais novo que o suportado | Nenhum: a lista não é exibida | Desnecessária, nada é alterado |
+| `unreadable` | Erro de leitura | Nenhum | Não há |
+
+Comportamento comum aos quatro bloqueios:
+
+- O arquivo original não é alterado.
+- Criar, editar, arquivar, restaurar e excluir são recusados pelo Main
+  (`storage-read-only`). A tela só antecipa isso, desativando as ações; a
+  proteção não depende do Renderer.
+- A página Agentes mostra o motivo, sem caminhos nem conteúdo.
+- Conversas continuam legíveis. O envio com agente não carregado é recusado e a
+  conversa não muda.
+- O bloqueio é avaliado ao iniciar: corrigir o arquivo exige reiniciar o app.
+- Não existe reparo automático.
+
+**Deduplicação:** antes de copiar, o app compara o original com as cópias
+`agents.invalid-*.json` existentes. Havendo uma idêntica, ela é reaproveitada;
+assim, abrir o app várias vezes não acumula arquivos. Uma cópia nunca
+sobrescreve outra, e a nova só vale depois de conferida byte a byte.
+
+### Procedimento manual de diagnóstico
+
+Use quando a página Agentes avisar que as alterações estão bloqueadas. **Não
+apague nem substitua nada sem antes guardar uma cópia.**
+
+1. Feche o Gerpro Studio.
+2. Copie a pasta `storage` inteira para outro local. No Windows, ela fica em
+   `%APPDATA%\Gerpro Studio\storage`. Essa cópia é o seu ponto de retorno.
+3. Identifique o caso pelo aviso exibido na tela:
+   - **Versão mais nova:** abra o app na versão que gravou o arquivo. Não edite
+     o arquivo para baixar a versão.
+   - **Não foi possível ler:** verifique permissões, antivírus e o disco. O
+     arquivo pode estar íntegro.
+   - **Problema nos dados:** compare `agents.json` com a cópia
+     `agents.invalid-*.json` mais recente; elas têm o mesmo conteúdo. Abra-a
+     em um editor de texto e localize o trecho inválido. Ao iniciar, o log do
+     Main registra com o prefixo `[storage]` o caminho do problema (por
+     exemplo, `$.agents[2]`), sem o conteúdo dos agentes.
+   - **Cópia não confirmada:** libere espaço em disco e verifique as
+     permissões da pasta; depois reinicie o app para ele tentar de novo.
+4. Se precisar corrigir o arquivo, edite somente o `agents.json`, mantendo a
+   cópia feita no passo 2, e confira se ele continua sendo um JSON válido.
+5. Reinicie o app. Se o aviso sumir, o arquivo foi aceito. Se continuar, volte
+   ao passo 3; a pasta guardada permite retornar ao ponto inicial.
+
+Mantenha as cópias `*.invalid-*.json` e a pasta guardada até confirmar que
+todos os agentes estão presentes.
 
 ## Arquitetura híbrida planejada (Gerpro Web)
 

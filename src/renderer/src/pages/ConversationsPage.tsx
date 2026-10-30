@@ -21,6 +21,7 @@ import {
   TextArea,
   TextInput
 } from '@renderer/components/ui'
+import { agentOptionLabel, agentStatus, conversationAgentNotice, conversationNotes } from '@renderer/lib/agent-status'
 import { callApi } from '@renderer/lib/api'
 import {
   contextLabel,
@@ -37,6 +38,7 @@ import { cx } from '@renderer/lib/cx'
 import { formatDateTime, formatNumber } from '@renderer/lib/format'
 import {
   defaultModelKey,
+  modelForAgent,
   eligibleModels,
   friendlyModelName,
   inventoryProblem,
@@ -69,6 +71,7 @@ export function ConversationsPage() {
   const saves = useSaveStates()
   const agents = useResource(() => window.gerpro.agents.list())
   const providers = useResource(() => window.gerpro.providers.list())
+  const storage = useResource(() => window.gerpro.agents.storageStatus())
 
   // Atalhos de Agentes e Modelos abrem uma conversa nova com a escolha feita.
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -102,6 +105,10 @@ export function ConversationsPage() {
   const effectiveAgentId = current?.agentId ?? agentId
   const agent = runnable.find((a) => a.definition.id === effectiveAgentId)
   const agentMissing = current !== null && current.agentId !== null && agents.state.status === 'ready' && !agent
+  const agentLoaded = agents.state.status === 'ready' && agents.state.data.some((a) => a.definition.id === effectiveAgentId)
+  const agentsLocked = storage.state.status === 'ready' && storage.state.data.block !== null
+  // Antes da primeira mensagem: por que o modelo padrão não veio selecionado, por exemplo.
+  const agentNotes = agent && !current && options.length > 0 ? conversationNotes(agentStatus(agent, providers.state)) : []
   const pending = current?.messages.find((m) => m.state === 'pending') ?? null
   const liveRun = pending?.runId ? (all.find((r) => r.id === pending.runId) ?? null) : null
   const cancel = useCancelRun(liveRun, (run) => runs.update(withRun(run)))
@@ -150,6 +157,12 @@ export function ConversationsPage() {
     const el = threadRef.current
     if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 160) el.scrollTop = el.scrollHeight
   }, [liveRun?.output, current?.messages.length, current?.updatedAt])
+
+  function chooseAgent(id: string) {
+    setAgentId(id)
+    const chosen = runnable.find((a) => a.definition.id === id)
+    setModelKey((key) => modelForAgent(options, key, chosen?.definition.defaultModel ?? null, requestedModel))
+  }
 
   function openConversation(id: string | null) {
     setActiveId(id)
@@ -335,8 +348,10 @@ export function ConversationsPage() {
           ) : providers.state.status === 'error' ? (
             <ErrorState error={providers.state.error} onRetry={providers.reload} />
           ) : runnable.length === 0 ? (
-            <EmptyState icon={<MessageSquare size={26} />} title="Crie um agente para começar">
-              Toda conversa usa as instruções de um agente. Crie o seu na tela Agentes e volte aqui.{' '}
+            <EmptyState icon={<MessageSquare size={26} />} title={agentsLocked ? 'Nenhum agente disponível' : 'Crie um agente para começar'}>
+              {agentsLocked
+                ? 'Os dados dos agentes estão protegidos e os agentes não puderam ser carregados. Veja o aviso na tela Agentes.'
+                : 'Toda conversa usa as instruções de um agente. Crie o seu na tela Agentes e volte aqui.'}{' '}
               <Button variant="ghost" size="sm" onClick={() => navigate('agents')}>
                 Ir para Agentes
               </Button>
@@ -358,8 +373,9 @@ export function ConversationsPage() {
             </Notice>
           )}
           {problem && <Notice tone={problem.tone}>{problem.text}</Notice>}
+          {agentNotes.length > 0 && <Notice tone="neutral">{agentNotes.map((n) => n.text).join(' ')}</Notice>}
           {agentMissing && (
-            <Notice tone="warning">O agente desta conversa foi excluído ou arquivado. Para continuar, crie uma nova conversa.</Notice>
+            <Notice tone="warning">{conversationAgentNotice(agentLoaded, storage.state.status === 'ready' ? storage.state.data : null)}</Notice>
           )}
           {lastReply?.context && lastReply.context.omitted > 0 && (
             <Notice tone="neutral">
@@ -393,7 +409,7 @@ export function ConversationsPage() {
                 disabled={options.length === 0}
                 onChange={(e) => setModelKey(e.target.value)}
                 options={[
-                  { value: '', label: options.length === 0 ? 'Nenhum modelo instalado' : 'Escolha um modelo…' },
+                  { value: '', label: options.length === 0 ? 'Nenhum modelo disponível' : 'Escolha um modelo…' },
                   ...options.map((o) => ({ value: o.key, label: o.reasoning ? `${o.label} · raciocina` : o.label }))
                 ]}
               />
@@ -402,13 +418,13 @@ export function ConversationsPage() {
                 title={current ? 'O agente fica fixo na conversa. Para outro agente, crie uma nova conversa.' : 'As instruções do agente acompanham a conversa.'}
                 value={effectiveAgentId}
                 disabled={runnable.length === 0 || current !== null}
-                onChange={(e) => setAgentId(e.target.value)}
+                onChange={(e) => chooseAgent(e.target.value)}
                 options={
                   agentMissing
-                    ? [{ value: effectiveAgentId, label: 'Agente indisponível' }]
+                    ? [{ value: effectiveAgentId, label: !agentLoaded && agentsLocked ? 'Agente não carregado' : 'Agente arquivado ou excluído' }]
                     : runnable.length === 0
                       ? [{ value: '', label: 'Nenhum agente' }]
-                      : runnable.map((a) => ({ value: a.definition.id, label: a.definition.name }))
+                      : runnable.map((a) => ({ value: a.definition.id, label: agentOptionLabel(a.definition) }))
                 }
               />
               <Button

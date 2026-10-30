@@ -2,7 +2,7 @@
   "name": "gerpro-studio",
   "productName": "Gerpro Studio",
   "version": "0.1.0",
-  "description": "Gerpro Studio — estação de trabalho desktop para agentes e modelos de IA (protótipo visual).",
+  "description": "Gerpro Studio — estação de trabalho desktop para agentes e modelos de IA.",
   "private": true,
   "type": "module",
   "main": "./out/main/index.js",

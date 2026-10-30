@@ -1,17 +1,15 @@
 # Documentação do Gerpro Studio
 
-Estado documentado: commit `9376ce4` (branch `main`), após a Etapa 3.1.
+Estado documentado: encerramento do Lote 3.3.8 (branch `main`).
 
 O Gerpro Studio é uma aplicação desktop proprietária de IA (Electron + React +
-TypeScript), que no futuro será integrada ao Gerpro Web. Até agora, o projeto
-tem a interface, os contratos, a persistência local, fluxos demonstrativos e
-inferência local real pelo adaptador Ollama (Lote 3.3.6): em Conversas, o
-usuário mantém conversas contínuas, gravadas e com contexto, com modelos
-instalados neste computador, e a tela
-Execuções acompanha o histórico da sessão, as métricas e os registros (Lote
-3.3.7).
-**Não há detecção real de hardware, execução de ferramentas
-nem integração com servidores.**
+TypeScript), que será integrada ao Gerpro Web. Hoje, o projeto tem interface,
+contratos, persistência local e inferência local real pelo adaptador Ollama.
+O usuário configura agentes e mantém, em Conversas, conversas gravadas e com
+contexto, usando modelos instalados neste computador. A tela Execuções
+acompanha a sessão.
+**Não há detecção real de hardware, execução de ferramentas nem integração com
+servidores.**
 
 ## Legenda usada em todos os documentos
 
@@ -41,12 +39,17 @@ nem integração com servidores.**
    responsabilidade da equipe de desenvolvimento.
 7. [Decisões e limitações](07-decisoes-e-limitacoes.md): histórico das
    decisões e limitações conhecidas.
+8. [Handoff](08-handoff.md): ambiente, execução, testes, serviços, como
+   adicionar funcionalidades, erros comuns e extensão para o Gerpro Web.
+9. [Inventário e riscos](09-inventario-e-riscos.md): classificação verificável
+   de cada funcionalidade e riscos remanescentes.
 
 ## Outros documentos
 
 - [`README.md`](../README.md): como instalar, rodar e testar.
 - [`src/main/hardware/README.md`](../src/main/hardware/README.md): passos
   técnicos para implementar o detector real.
-- [`src/main/engine/README.md`](../src/main/engine/README.md) e
-  [`src/main/plugins/README.md`](../src/main/plugins/README.md): pastas
-  reservadas.
+- [`src/main/engine/README.md`](../src/main/engine/README.md): provedores de
+  inferência e como adicionar um novo.
+- [`src/main/plugins/README.md`](../src/main/plugins/README.md): pasta
+  reservada.

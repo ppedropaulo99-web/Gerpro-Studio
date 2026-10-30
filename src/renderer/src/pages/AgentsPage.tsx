@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Archive, ArchiveRestore, Bot, Copy, Pencil, Play, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, Archive, ArchiveRestore, Bot, Copy, Pencil, Play, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import type { AgentDefinition, AgentDraft, AgentRecord } from '@shared/agents'
 import type { StructuredError } from '@shared/errors'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
@@ -27,11 +27,12 @@ import { agents as exampleAgents } from '@renderer/data/agents'
 import { modelById } from '@renderer/data/models'
 import { toolById } from '@renderer/data/tools'
 import type { AgentCategory } from '@renderer/data/types'
-import { emptyAgentForm, formFromDefinition, formFromExample, type AgentFormValues } from '@renderer/lib/agent-form'
+import { agentActionMessage, emptyAgentForm, formFromDefinition, formFromExample, type AgentFormValues } from '@renderer/lib/agent-form'
+import { AGENT_STORAGE_LOCKED, agentsInventoryNotice, agentStatus, agentStorageNotice } from '@renderer/lib/agent-status'
 import { useNavigation } from '@renderer/app/navigation'
 import { callApi } from '@renderer/lib/api'
 import { requestRunFor } from '@renderer/lib/run-intent'
-import { agentAvailability, agentConfigState } from '@renderer/lib/status'
+import { agentConfigState } from '@renderer/lib/status'
 import { useResource } from '@renderer/lib/use-resource'
 
 type Filter = 'all' | AgentCategory
@@ -57,6 +58,12 @@ export function AgentsPage() {
   const { navigate } = useNavigation()
   const saved = useResource(() => window.gerpro.agents.list())
   const tools = useResource(() => window.gerpro.tools.list())
+  const providers = useResource(() => window.gerpro.providers.list())
+  const storage = useResource(() => window.gerpro.agents.storageStatus())
+  // Aqui é só orientação: quem recusa a gravação é o Main.
+  const storageNotice = storage.state.status === 'ready' ? agentStorageNotice(storage.state.data) : null
+  const locked = storageNotice !== null
+  const inventoryNotice = agentsInventoryNotice(providers.state)
   const [editing, setEditing] = useState<Editing | null>(null)
   const [actionError, setActionError] = useState<StructuredError | null>(null)
 
@@ -91,7 +98,7 @@ export function AgentsPage() {
       <div className="page">
         <PageHeader
           title={editing.mode === 'create' ? 'Novo agente' : 'Editar agente'}
-          description="A definição é gravada neste computador. A execução real não está habilitada."
+          description="A definição é gravada neste computador. O agente conversa com modelos instalados em Conversas; a execução de ferramentas ainda não está disponível."
         />
         <AgentEditor
           mode={editing.mode}
@@ -118,13 +125,20 @@ export function AgentsPage() {
           <Button
             variant="primary"
             icon={<Plus size={16} />}
-            disabled={saved.state.status !== 'ready'}
+            disabled={saved.state.status !== 'ready' || locked}
+            title={locked ? AGENT_STORAGE_LOCKED : undefined}
             onClick={() => setEditing({ mode: 'create', initial: emptyAgentForm() })}
           >
             Novo agente
           </Button>
         }
       />
+
+      {storageNotice && (
+        <Notice tone="warning" icon={<AlertTriangle size={16} />}>
+          {storageNotice}
+        </Notice>
+      )}
 
       <FeatureNotice state="real">
         Os agentes salvos são reais e ficam gravados neste computador. "Executar" abre Conversas com o agente escolhido, para enviar uma
@@ -136,13 +150,18 @@ export function AgentsPage() {
           <h2 id="saved-agents">Meus agentes</h2>
           <div className="row">
             {saved.state.status === 'ready' && <span className="subtle">{saved.state.data.length} salvo(s)</span>}
+            <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} disabled={providers.state.status === 'loading'} onClick={providers.reload}>
+              Atualizar lista
+            </Button>
             <FeatureBadge state="real" />
           </div>
         </div>
 
+        {saved.state.status === 'ready' && saved.state.data.length > 0 && inventoryNotice && <Notice tone={inventoryNotice.tone}>{inventoryNotice.text}</Notice>}
+
         {actionError && (
           <Notice tone="danger">
-            {actionError.message}
+            {agentActionMessage(actionError)}
           </Notice>
         )}
 
@@ -150,15 +169,16 @@ export function AgentsPage() {
         {saved.state.status === 'error' && <ErrorState error={saved.state.error} onRetry={saved.reload} />}
         {saved.state.status === 'ready' && saved.state.data.length === 0 && (
           <Card>
-            <EmptyState icon={<Bot size={28} />} title="Nenhum agente salvo">
-              Crie um agente do zero ou duplique um dos exemplos abaixo.
+            <EmptyState icon={<Bot size={28} />} title={locked ? 'Nenhum agente disponível' : 'Nenhum agente salvo'}>
+              {locked ? 'Os agentes não puderam ser carregados. Veja o aviso no início da página.' : 'Crie um agente do zero ou duplique um dos exemplos abaixo.'}
             </EmptyState>
           </Card>
         )}
         {saved.state.status === 'ready' && saved.state.data.length > 0 && (
           <div className="grid">
-            {saved.state.data.map(({ definition: def, availability }) => {
-              const meta = agentAvailability[availability.status]
+            {saved.state.data.map((record) => {
+              const def = record.definition
+              const status = agentStatus(record, providers.state)
               const archived = def.state === 'archived'
               return (
                 <Card key={def.id}>
@@ -179,13 +199,14 @@ export function AgentsPage() {
                           {
                             label: 'Editar',
                             icon: <Pencil size={14} />,
+                            disabled: locked,
                             onSelect: () => setEditing({ mode: 'edit', initial: formFromDefinition(def) })
                           },
                           archived
-                            ? { label: 'Restaurar', icon: <ArchiveRestore size={14} />, onSelect: () => void changeState(def, 'draft') }
-                            : { label: 'Arquivar', icon: <Archive size={14} />, onSelect: () => void changeState(def, 'archived') },
+                            ? { label: 'Restaurar', icon: <ArchiveRestore size={14} />, disabled: locked, onSelect: () => void changeState(def, 'draft') }
+                            : { label: 'Arquivar', icon: <Archive size={14} />, disabled: locked, onSelect: () => void changeState(def, 'archived') },
                           'separator',
-                          { label: 'Excluir', icon: <Trash2 size={14} />, danger: true, onSelect: () => void remove(def) }
+                          { label: 'Excluir', icon: <Trash2 size={14} />, danger: true, disabled: locked, onSelect: () => void remove(def) }
                         ]}
                       />
                     }
@@ -193,29 +214,29 @@ export function AgentsPage() {
                   <CardBody className="stack">
                     <p className="muted">{def.description || 'Sem descrição.'}</p>
                     <div className="tag-list">
-                      <Tag>{agentConfigState[def.state]}</Tag>
+                      <Tag>Estado: {agentConfigState[def.state]}</Tag>
                       {def.tools.map((t) => (
                         <Tag key={t}>{toolName(t)}</Tag>
                       ))}
                     </div>
-                    {availability.issues.length > 0 && (
+                    {status.notes.length > 0 && (
                       <ul className="subtle" style={{ margin: 0, paddingLeft: 'var(--space-4)', fontSize: 'var(--text-xs)' }}>
-                        {availability.issues.map((issue, i) => (
-                          <li key={`${issue.code}-${issue.toolId ?? ''}-${i}`}>{issue.message}</li>
+                        {status.notes.map((note, i) => (
+                          <li key={`${note.kind}-${i}`}>{note.text}</li>
                         ))}
                       </ul>
                     )}
                   </CardBody>
                   <CardFooter>
-                    <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
+                    <StatusBadge tone={status.badge.tone}>{status.badge.label}</StatusBadge>
                     <span className="subtle mono truncate" title="Modelo">
                       {def.defaultModel?.modelId ?? 'Sem modelo'}
                     </span>
                     <Button
                       size="sm"
                       icon={<Play size={13} />}
-                      disabled={archived}
-                      title={archived ? 'Agente arquivado não pode ser executado' : 'Enviar uma mensagem com este agente em Conversas'}
+                      disabled={!status.canOpen}
+                      title={status.actionTitle}
                       onClick={() => {
                         requestRunFor(def.id)
                         navigate('conversations')
@@ -236,7 +257,7 @@ export function AgentsPage() {
       )}
 
       <ExampleAgents
-        canDuplicate={saved.state.status === 'ready' && tools.state.status === 'ready'}
+        canDuplicate={saved.state.status === 'ready' && tools.state.status === 'ready' && !locked}
         onDuplicate={(example) =>
           tools.state.status === 'ready' &&
           setEditing({ mode: 'create', initial: formFromExample(example, takenIds, tools.state.data) })

@@ -107,7 +107,8 @@ export const PROVIDER_REFRESH_MAX_AGE_MS = 5_000
 const RESOLUTION_TO_INFERENCE: Record<ExecutionResolutionError['code'], InferenceErrorCode> = {
   'no-model': 'invalid-request',
   'model-not-installed': 'model-not-found',
-  'ambiguous-provider': 'invalid-request'
+  'ambiguous-provider': 'invalid-request',
+  'model-unsupported': 'model-unsupported'
 }
 
 interface Entry {

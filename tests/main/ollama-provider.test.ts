@@ -13,7 +13,7 @@ import { DEFAULT_EXECUTION_PROFILE, type ExecutionProfile } from '../../src/shar
 import { validateInferenceEvent, type InferenceEvent, type InferenceRequest, type ProviderOverview } from '../../src/shared/inference'
 import { IpcChannels } from '../../src/shared/ipc'
 import { chunk, closedUrl, fakeOllama, final, json, line, stream, tag, wait, type Handler } from '../support/fake-ollama'
-import { agentDraft, tempDir, VirtualScheduler } from '../support/fixtures'
+import { agentDraft, settle, tempDir, VirtualScheduler } from '../support/fixtures'
 
 const provider = (url: string, options: OllamaProviderOptions = {}) => new OllamaInferenceProvider({ baseUrl: url, ...options })
 
@@ -705,6 +705,103 @@ describe('Homologação: cancelamento, eventos incompletos e respostas vazias', 
     assert.equal(run.error?.details?.['inferenceCode'], 'invalid-request')
     assert.match(run.error!.message, /40 tokens/)
     assert.equal(run.metrics?.outputTokens, 40, 'métricas reais preservadas')
+  })
+
+  describe('capacidade de conversa', () => {
+    const chatOk = (models: unknown[]) => fakeOllama({ 'GET /api/tags': json({ models }), 'POST /api/chat': stream([chunk('ok'), final()]) })
+    const embedding = 'nomic-embed-text:1b'
+
+    it('modelo só de embedding: recusado antes de enfileirar e de chamar o motor', async () => {
+      const fake = await chatOk([tag(embedding, { capabilities: ['embedding'] })])
+      const { service } = setupRuns(fake.url)
+      await assert.rejects(service.start(runRequest(embedding, 'ollama')), (e: unknown) => {
+        assert.ok(isInference('model-unsupported')(e))
+        assert.match((e as AppError).message, /não oferece suporte a conversas/)
+        assert.equal((e as AppError).details?.['resolution'], 'model-unsupported')
+        return true
+      })
+      assert.equal(fake.chats.length, 0)
+      assert.deepEqual(service.list(), [])
+    })
+
+    it('modelo padrão do agente incompatível, com providerId null: mesma recusa', async () => {
+      const fake = await chatOk([tag('llama3.2:3b', { capabilities: ['embedding'] })])
+      const { service } = setupRuns(fake.url)
+      await assert.rejects(service.start(runRequest()), isInference('model-unsupported'))
+      assert.equal(fake.chats.length, 0)
+    })
+
+    it('chat, com ou sem outras capacidades: executa', async () => {
+      const fake = await chatOk([tag('a:1b', { capabilities: ['completion'] }), tag('b:1b', { capabilities: ['completion', 'tools', 'vision', 'embedding'] })])
+      const { service } = setupRuns(fake.url)
+      for (const model of ['a:1b', 'b:1b']) {
+        assert.equal((await settled(service, (await service.start(runRequest(model, 'ollama'))).id)).state, 'completed')
+      }
+    })
+
+    it('capacidades ausentes ou só desconhecidas (motor antigo): executa', async () => {
+      const fake = await chatOk([tag('antigo:1b', { capabilities: undefined }), tag('estranho:1b', { capabilities: ['novidade'] })])
+      const { service } = setupRuns(fake.url)
+      for (const model of ['antigo:1b', 'estranho:1b']) {
+        assert.equal((await settled(service, (await service.start(runRequest(model, 'ollama'))).id)).state, 'completed')
+      }
+    })
+
+    it('modelo inexistente segue model-not-found', async () => {
+      const fake = await chatOk([tag(embedding, { capabilities: ['embedding'] })])
+      const { service } = setupRuns(fake.url)
+      await assert.rejects(service.start(runRequest('sumiu:1b', 'ollama')), isInference('model-not-found'))
+    })
+
+    it('provedor indisponível segue como indisponibilidade, sem falar em capacidade', async () => {
+      const { service } = setupRuns(await closedUrl())
+      await assert.rejects(service.start(runRequest()), isInference('provider-unavailable'))
+    })
+
+    it('Conversas: modelo escolhido incompatível é recusado sem criar conversa, e o agente não muda', async () => {
+      const fake = await chatOk([tag('llama3.2:3b'), tag(embedding, { capabilities: ['embedding'] })])
+      const services = await createServices(await tempDir(), { stepDelayMs: 1, ollamaBaseUrl: fake.url })
+      const handlers = createDataHandlers(services)
+      const call = (channel: keyof typeof handlers, ...args: unknown[]) => invokeHandler('x', handlers[channel], args)
+      try {
+        const draft = agentDraft({ tools: [], defaultModel: { providerId: null, modelId: 'llama3.2:3b' } })
+        assert.ok((await call(IpcChannels.agentsCreate, draft)).ok)
+        const model = (modelId: string) => ({ conversationId: null, agentId: draft.id, input: 'Olá', model: { providerId: 'ollama', modelId } })
+
+        const refused = await call(IpcChannels.conversationsSend, model(embedding))
+        assert.ok(!refused.ok)
+        assert.equal(refused.error.details?.['inferenceCode'], 'model-unsupported')
+        assert.equal(fake.chats.length, 0)
+        const list = await call(IpcChannels.conversationsList)
+        assert.ok(list.ok)
+        assert.equal((list.data as { conversations: unknown[] }).conversations.length, 0)
+
+        const accepted = await call(IpcChannels.conversationsSend, model('llama3.2:3b'))
+        assert.ok(accepted.ok)
+        const agents = await call(IpcChannels.agentsList)
+        assert.ok(agents.ok)
+        assert.deepEqual((agents.data as AgentRecord[])[0]!.definition.defaultModel, draft.defaultModel)
+        await settle()
+        await services.conversations.whenSaved()
+      } finally {
+        services.runs.dispose()
+      }
+    })
+
+    it('execução demo não muda: o modelo simulado conversa', async () => {
+      const services = await createServices(await tempDir(), { stepDelayMs: 1 })
+      const handlers = createDataHandlers(services)
+      const call = (channel: keyof typeof handlers, ...args: unknown[]) => invokeHandler('x', handlers[channel], args)
+      try {
+        const draft = agentDraft({ tools: [] })
+        assert.ok((await call(IpcChannels.agentsCreate, draft)).ok)
+        const demo = await call(IpcChannels.runsStartDemo, { agentId: draft.id, scenario: 'success' })
+        assert.ok(demo.ok)
+        assert.equal((demo.data as { origin: string }).origin, 'simulated')
+      } finally {
+        services.runs.dispose()
+      }
+    })
   })
 
   it('RunService: limite atingido com texto conclui com aviso e o texto parcial', async () => {

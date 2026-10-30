@@ -31,7 +31,10 @@ export function Menu({ items, label = 'Mais ações', trigger }: MenuProps) {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      // Fechar pelo teclado devolve o foco ao botão do menu.
+      rootRef.current?.querySelector<HTMLElement>('button')?.focus()
     }
     document.addEventListener('pointerdown', onPointer)
     document.addEventListener('keydown', onKey)

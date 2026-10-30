@@ -31,6 +31,7 @@ export function createDataHandlers(services: Services): Record<DataChannel, Hand
     [IpcChannels.agentsCreate]: { arity: 1, run: ([draft]) => agents.create(draft) },
     [IpcChannels.agentsUpdate]: { arity: 1, run: ([draft]) => agents.update(draft) },
     [IpcChannels.agentsDelete]: { arity: 1, run: async ([id]) => (await agents.remove(id), null) },
+    [IpcChannels.agentsStorageStatus]: { arity: 0, run: async () => agents.storageStatus() },
     [IpcChannels.toolsList]: { arity: 0, run: () => tools.list(settings.get().tools.enabled) },
     [IpcChannels.runsList]: { arity: 0, run: () => runs.list() },
     [IpcChannels.runsStart]: { arity: 1, run: ([request]) => runs.start(request) },

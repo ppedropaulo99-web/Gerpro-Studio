@@ -1,6 +1,6 @@
 import type { ConsentStatus, HardwareAnalysisStatus } from '@shared/hardware'
 import type { LocalCapabilityLevel, ModelSource, RecommendationFit } from '@shared/recommendations'
-import type { AgentAvailabilityStatus, AgentConfigState } from '@shared/agents'
+import type { AgentConfigState } from '@shared/agents'
 import type { ModelStatus } from '@shared/engine'
 import type { RunOrigin, RunState } from '@shared/runs'
 import type { Tone } from '@renderer/components/ui/tone'
@@ -25,13 +25,6 @@ export const featureStatus: Record<FeatureState, StatusMeta & { description: str
   simulated: { tone: 'warning', label: 'Simulado', description: 'Demonstração: a funcionalidade representada não é executada.' },
   planned: { tone: 'neutral', label: 'Planejado', description: 'Recurso ainda não implementado.' },
   example: { tone: 'info', label: 'Exemplo', description: 'Registro fictício, mantido para demonstração.' }
-}
-
-/** Disponibilidade calculada pelo Main para agentes salvos. */
-export const agentAvailability: Record<AgentAvailabilityStatus, StatusMeta> = {
-  available: { tone: 'success', label: 'Disponível' },
-  unavailable: { tone: 'warning', label: 'Indisponível' },
-  archived: { tone: 'neutral', label: 'Arquivado' }
 }
 
 export const agentConfigState: Record<AgentConfigState, string> = {

@@ -200,6 +200,10 @@
   font-size: var(--text-xs);
 }
 
+.chat__item--active .subtle {
+  color: var(--text-muted);
+}
+
 .chat__main {
   display: flex;
   flex-direction: column;
@@ -475,4 +479,102 @@
 .run-output--sent {
   color: var(--text-muted);
   max-height: 160px;
+}
+
+/* Editor de agentes: seletor de modelo e "Atualizar lista" */
+.model-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.model-select > .select {
+  flex: 1 1 220px;
+  width: auto;
+  min-width: 0;
+}
+
+/* Editor de agentes: tipos de tarefa */
+.task-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.task-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 28px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.task-chip:hover {
+  border-color: var(--accent);
+}
+
+.task-chip[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Editor de agentes: configurações avançadas */
+.advanced__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  list-style: none;
+}
+
+.advanced__summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced__chevron {
+  flex: none;
+  color: var(--text-muted);
+  transition: transform 120ms ease;
+}
+
+.advanced[open] .advanced__chevron {
+  transform: rotate(90deg);
+}
+
+.advanced__body {
+  gap: var(--space-5);
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+.advanced__group {
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.unknown-tool {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.unknown-tool strong {
+  overflow-wrap: anywhere;
+}
+
+.advanced__group h3 {
+  margin: 0;
+  font-size: var(--text-sm);
 }

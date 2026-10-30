@@ -154,7 +154,7 @@ describe('formulário de agente', () => {
 
   it('erros do Main são mapeados para campos', () => {
     assert.deepEqual(agentFormErrors([{ path: '$.defaultModel', message: 'obrigatório' }, { path: '$.outro', message: 'x' }]), {
-      modelId: 'obrigatório',
+      modelId: 'Escolha um modelo. Ele é obrigatório no estado Pronto; para deixar para depois, use Rascunho.',
       form: '$.outro: x'
     })
   })

@@ -4,7 +4,8 @@ import {
   validateAgentDefinition,
   validateAgentDraft,
   type AgentDefinition,
-  type AgentRecord
+  type AgentRecord,
+  type AgentsStorageStatus
 } from '@shared/agents'
 import type { ModelRef } from '@shared/inference'
 import { Checker, isRecord, readSlug } from '@shared/validation'
@@ -21,7 +22,7 @@ interface AgentsFile {
   agents: AgentDefinition[]
 }
 
-/** Aproveita os agentes válidos e relata os inválidos (o arquivo original é copiado pelo store). */
+/** Aproveita os agentes válidos para leitura e relata os inválidos; o store protege o arquivo original. */
 export function parseAgentsFile(data: unknown): ParseOutcome<AgentsFile> {
   if (!isRecord(data) || !Array.isArray(data['agents'])) {
     return { value: undefined, issues: [{ path: '$.agents', message: 'deve ser uma lista' }] }
@@ -52,6 +53,8 @@ export interface AgentServiceDeps {
   /** Um motor real pronto tem o modelo do agente instalado? (última verificação dos provedores) */
   engineAvailable: (model: ModelRef | null) => boolean
   now?: () => Date
+  /** Só para simular falhas da cópia de segurança em testes. */
+  copier?: (source: string, target: string) => Promise<void>
 }
 
 export class AgentService {
@@ -68,14 +71,22 @@ export class AgentService {
       migrations: { 1: migrateAgentsV1 },
       // A migração v1 → v2 descarta `engineId` sem correspondência; o original fica copiado.
       backupBeforeMigration: true,
+      // Um agente recusado só existe no arquivo: gravar o restante o apagaria.
+      protectOnRecovery: true,
       parse: parseAgentsFile,
-      now: deps.now
+      now: deps.now,
+      copier: deps.copier
     })
   }
 
   async init(): Promise<StoreStatus> {
     await this.store.load()
     return this.store.status
+  }
+
+  /** O que o Renderer precisa saber do armazenamento; sem caminhos nem conteúdo do arquivo. */
+  storageStatus(): AgentsStorageStatus {
+    return { block: this.store.status.writeBlock }
   }
 
   list(): AgentRecord[] {

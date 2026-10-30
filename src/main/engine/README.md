@@ -33,8 +33,9 @@ O `RunService` guarda a última verificação de cada provedor
 só informa `realEngine: 'available'` quando um provedor real respondeu
 `ready`; estar registrado não basta. `canRunReal(model)` alimenta
 `engineAvailable` dos agentes: o agente só fica disponível se um provedor
-real pronto tem o modelo dele instalado. A verificação inicial roda sem
-bloquear a abertura do app.
+real pronto tem o modelo dele instalado. Essa verificação não olha
+capacidades: modelo sem `chat` é recusado por `resolveExecution`, antes da
+fila. A verificação inicial roda sem bloquear a abertura do app.
 
 ## Novo provedor (ex.: motor próprio)
 

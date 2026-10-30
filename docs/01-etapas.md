@@ -6,6 +6,13 @@
 | 2.1 | Núcleo funcional: contratos, persistência local e IPC | `00a39f0` |
 | 2.2 | Integração das telas com o Main e versionamento Git | `545e8b8` |
 | 3.1 | Gerpro Hardware Advisor: contratos, consentimento e recomendações demonstrativas | `9376ce4` |
+| 3.2.2 | Alterações não salvas, vocabulário de origem e temas | `57d72a6`, `4cac956`, `f447b3f` |
+| 3.3.3 e 3.3.4 | Contratos de inferência local, migração de agentes e avaliador de compatibilidade | `d1a32f8`, `fe55bc4` |
+| UX-P1 e UX-B1 | Apresentação Guiada e identidade visual oficial | `19325bf`, `4f487c5` |
+| 3.3.5 | `RunService` e provedor simulado | `41a6729` |
+| 3.3.6 | Ollama como provedor local | `feb9072` |
+| 3.3.7 e 3.3.7-A | Conversas persistentes e interface de execução | `f68f2b2` |
+| 3.3.8 | Agentes configuráveis e integridade dos dados | Commit `feat: add configurable agents and agent data protection` |
 
 O repositório Git foi criado na Etapa 2.2. Por isso, o commit inicial reúne as
 etapas 1 e 2.1.
@@ -140,7 +147,7 @@ Organização definitiva da barra lateral:
 | Tela | Papel |
 |---|---|
 | Início | Dashboard: saudação, indicadores da sessão, execuções recentes e atalhos ("Conversar com IA", "Criar agente", "Abrir Modelos") |
-| Conversas | Interação com modelos locais: modelo, agente, mensagem, resposta em tempo real, interrupção e lista das mensagens desta sessão |
+| Conversas | Interação com modelos locais: modelo, agente, mensagem, resposta em tempo real, interrupção e lista das conversas gravadas |
 | Gerpro AI | Reservado ao futuro assistente interno do Gerpro Studio (em desenvolvimento); não chama nenhum modelo |
 | Agentes | Cadastro de agentes; "Executar" abre Conversas com o agente escolhido |
 | Modelos | Modelos instalados no motor local e biblioteca de exemplo; "Usar em Conversas" abre Conversas com o modelo escolhido |
@@ -155,7 +162,6 @@ em Execuções; "Nova mensagem" (Execuções) volta a Conversas.
 Funcionalidades futuras registradas no roadmap:
 
 - Resumo automático de conversas longas e memória entre conversas (fora do escopo das conversas contínuas atuais).
-- Seleção de modelos por lista na criação de agentes.
 - Assistente interno do Gerpro Studio (tela Gerpro AI).
 - Integração opcional com o VS Code.
 - Instalação assistida de modelos.
@@ -165,7 +171,7 @@ Funcionalidades futuras registradas no roadmap:
 
 | Área | Implementado | Simulado | Planejado |
 |---|---|---|---|
-| Agentes | CRUD persistido, validação e cálculo de disponibilidade; "Executar" abre Conversas com o agente escolhido (Lote 3.3.7) | Biblioteca de exemplos | Ferramentas e execução autônoma; requisitos e tipos de tarefa na definição persistida |
+| Agentes | CRUD persistido, validação e cálculo de disponibilidade; "Executar" abre Conversas com o agente escolhido (Lote 3.3.7); modelo escolhido entre os instalados, tipos de tarefa, configurações avançadas e proteção de `agents.json` (Lote 3.3.8) | Biblioteca de exemplos | Ferramentas e execução autônoma; requisitos na definição persistida |
 | Configurações | Gravação, validação e persistência | — | Efeito real de cada preferência |
 | Ferramentas | Catálogo declarado (7 itens) com esquemas e permissões, exibido na tela | — | Executores, ativação, concessão de permissões e plugins |
 | Execuções | `RunService` (Lote 3.3.5): fila FIFO com uma execução ativa, cancelamento por `AbortController`, tempo limite, limites e eventos agrupados; canal `runs:start`. Provedor real Ollama (Lote 3.3.6). Tela Execuções (Lote 3.3.7): central de monitoramento com resumo da sessão, histórico real e simulado, estados, modelo, provedor, métricas medidas, erros, registro técnico e interrupção | Seção "Demonstração simulada" (provedor simulado, `origin: 'simulated'`), separada e identificada | Histórico persistido |
@@ -195,8 +201,36 @@ exemplos (verificado por teste); modelos de exemplo nunca mostram
 "Carregado", progresso de download ou "disponível localmente"; controles sem
 efeito ficam desativados e explicados, nunca com aparência operacional.
 
+## Lote 3.3.8: agentes configuráveis e integridade dos dados
+
+Entregue:
+
+- **Modelo do agente:** escolhido na lista de modelos instalados, sem seleção
+  automática. Modelo ausente ou incompatível fica salvo e identificado.
+- **Editor:** tipos de tarefa, configurações avançadas recolhíveis (parâmetros,
+  desempenho, identificação técnica e ferramentas) e preservação dos campos não
+  exibidos.
+- **Situação do agente:** estado gravado, executabilidade e observações
+  separados, com a mesma regra que o `RunService` aplica.
+- **Capacidade:** modelo que declara capacidades sem `chat` é recusado por
+  `resolveExecution` (`model-unsupported`).
+- **Integridade:** `agents.json` inválido bloqueia alterações, sem perder os
+  registros recusados; canal `agents:storage-status`; cópias sem repetição.
+
+Correções da homologação final, todas na apresentação:
+
+- Conversas dizia que o agente fora excluído quando só não pôde ser carregado,
+  e convidava a criar agente com as alterações bloqueadas.
+- Arquivar agente com ferramenta desconhecida mostrava erro técnico.
+- Trocar de agente em conversa nova mantinha o modelo anterior, contrariando o
+  texto do editor.
+- Esc no menu deixava o foco fora do botão.
+- Dois textos auxiliares tinham contraste abaixo de 4,5:1 no tema escuro.
+- O seletor dizia "Nenhum modelo instalado" com o motor desligado.
+
 ## Verificação
 
-Em `9376ce4`, `npm test` passa 116 testes em 8 arquivos (`tests/main`,
-`tests/renderer` e `tests/shared`). `npm run typecheck` não tem erros nas
-três configurações. `npm run build` termina sem erros.
+No encerramento técnico do Lote 3.3.8, `npm test` passa todos os testes em
+`tests/main`, `tests/renderer` e `tests/shared`. `npm run typecheck` não tem
+erros nas três configurações e `npm run build` termina sem erros. A contagem de
+cada entrega fica no relatório do lote, para não envelhecer aqui.

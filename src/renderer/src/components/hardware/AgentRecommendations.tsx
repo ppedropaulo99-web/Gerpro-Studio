@@ -136,7 +136,7 @@ function Body({
                   </div>
                   <div className="stack" style={{ gap: 'var(--space-1)', alignItems: 'flex-end', flex: 'none' }}>
                     <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
-                    {!rec.executableNow && <span className="field__hint">Ainda não executável</span>}
+                    {rec.origin === 'example' && !rec.executableNow && <span className="field__hint">Ainda não executável</span>}
                   </div>
                 </div>
               )

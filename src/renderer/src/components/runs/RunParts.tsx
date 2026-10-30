@@ -14,7 +14,7 @@ export function ErrorExplanation({ error, origin }: { error: StructuredError; or
     <Notice tone="danger">
       <div className="stack" style={{ gap: 4 }}>
         <span>{title}</span>
-        {detail && detail !== title && <span className="subtle">Detalhe: {detail}</span>}
+        {detail && detail !== title && <span className="muted">Detalhe: {detail}</span>}
       </div>
     </Notice>
   )

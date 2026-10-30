@@ -1,6 +1,6 @@
 import type { ConversationSendRequest } from '@shared/conversations'
 import type { StructuredError } from '@shared/errors'
-import { isRealProvider, type InferenceErrorCode, type InferenceMetrics, type ProviderOverview, type ResolvedModelRef } from '@shared/inference'
+import { isRealProvider, type InferenceErrorCode, type InferenceMetrics, type ModelRef, type ProviderOverview, type ResolvedModelRef } from '@shared/inference'
 import { isTerminalRunState, RUN_INPUT_MAX, type RunOrigin, type RunRecord } from '@shared/runs'
 import type { Tone } from '@renderer/components/ui/tone'
 import { formatNumber } from './format'
@@ -28,6 +28,10 @@ export interface ModelOption {
 }
 
 export const modelKey = (ref: ResolvedModelRef) => `${ref.providerId}\u0000${ref.modelId}`
+
+/** `providerId: null` aceita qualquer provedor, como em `resolveExecution`. Mais de uma correspondência é ambígua. */
+export const matchesModelRef = (candidate: ResolvedModelRef, wanted: ModelRef) =>
+  candidate.modelId === wanted.modelId && (wanted.providerId === null || candidate.providerId === wanted.providerId)
 
 /**
  * Modelos que a interface pode oferecer para execução real: de provedores
@@ -81,6 +85,13 @@ export function friendlyModelName(modelId: string, displayName: string | null = 
 }
 
 /**
+ * Modelo depois de escolher outro agente numa conversa nova: o padrão dele, se
+ * estiver disponível (ou o pedido por "Usar em Conversas"). Sem isso, fica o atual.
+ */
+export const modelForAgent = (options: readonly ModelOption[], current: string, agentModel: ModelRef | null, requested: ResolvedModelRef | null = null): string =>
+  defaultModelKey(options, '', agentModel, requested) || current
+
+/**
  * Modelo a pré-selecionar: mantém a escolha atual se ainda existir; senão o
  * modelo pedido pela navegação (ex.: "Usar em Conversas" na tela Modelos); senão
  * o modelo padrão do agente, se instalado; senão o único disponível. Com
@@ -89,13 +100,13 @@ export function friendlyModelName(modelId: string, displayName: string | null = 
 export function defaultModelKey(
   options: readonly ModelOption[],
   current: string,
-  agentModel: { providerId: string | null; modelId: string } | null,
+  agentModel: ModelRef | null,
   requested: ResolvedModelRef | null = null
 ): string {
   if (options.some((o) => o.key === current)) return current
   if (requested && options.some((o) => o.key === modelKey(requested))) return modelKey(requested)
   if (agentModel) {
-    const match = options.filter((o) => o.ref.modelId === agentModel.modelId && (agentModel.providerId === null || o.ref.providerId === agentModel.providerId))
+    const match = options.filter((o) => matchesModelRef(o.ref, agentModel))
     if (match.length === 1) return match[0]!.key
   }
   return options.length === 1 ? options[0]!.key : ''
