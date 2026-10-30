@@ -279,6 +279,108 @@
   }
 }
 
+/* Conversas: mensagens para modelos locais, no mesmo formato do Chat */
+.chat__note {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.chat__welcome {
+  max-width: 640px;
+  width: 100%;
+  margin: auto;
+}
+
+.conversations__bar {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.conversations__selects {
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.conversations__selects .select {
+  width: auto;
+  max-width: 260px;
+}
+
+.conversations__status {
+  align-self: flex-start;
+  margin-top: calc(-1 * var(--space-2));
+}
+
+/* Item da lista de conversas: abrir + menu de ações (renomear, excluir) */
+.conversations__item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--radius-md);
+}
+
+.conversations__item:hover {
+  background: var(--surface-2);
+}
+
+.conversations__item.chat__item--active {
+  background: var(--surface-3);
+}
+
+.conversations__item .chat__item {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+}
+
+.conversations__save {
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.conversations__meta {
+  font-size: var(--text-xs);
+}
+
+/* Marcas discretas no meio da conversa: troca de modelo e início do contexto enviado */
+.conversations__divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-align: center;
+}
+
+.conversations__divider::before,
+.conversations__divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px dashed var(--border-strong);
+}
+
+.chat__planned {
+  margin: 0 auto;
+  padding-left: var(--space-6);
+  color: var(--text-muted);
+  line-height: 1.8;
+}
+
+/* Em janelas estreitas, a lista de Conversas vira uma faixa curta acima das mensagens. */
+@media (max-width: 900px) {
+  .conversations {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .conversations .chat__list {
+    display: flex;
+    max-height: 168px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
 /* Estados de carregamento e erro (etapa 2.2) */
 .spin {
   animation: spin 0.9s linear infinite;
@@ -352,4 +454,25 @@
 /* ---------- Desenvolvedor ---------- */
 .developer__logo {
   margin-bottom: var(--space-4);
+}
+
+/* Execuções: resposta do modelo (texto simples, nunca interpretado) */
+.run-output {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.run-output--sent {
+  color: var(--text-muted);
+  max-height: 160px;
 }

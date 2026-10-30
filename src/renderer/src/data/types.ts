@@ -44,11 +44,3 @@ export interface Tool {
   permissions: string[]
   enabled: boolean
 }
-
-export interface Conversation {
-  id: string
-  title: string
-  agentId: string | null
-  updatedAt: string
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>
-}

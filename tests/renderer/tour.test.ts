@@ -49,7 +49,7 @@ describe('apresentação guiada: roteiro', () => {
   it('cada etapa declara capítulo, tela, alvo e estado da funcionalidade, e nada mais', () => {
     for (const s of TOUR_STEPS) {
       assert.deepEqual(Object.keys(s).sort(), ['chapter', 'description', 'feature', 'id', 'route', 'target', 'title'])
-      assert.ok(['implemented', 'demo', 'planned'].includes(s.feature))
+      assert.ok(['implemented', 'demo', 'development', 'planned'].includes(s.feature))
     }
     // Todas as telas existentes são apresentadas.
     assert.deepEqual([...new Set(TOUR_STEPS.map((s) => s.route))].sort(), [...ROUTES].sort())

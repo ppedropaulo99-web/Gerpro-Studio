@@ -14,17 +14,20 @@ export interface HomeStats {
   readyAgents: number
   /** Execuções simuladas criadas hoje (data local, nunca fixa). */
   simulationsToday: number
-  /** Execuções simuladas ainda em andamento. */
+  /** Execuções reais criadas hoje (modelo local; data local). */
+  realRunsToday: number
+  /** Execuções (reais ou simuladas) ainda em andamento. */
   activeSimulations: number
 }
 
-/** Indicadores do Início calculados só com dados do Main. Nada fictício entra aqui. */
+/** Indicadores da sessão (dashboard do Início e resumo de Execuções), só com dados do Main. Nada fictício entra aqui. */
 export function homeStats(agents: readonly AgentRecord[], runs: readonly RunRecord[], now: Date): HomeStats {
   const active = agents.filter((a) => a.definition.state !== 'archived')
   return {
     savedAgents: active.length,
     readyAgents: active.filter((a) => a.definition.state === 'ready').length,
-    simulationsToday: runs.filter((r) => isSameLocalDay(r.createdAt, now)).length,
+    simulationsToday: runs.filter((r) => r.origin === 'simulated' && isSameLocalDay(r.createdAt, now)).length,
+    realRunsToday: runs.filter((r) => r.origin === 'real' && isSameLocalDay(r.createdAt, now)).length,
     activeSimulations: runs.filter((r) => !isTerminalRunState(r.state)).length
   }
 }

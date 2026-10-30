@@ -38,7 +38,9 @@ obrigatórios. Nenhum deles está implementado.
   - Tela Modelos mostra os modelos instalados, separados da biblioteca de
     exemplo.
 - **A fazer:**
-  - Integração visual da execução real (Lote 3.3.7) e canal de chat.
+  - Contagem de tokens pelo motor para o recorte de contexto (hoje é uma
+    estimativa conservadora por caracteres). As conversas contínuas já
+    existem (`conversations:*`).
   - Motor próprio (`embedded`): decisão do runtime ainda em aberto.
   - Substituir de vez a biblioteca fictícia de modelos.
 - **Cuidados:** não rodar a inferência no processo Main (o Ollama roda no
@@ -55,12 +57,18 @@ obrigatórios. Nenhum deles está implementado.
   limite, limites e eventos agrupados; canal `runs:start`; provedor simulado.
 - **Pronto (Lote 3.3.6):** provedor real (Ollama) registrado; execuções dele
   saem `origin: 'real'` com métricas medidas. Validado pelo `RunService`; a
-  interface ainda não inicia uma execução real.
+  interface ainda não iniciava uma execução real.
+- **Pronto (Lote 3.3.7):** a tela Conversas inicia execuções reais por
+  `conversations:send` → `RunService.start` com o histórico permitido
+  (modelo instalado escolhido em `overrides.model`), acompanha a
+  resposta em tempo real, interrompe e explica erros; a tela Execuções
+  monitora o histórico da sessão, as métricas e os registros. Erros estruturados do
+  `RunService` podem trazer `details.reason` (hoje
+  `output-limit-before-text`).
 - **A fazer:**
-  - Iniciar execuções reais pela interface (Lote 3.3.7).
   - Implementar uma `resourcePolicy` com memória medida.
   - Decidir se o histórico será persistido.
-  - Retirar `runs:start-demo` quando a tela Execuções e a Apresentação
+  - Retirar `runs:start-demo` quando a demonstração simulada e a Apresentação
     Guiada passarem a usar `runs:start`.
 - **Cuidados:**
   - Manter a distinção visual simulada × real.
@@ -136,6 +144,8 @@ obrigatórios. Nenhum deles está implementado.
   - escrever `migrateAgentsV2` e registrá-la em
     `src/main/services/agent-service.ts`;
   - atualizar `validateAgentDraft`.
+- **Conversas:** `gerpro.conversation` versão 1, um arquivo por conversa.
+  Campos novos (ex.: resumo) exigem subir a versão e migrar.
 - **Qualquer formato novo:** usar `VersionedStore` com migrações. Nunca
   editar um formato publicado sem subir a versão.
 

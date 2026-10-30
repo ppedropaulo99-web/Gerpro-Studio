@@ -1,95 +1,86 @@
-import { useState } from 'react'
-import { MessageSquarePlus, Paperclip, SendHorizontal } from 'lucide-react'
-import { Button, EmptyState, FeatureBadge, Select, TextArea } from '@renderer/components/ui'
-import { conversations } from '@renderer/data/conversations'
-import { agentById } from '@renderer/data/agents'
-import { models } from '@renderer/data/models'
-import { cx } from '@renderer/lib/cx'
+import { MessageSquarePlus, MessagesSquare, SendHorizontal, Sparkles } from 'lucide-react'
+import { useNavigation } from '@renderer/app/navigation'
+import { Button, EmptyState, FeatureBadge, Notice, Select, TextArea } from '@renderer/components/ui'
 
-const chatModels = models.filter((m) => m.capabilities.includes('chat'))
+/** O que o Gerpro AI deverá fazer; nada disso existe ainda. */
+const plannedAbilities = [
+  'Tirar dúvidas sobre o uso do Gerpro Studio.',
+  'Ajudar a criar e ajustar agentes.',
+  'Sugerir modelos conforme a tarefa e o computador.',
+  'Explicar erros e métricas das execuções.'
+]
 
+/**
+ * Gerpro AI: reservada ao futuro assistente interno do Gerpro Studio. Não chama o motor
+ * de IA nem executa agentes: conversar com um modelo local é em Conversas (um
+ * único fluxo de inferência, pelo RunService).
+ */
 export function ChatPage() {
-  const [activeId, setActiveId] = useState(conversations[0].id)
-  const active = conversations.find((c) => c.id === activeId) ?? conversations[0]
+  const { navigate } = useNavigation()
 
   return (
     <div className="page page--full chat">
-      <aside className="chat__list" aria-label="Conversas" data-tour="chat.list">
+      <aside className="chat__list" aria-label="Conversas com o Gerpro AI" data-tour="chat.list">
         <div className="chat__list-head stack" style={{ gap: 'var(--space-2)' }}>
           <Button
             variant="secondary"
             icon={<MessageSquarePlus size={16} />}
             style={{ width: '100%' }}
             disabled
-            title="Planejado: depende do motor de IA"
+            title="Em desenvolvimento: conversas com o Gerpro AI"
           >
             Nova conversa
           </Button>
           <div className="row between">
-            <span className="subtle">Conversas de exemplo</span>
-            <FeatureBadge state="example" />
+            <span className="subtle">Conversas</span>
+            <FeatureBadge state="planned">Em desenvolvimento</FeatureBadge>
           </div>
         </div>
-        {conversations.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            className={cx('chat__item', c.id === activeId && 'chat__item--active')}
-            aria-current={c.id === activeId}
-            onClick={() => setActiveId(c.id)}
-          >
-            <span className="chat__item-title">{c.title}</span>
-            <span className="subtle">
-              {c.agentId ? agentById[c.agentId]?.name : 'Sem agente'} · {c.updatedAt}
-            </span>
-          </button>
-        ))}
+        <p className="subtle chat__note">As conversas com o Gerpro AI aparecerão aqui quando ele estiver disponível.</p>
       </aside>
 
       <section className="chat__main">
         <header className="chat__head">
           <div className="stack" style={{ gap: 0, minWidth: 0 }}>
-            <h2 className="truncate">{active.title}</h2>
-            <span className="subtle">
-              {active.agentId ? agentById[active.agentId]?.name : 'Conversa livre'} · conversa de exemplo, sem resposta de IA real
-            </span>
+            <h2 className="truncate">Gerpro AI — Seu assistente inteligente</h2>
+            <span className="subtle">Seu assistente integrado para ajudar a configurar, utilizar e gerenciar o Gerpro Studio.</span>
           </div>
           <div className="row">
-            <FeatureBadge state="planned">Inferência planejada</FeatureBadge>
-            {/* Sem motor conectado, escolher modelo não teria efeito: o seletor fica desativado. */}
+            <FeatureBadge state="planned">Em desenvolvimento</FeatureBadge>
+            {/* O Gerpro AI ainda não existe: o seletor fica desativado. */}
             <Select
-              aria-label="Modelo (indisponível: motor de IA não conectado)"
-              title="Planejado: a escolha de modelo depende do motor de IA"
+              aria-label="Modelo do Gerpro AI (indisponível: em desenvolvimento)"
+              title="Em desenvolvimento: escolher o modelo do Gerpro AI"
               style={{ width: 220 }}
-              value={chatModels[0].id}
+              value=""
               disabled
-              options={chatModels.map((m) => ({ value: m.id, label: `${m.name} (exemplo)` }))}
+              options={[{ value: '', label: 'Modelo ainda não definido' }]}
             />
           </div>
         </header>
 
         <div className="chat__thread">
-          {active.messages.length === 0 ? (
-            <EmptyState title="Conversa vazia">Envie uma mensagem para começar.</EmptyState>
-          ) : (
-            active.messages.map((m, i) => (
-              <div key={i} className={cx('bubble', `bubble--${m.role}`)}>
-                {m.content}
-              </div>
-            ))
-          )}
+          <div className="stack chat__welcome">
+            <EmptyState icon={<Sparkles size={26} />} title="Um assistente para ajudar você a usar o Gerpro Studio">
+              Quando estiver pronto, ele deverá:
+            </EmptyState>
+            <ul className="chat__planned">
+              {plannedAbilities.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ul>
+            <Notice tone="neutral">
+              Nada disso funciona ainda: esta tela não está ligada a nenhum modelo e não executa agentes. Para conversar agora com um modelo
+              instalado neste computador, use Conversas.
+            </Notice>
+          </div>
         </div>
 
         <footer className="chat__composer" data-tour="chat.composer">
-          <TextArea
-            placeholder="Envio planejado: o motor de IA ainda não está conectado."
-            rows={2}
-            disabled
-            aria-label="Mensagem"
-          />
+          <TextArea placeholder="O Gerpro AI está em desenvolvimento. Para falar com um modelo local agora, use Conversas." rows={2} disabled aria-label="Mensagem" />
           <div className="row between">
-            <Button variant="ghost" size="sm" icon={<Paperclip size={14} />} disabled>
-              Anexar
+            <Button variant="ghost" size="sm" icon={<MessagesSquare size={14} />} onClick={() => navigate('conversations')}>
+              Conversar com um modelo em Conversas
             </Button>
             <Button variant="primary" icon={<SendHorizontal size={15} />} disabled>
               Enviar

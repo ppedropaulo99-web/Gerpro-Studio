@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import type { AgentDefinition } from '@shared/agents'
+import type { StructuredError } from '@shared/errors'
 import { resolveExecution, type ExecutionResolutionError, type ResolvedExecution } from '@shared/execution'
 import {
   inferenceError,
@@ -65,6 +66,11 @@ export type RunListener = (run: RunRecord) => void
 export type ResourcePolicy = (context: { agentId: string; provider: ProviderInfo; execution: ResolvedExecution }) => InferenceError | null
 
 export type RunLimits = { [K in keyof typeof RUN_LIMITS]: number }
+
+/** Dados de uma execução que vêm do próprio Main, nunca do IPC. */
+export interface RunContext {
+  history?: readonly ChatMessage[]
+}
 
 /**
  * Situação da execução de agentes, em três níveis independentes:
@@ -208,8 +214,15 @@ export class RunService {
     return entry && structuredClone(entry.run)
   }
 
-  /** Valida, resolve e enfileira. Devolve a execução como estava ao entrar na fila. */
-  async start(input: unknown): Promise<RunRecord> {
+  /**
+   * Valida, resolve e enfileira. Devolve a execução como estava ao entrar na fila.
+   *
+   * `context.history`: mensagens anteriores de uma conversa, montadas no Main
+   * (`ConversationService`); vão entre as instruções do agente e a nova
+   * mensagem e contam no limite `promptChars`. Não chega pelo IPC: o canal
+   * `runs:start` repassa só o `RunRequest`.
+   */
+  async start(input: unknown, context: RunContext = {}): Promise<RunRecord> {
     const request = unwrap(validateRunRequest(input))
     this.assertAccepting()
     const agent = this.options.findAgent(request.agentId)
@@ -232,11 +245,15 @@ export class RunService {
     }
     const execution = resolved.value
     const provider = this.options.providers.find((p) => p.info.id === execution.model.providerId)!
-    const messages = buildMessages(agent, request)
+    const history = checkHistory(context.history ?? [])
+    const messages = buildMessages(agent, request, history)
     const promptChars = messages.reduce((sum, m) => sum + m.content.length, 0)
     if (promptChars > this.limits.promptChars) {
       throw inferenceAppError(
-        inferenceError('context-too-long', `Instruções e mensagem somam ${promptChars} caracteres; o limite é ${this.limits.promptChars}.`)
+        inferenceError(
+          'context-too-long',
+          `${history.length > 0 ? 'Instruções, histórico e mensagem' : 'Instruções e mensagem'} somam ${promptChars} caracteres; o limite é ${this.limits.promptChars}.`
+        )
       )
     }
     const refused = this.options.resourcePolicy({ agentId: agent.id, provider: provider.info, execution })
@@ -247,7 +264,7 @@ export class RunService {
     this.assertQueueRoom()
 
     const entry: Entry = {
-      run: this.newRecord(agent.id, provider, execution),
+      run: this.newRecord(agent.id, provider, execution, history.length),
       provider,
       request: { model: execution.model, messages, profile: execution.profile },
       controller: null,
@@ -352,7 +369,8 @@ export class RunService {
                 inferenceError(
                   'invalid-request',
                   `O limite de saída do perfil${limit === null ? '' : ` (${limit} tokens)`} foi atingido antes de qualquer texto de resposta. Modelos com raciocínio podem consumir o limite antes de responder; aumente o limite de saída.`
-                )
+                ),
+                { reason: 'output-limit-before-text' }
               )
               break
             }
@@ -395,15 +413,20 @@ export class RunService {
     return true
   }
 
-  private fail(entry: Entry, error: InferenceError): void {
-    this.finish(entry, 'failed', { error, message: { level: 'error', text: error.message } })
+  /** `details` acrescenta marcas estruturadas ao erro (ex.: `reason`), para a interface não depender do texto. */
+  private fail(entry: Entry, error: InferenceError, details?: Record<string, string>): void {
+    this.finish(entry, 'failed', { error, details, message: { level: 'error', text: error.message } })
   }
 
   /**
    * Único caminho para um estado terminal. Idempotente: a primeira chamada
    * vence (cancelamento, tempo limite, erro ou conclusão).
    */
-  private finish(entry: Entry, state: Extract<RunState, 'completed' | 'failed' | 'cancelled'>, outcome: { error?: InferenceError; message: Pick<RunMessage, 'level' | 'text'> }): void {
+  private finish(
+    entry: Entry,
+    state: Extract<RunState, 'completed' | 'failed' | 'cancelled'>,
+    outcome: { error?: InferenceError; details?: Record<string, string>; message: Pick<RunMessage, 'level' | 'text'> }
+  ): void {
     if (entry.finished) return
     entry.finished = true
     this.clearTimers(entry)
@@ -413,7 +436,7 @@ export class RunService {
 
     this.commit(entry, {
       ...applyRunTransition(entry.run, state, this.options.now()),
-      error: outcome.error ? toStructuredError(outcome.error) : null
+      error: outcome.error ? withDetails(toStructuredError(outcome.error), outcome.details) : null
     })
     this.addMessage(entry, outcome.message.level, outcome.message.text)
     this.emit(entry)
@@ -534,7 +557,7 @@ export class RunService {
     return this.checked.get(provider.info.id)?.status.state === 'ready'
   }
 
-  private newRecord(agentId: string, provider: InferenceProvider, execution: ResolvedExecution): RunRecord {
+  private newRecord(agentId: string, provider: InferenceProvider, execution: ResolvedExecution, historyCount: number): RunRecord {
     const createdAt = this.iso()
     const simulated = provider.info.kind === 'simulated'
     const base = {
@@ -553,7 +576,11 @@ export class RunService {
           text: simulated
             ? `Execução simulada criada com "${execution.model.modelId}". O provedor simulado responde com texto fixo; nenhum modelo real é executado.`
             : `Execução criada com "${execution.model.modelId}" (${provider.info.displayName}).`
-        }
+        },
+        // Só a contagem: o conteúdo da conversa não vai para o registro técnico.
+        ...(historyCount > 0
+          ? [{ at: createdAt, level: 'info' as const, text: `Contexto: ${historyCount} mensagem(ns) anterior(es) da conversa enviada(s).` }]
+          : [])
       ],
       error: null,
       cancelRequested: false,
@@ -606,6 +633,10 @@ export class RunService {
   }
 }
 
+function withDetails(error: StructuredError, details: Record<string, string> | undefined): StructuredError {
+  return details ? { ...error, details: { ...error.details, ...details } } : error
+}
+
 function neverChecked(provider: InferenceProvider): ProviderStatus {
   return { providerId: provider.info.id, state: 'not-detected', version: null, checkedAt: null, message: 'Ainda não verificado.' }
 }
@@ -626,11 +657,22 @@ function withDeadline<T>(task: (signal: AbortSignal) => Promise<T>, lifetime: Ab
   })
 }
 
-function buildMessages(agent: AgentDefinition, request: RunRequest): ChatMessage[] {
+function buildMessages(agent: AgentDefinition, request: RunRequest, history: readonly ChatMessage[]): ChatMessage[] {
   const messages: ChatMessage[] = []
   if (agent.instructions.trim()) messages.push({ role: 'system', content: agent.instructions })
+  messages.push(...history.map((m) => ({ role: m.role, content: m.content })))
   messages.push({ role: 'user', content: request.input })
   return messages
+}
+
+/** O histórico vem do Main, mas só entram papéis de conversa (as instruções são do agente). */
+function checkHistory(history: readonly ChatMessage[]): ChatMessage[] {
+  for (const m of history) {
+    if ((m.role !== 'user' && m.role !== 'assistant') || typeof m.content !== 'string') {
+      throw new AppError('validation', 'Histórico de conversa inválido.')
+    }
+  }
+  return [...history]
 }
 
 function completedText(origin: RunRecord['origin']): string {

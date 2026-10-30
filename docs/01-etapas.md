@@ -133,21 +133,50 @@ Entregue (detalhes em [Hardware Advisor](04-hardware-advisor.md)):
 
 ---
 
+## Organização das telas (Lote 3.3.7)
+
+Organização definitiva da barra lateral:
+
+| Tela | Papel |
+|---|---|
+| Início | Dashboard: saudação, indicadores da sessão, execuções recentes e atalhos ("Conversar com IA", "Criar agente", "Abrir Modelos") |
+| Conversas | Interação com modelos locais: modelo, agente, mensagem, resposta em tempo real, interrupção e lista das mensagens desta sessão |
+| Gerpro AI | Reservado ao futuro assistente interno do Gerpro Studio (em desenvolvimento); não chama nenhum modelo |
+| Agentes | Cadastro de agentes; "Executar" abre Conversas com o agente escolhido |
+| Modelos | Modelos instalados no motor local e biblioteca de exemplo; "Usar em Conversas" abre Conversas com o modelo escolhido |
+| Execuções | Histórico, monitoramento, métricas, erros e registro técnico da sessão, além da demonstração simulada |
+| Ferramentas, Desenvolvedor, Configurações | Sem mudança de papel |
+
+Atalhos entre telas (`renderer/src/lib/run-intent.ts`, só em memória):
+"Conversar com IA" (Início), "Executar" (Agentes) e "Usar em Conversas"
+(Modelos) abrem Conversas; "Detalhes técnicos" (Conversas) abre a execução
+em Execuções; "Nova mensagem" (Execuções) volta a Conversas.
+
+Funcionalidades futuras registradas no roadmap:
+
+- Resumo automático de conversas longas e memória entre conversas (fora do escopo das conversas contínuas atuais).
+- Seleção de modelos por lista na criação de agentes.
+- Assistente interno do Gerpro Studio (tela Gerpro AI).
+- Integração opcional com o VS Code.
+- Instalação assistida de modelos.
+- Recomendações conforme o hardware.
+
 ## Quadro geral: implementado × simulado × planejado
 
 | Área | Implementado | Simulado | Planejado |
 |---|---|---|---|
-| Agentes | CRUD persistido, validação e cálculo de disponibilidade | Biblioteca de exemplos | Execução real; requisitos e tipos de tarefa na definição persistida |
+| Agentes | CRUD persistido, validação e cálculo de disponibilidade; "Executar" abre Conversas com o agente escolhido (Lote 3.3.7) | Biblioteca de exemplos | Ferramentas e execução autônoma; requisitos e tipos de tarefa na definição persistida |
 | Configurações | Gravação, validação e persistência | — | Efeito real de cada preferência |
 | Ferramentas | Catálogo declarado (7 itens) com esquemas e permissões, exibido na tela | — | Executores, ativação, concessão de permissões e plugins |
-| Execuções | `RunService` (Lote 3.3.5): fila FIFO com uma execução ativa, cancelamento por `AbortController`, tempo limite, limites e eventos agrupados; canal `runs:start`. Provedor real Ollama (Lote 3.3.6), validado pelo `RunService` | Na interface, quem responde ainda é o provedor simulado determinístico (`origin: 'simulated'`, só em memória) | Iniciar execuções reais pela interface (Lote 3.3.7) e histórico persistido |
+| Execuções | `RunService` (Lote 3.3.5): fila FIFO com uma execução ativa, cancelamento por `AbortController`, tempo limite, limites e eventos agrupados; canal `runs:start`. Provedor real Ollama (Lote 3.3.6). Tela Execuções (Lote 3.3.7): central de monitoramento com resumo da sessão, histórico real e simulado, estados, modelo, provedor, métricas medidas, erros, registro técnico e interrupção | Seção "Demonstração simulada" (provedor simulado, `origin: 'simulated'`), separada e identificada | Histórico persistido |
 | Hardware Advisor | Consentimento com escopo, revogação, exclusão de dados e validação do perfil | Perfis de hardware (cenários fictícios) | Detector real; envio ao Gerpro Web |
 | Recomendações | Motor de regras puro e testado | Entradas: perfil e biblioteca de modelos fictícios | Modelos e requisitos vindos do motor |
 | Modelos | Contratos de inferência local (`InferenceProvider`, `ModelRef`, `ExecutionProfile`, compatibilidade); origem `ModelSource`; modelos realmente instalados no Ollama, listados na tela Modelos (Lote 3.3.6) | Biblioteca de exemplo da tela Modelos, sem estado operacional | Download e gerenciamento de modelos; motor de inferência próprio |
 | Credenciais | `SecretVault` cifrado (testado) | — | Uso pelos serviços; ainda não está ligado a nenhum |
 | Gerpro Web | Espaço reservado para o consentimento `serverSharing`, que hoje não pode ser concedido | — | APIs, autenticação e módulos web |
-| Início | Agentes salvos e simulações da sessão (data local atual) | — | Modelos carregados e tokens |
-| Chat, Desenvolvedor | Informações do aplicativo (Desenvolvedor) | Conversas e logs de exemplo | Inferência, servidor local e exposição na rede |
+| Início | Dashboard com indicadores reais da sessão (agentes salvos, execuções de hoje) e execuções recentes | — | Modelos carregados e tokens do dia, quando o motor informar |
+| Conversas | Conversas contínuas gravadas neste computador: nova conversa, lista, renomear, excluir com confirmação, contexto real entre mensagens (recorte limitado e registrado em cada resposta), troca de modelo no meio da conversa, resposta em tempo real, "Interromper geração" e erros explicados | — | Resumo automático de conversas longas, memória entre conversas, contagem exata de tokens do contexto, busca e exportação |
+| Gerpro AI, Desenvolvedor | Informações do aplicativo (Desenvolvedor); o Gerpro AI explica o futuro assistente e aponta para Conversas | Logs de exemplo (Desenvolvedor) | Assistente interno do Gerpro Studio (Gerpro AI), servidor local e exposição na rede |
 
 ## Identificação de origem (Etapa 3.2.2, Lote 2)
 

@@ -98,11 +98,19 @@ problemas de validação), sem stack trace. Eventos Main → Renderer
 | `runs:start` | `RunRequest` | `Result<RunRecord>` |
 | `runs:start-demo` (compatibilidade) | `DemoRunRequest` | `Result<RunRecord>` |
 | `runs:cancel` | `id` | `Result<RunRecord>` |
+| `conversations:list` | — | `Result<ConversationList>` |
+| `conversations:get` | `id` | `Result<Conversation>` |
+| `conversations:send` | `ConversationSendRequest` | `Result<{ conversation, run }>` |
+| `conversations:rename` | `id`, `title` | `Result<Conversation>` |
+| `conversations:delete` | `id` | `Result<null>` |
+| `conversations:retry-save` | `id` | `Result<ConversationSaveStatus>` |
 | `hardware:get-state` | — | `Result<HardwareAdvisorState>` |
 | `hardware:set-local-consent` | `{ granted, deleteData? }` | `Result<HardwareAdvisorState>` |
 | `hardware:analyze` | `{ mode, scenario? }` | `Result<HardwareAdvisorState>` |
 | `hardware:delete-data` | — | `Result<HardwareAdvisorState>` |
 | evento `runs:updated` | `RunRecord` | — |
+| evento `conversations:updated` | `Conversation` | — |
+| evento `conversations:save-changed` | `{ conversationId, save }` | — |
 
 Para criar um canal: declare-o em `src/shared/ipc.ts`, registre o handler em
 `src/main/ipc-handlers.ts` com validação e aridade, e exponha a função em
@@ -117,6 +125,7 @@ Os arquivos ficam em `<userData>/storage/` e são lidos e gravados só pelo Main
 | `settings.json` | `gerpro.settings` | Preferências |
 | `agents.json` | `gerpro.agents` | Definições de agentes (até 500); formato 2, migrado do 1 |
 | `hardware.json` | `gerpro.hardware` | Consentimento e última análise |
+| `conversations/<id>.json` | `gerpro.conversation` | Uma conversa por arquivo (até 500 conversas e 400 mensagens cada) |
 | (cofre) | `gerpro.secrets` | Credenciais cifradas. O cofre ainda não é instanciado pelo app. |
 
 Comportamento do `VersionedStore` (`src/main/storage/versioned-store.ts`):
@@ -132,8 +141,13 @@ Comportamento do `VersionedStore` (`src/main/storage/versioned-store.ts`):
 - Arquivo de versão mais nova: o app usa os padrões e **não grava**, para não
   destruir dados de uma versão futura.
 - `hardware.json` ilegível volta ao padrão seguro: não autorizado e sem dados.
+- Conversa com arquivo inválido: não é usada pela metade. O original é
+  copiado (`*.invalid-<data>.json`) e retirado da pasta, e as outras
+  conversas carregam normalmente; a tela informa quantos arquivos ficaram
+  de fora. Arquivo de versão mais nova fica intacto e fora da lista.
 
-Execuções simuladas não são persistidas.
+Execuções (reais e simuladas) não são persistidas: cada conversa guarda o
+texto final de cada resposta, o modelo que a gerou e o `runId`.
 
 ## Arquitetura híbrida planejada (Gerpro Web)
 

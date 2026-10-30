@@ -5,8 +5,12 @@ Estado documentado: commit `9376ce4` (branch `main`), após a Etapa 3.1.
 O Gerpro Studio é uma aplicação desktop proprietária de IA (Electron + React +
 TypeScript), que no futuro será integrada ao Gerpro Web. Até agora, o projeto
 tem a interface, os contratos, a persistência local, fluxos demonstrativos e
-inferência local real pelo adaptador Ollama (Lote 3.3.6), ainda sem início
-pela interface. **Não há detecção real de hardware, execução de ferramentas
+inferência local real pelo adaptador Ollama (Lote 3.3.6): em Conversas, o
+usuário mantém conversas contínuas, gravadas e com contexto, com modelos
+instalados neste computador, e a tela
+Execuções acompanha o histórico da sessão, as métricas e os registros (Lote
+3.3.7).
+**Não há detecção real de hardware, execução de ferramentas
 nem integração com servidores.**
 
 ## Legenda usada em todos os documentos
@@ -31,7 +35,8 @@ nem integração com servidores.**
    `device-detection`, proteção contra ampliação automática e recomendações
    demonstrativas.
 5. [Motor de inferência](05-motor-de-inferencia.md): adaptador Ollama
-   (Lote 3.3.6) e o motor próprio, decisão arquitetural futura.
+   (Lote 3.3.6), mensagens por Conversas e monitoramento em Execuções (Lote
+   3.3.7) e o motor próprio, decisão arquitetural futura.
 6. [Pontos de integração](06-pontos-de-integracao.md): o que fica sob
    responsabilidade da equipe de desenvolvimento.
 7. [Decisões e limitações](07-decisoes-e-limitacoes.md): histórico das

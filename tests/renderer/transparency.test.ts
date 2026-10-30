@@ -95,7 +95,7 @@ describe('indicadores do Início', () => {
   })
 
   it('sem dados gravados, tudo zero (nada fictício entra na conta)', () => {
-    assert.deepEqual(homeStats([], [], new Date()), { savedAgents: 0, readyAgents: 0, simulationsToday: 0, activeSimulations: 0 })
+    assert.deepEqual(homeStats([], [], new Date()), { savedAgents: 0, readyAgents: 0, simulationsToday: 0, realRunsToday: 0, activeSimulations: 0 })
   })
 })
 
@@ -142,7 +142,7 @@ describe('telas: nada fictício apresentado como operacional', () => {
     assert.doesNotMatch(src, /setPort|setLan/)
   })
 
-  it('Modelos e Chat sem ações mortas ou seletor operacional', () => {
+  it('Modelos e Gerpro AI sem ações mortas ou seletor operacional', () => {
     assert.doesNotMatch(page('ModelsPage.tsx'), /<Menu\b|Carregar modelo/)
     assert.match(page('ChatPage.tsx'), /<Select[\s\S]*?disabled[\s\S]*?\/>/)
   })

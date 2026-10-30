@@ -10,7 +10,7 @@
 import type { RouteId } from '@renderer/app/route-ids'
 
 /** Estado da funcionalidade apresentada. */
-export type TourFeatureState = 'implemented' | 'demo' | 'planned'
+export type TourFeatureState = 'implemented' | 'demo' | 'development' | 'planned'
 
 export interface TourChapter {
   id: string
@@ -32,13 +32,15 @@ export interface TourStep {
 export const TOUR_FEATURE_LABELS: Record<TourFeatureState, string> = {
   implemented: 'Implementada',
   demo: 'Demonstrativa',
+  development: 'Em desenvolvimento',
   planned: 'Planejada'
 }
 
 export const TOUR_CHAPTERS: readonly TourChapter[] = [
   { id: 'overview', title: 'Visão geral' },
+  { id: 'conversations', title: 'Conversas' },
+  { id: 'chat', title: 'Gerpro AI' },
   { id: 'agents', title: 'Agentes' },
-  { id: 'chat', title: 'Conversas' },
   { id: 'models', title: 'Modelos' },
   { id: 'runs', title: 'Execuções' },
   { id: 'tools', title: 'Ferramentas' },
@@ -52,7 +54,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     chapter: 'overview',
     title: 'Navegação principal',
     description:
-      'Todas as áreas do Gerpro Studio ficam nesta barra: o espaço de trabalho (agentes, conversas, modelos, execuções e ferramentas) e o sistema (desenvolvedor e configurações).',
+      'Todas as áreas do Gerpro Studio ficam nesta barra: o espaço de trabalho (conversas, Gerpro AI, agentes, modelos, execuções e ferramentas) e o sistema (desenvolvedor e configurações).',
     route: 'home',
     target: 'shell.sidebar',
     feature: 'implemented'
@@ -62,7 +64,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     chapter: 'overview',
     title: 'Indicadores do espaço de trabalho',
     description:
-      'Os números vêm dos dados gravados neste computador: agentes salvos e simulações da sessão. Modelos carregados e tokens aparecem quando o motor de IA for conectado.',
+      'Os números vêm dos dados gravados neste computador: agentes salvos e execuções reais e simuladas da sessão. Modelos carregados e tokens ainda estão planejados.',
     route: 'home',
     target: 'home.stats',
     feature: 'implemented'
@@ -72,10 +74,53 @@ export const TOUR_STEPS: readonly TourStep[] = [
     chapter: 'overview',
     title: 'Execuções recentes',
     description:
-      'Resumo das execuções desta sessão. Por enquanto são simulações: mostram o fluxo completo de uma execução sem rodar modelo nem ferramenta.',
+      'Resumo das execuções desta sessão, cada uma marcada como real (modelo instalado neste computador) ou simulada. O histórico é descartado ao fechar o aplicativo.',
     route: 'home',
     target: 'home.recent-runs',
-    feature: 'demo'
+    feature: 'implemented'
+  },
+
+  // Conversas
+  {
+    id: 'conversations.composer',
+    chapter: 'conversations',
+    title: 'Conversar com um modelo local',
+    description:
+      'Em Conversas você escolhe um modelo instalado neste computador, escreve e envia; a resposta aparece enquanto é gerada, e dá para interromper. As mensagens anteriores da conversa vão junto como contexto, até o limite do modelo, e o modelo pode ser trocado no meio da conversa.',
+    route: 'conversations',
+    target: 'conversations.composer',
+    feature: 'implemented'
+  },
+  {
+    id: 'conversations.messages',
+    chapter: 'conversations',
+    title: 'Conversas salvas',
+    description:
+      'Suas conversas ficam gravadas neste computador e continuam depois de fechar o aplicativo. "Nova conversa" começa outra; pelo menu de cada uma dá para renomear ou excluir.',
+    route: 'conversations',
+    target: 'conversations.messages',
+    feature: 'implemented'
+  },
+
+  // Gerpro AI
+  {
+    id: 'chat.conversations',
+    chapter: 'chat',
+    title: 'Gerpro AI — Seu assistente inteligente',
+    description:
+      'O Gerpro AI será o assistente integrado para ajudar a configurar, utilizar e gerenciar o Gerpro Studio: dúvidas, criação de agentes, escolha de modelos e explicação de erros. Ele ainda não funciona.',
+    route: 'chat',
+    target: 'chat.list',
+    feature: 'development'
+  },
+  {
+    id: 'chat.composer',
+    chapter: 'chat',
+    title: 'Envio de mensagens',
+    description: 'Aqui será possível conversar com o Gerpro AI. Por enquanto o campo fica desativado; para falar com um modelo local agora, use Conversas.',
+    route: 'chat',
+    target: 'chat.composer',
+    feature: 'development'
   },
 
   // Agentes
@@ -84,7 +129,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     chapter: 'agents',
     title: 'Meus agentes',
     description:
-      'Agentes com instruções, modelo padrão, parâmetros e ferramentas. São gravados neste computador e podem ser criados, editados, arquivados e excluídos. A execução real depende do motor de IA.',
+      'Agentes com instruções, modelo padrão, parâmetros e ferramentas. São gravados neste computador e podem ser criados, editados, arquivados e excluídos. "Executar" leva a Conversas com o agente escolhido; ferramentas ainda não são executadas.',
     route: 'agents',
     target: 'agents.saved',
     feature: 'implemented'
@@ -110,33 +155,13 @@ export const TOUR_STEPS: readonly TourStep[] = [
     feature: 'demo'
   },
 
-  // Conversas
-  {
-    id: 'chat.conversations',
-    chapter: 'chat',
-    title: 'Conversas',
-    description: 'Lista de conversas com agentes. As conversas mostradas são exemplos que ilustram a experiência.',
-    route: 'chat',
-    target: 'chat.list',
-    feature: 'demo'
-  },
-  {
-    id: 'chat.composer',
-    chapter: 'chat',
-    title: 'Envio de mensagens',
-    description: 'Aqui será possível conversar com um agente usando um modelo local. O envio depende do motor de IA, ainda planejado.',
-    route: 'chat',
-    target: 'chat.composer',
-    feature: 'planned'
-  },
-
   // Modelos
   {
     id: 'models.library',
     chapter: 'models',
     title: 'Biblioteca de modelos',
     description:
-      'Cada modelo mostra publicador, tamanho, capacidades e requisitos; ao selecionar um, os detalhes aparecem ao lado. A lista atual é ilustrativa: nenhum modelo está instalado ou carregado neste computador.',
+      'Cada modelo mostra publicador, tamanho, capacidades e requisitos; ao selecionar um, os detalhes aparecem ao lado. Esta biblioteca é ilustrativa; os modelos realmente instalados neste computador aparecem acima dela, em "Instalados neste computador".',
     route: 'models',
     target: 'models.library',
     feature: 'demo'
@@ -146,19 +171,39 @@ export const TOUR_STEPS: readonly TourStep[] = [
     chapter: 'models',
     title: 'Motor de IA local',
     description:
-      'Indica a conexão com o motor que executará os modelos neste computador. A arquitetura já separa provedores, modelos e perfis de execução; a conexão está planejada.',
+      'Indica se o motor de IA local está respondendo neste computador. Com ele conectado, os modelos instalados podem ser usados em Conversas. A arquitetura separa provedores, modelos e perfis de execução, então o motor pode ser trocado no futuro.',
     route: 'models',
     target: 'shell.engine',
-    feature: 'planned'
+    feature: 'implemented'
   },
 
   // Execuções
   {
+    id: 'runs.monitor',
+    chapter: 'runs',
+    title: 'Resumo da sessão',
+    description:
+      'Quantas execuções houve hoje, reais e simuladas, e quantas estão em andamento. Modelos carregados e tokens ainda não são informados pelo motor.',
+    route: 'runs',
+    target: 'runs.stats',
+    feature: 'implemented'
+  },
+  {
+    id: 'runs.session',
+    chapter: 'runs',
+    title: 'Execuções desta sessão',
+    description:
+      'Cada execução com origem (real ou simulada), modelo, duração e estado. Ao selecionar uma, aparecem a resposta, as métricas medidas, os erros e o registro técnico; execuções em andamento podem ser interrompidas.',
+    route: 'runs',
+    target: 'runs.session',
+    feature: 'implemented'
+  },
+  {
     id: 'runs.simulated',
     chapter: 'runs',
-    title: 'Execuções simuladas',
+    title: 'Demonstração simulada',
     description:
-      'Inicia uma execução simulada de um agente salvo pela fila de execuções: o provedor simulado responde com texto fixo em partes, e dá para cancelar ou ver uma falha de demonstração. Nenhum modelo roda e nada é gravado no disco.',
+      'Inicia uma execução simulada de um agente salvo pela mesma fila das execuções reais: o provedor simulado responde com texto fixo em partes, e dá para cancelar ou ver uma falha de demonstração. Nenhum modelo roda e nada é gravado no disco. Mensagens para modelos reais são enviadas em Conversas.',
     route: 'runs',
     target: 'runs.launcher',
     feature: 'demo'

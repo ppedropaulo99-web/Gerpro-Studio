@@ -8,6 +8,7 @@ import { SimulatedInferenceProvider } from '../runs/simulated-provider'
 import { BUILTIN_TOOLS } from '../tools/catalog'
 import { ToolRegistry } from '../tools/tool-registry'
 import { AgentService } from './agent-service'
+import { ConversationService } from './conversation-service'
 import { SettingsService } from './settings-service'
 
 export interface Services {
@@ -15,6 +16,7 @@ export interface Services {
   agents: AgentService
   tools: ToolRegistry
   runs: RunService
+  conversations: ConversationService
   hardware: HardwareAdvisorService
 }
 
@@ -73,5 +75,9 @@ export async function createServices(
   // Sem esperar: o app abre mesmo com o Ollama desligado ou lento.
   void runs.refreshProviders()
 
-  return { settings, agents, tools, runs, hardware }
+  const conversations = new ConversationService({ dir: join(dataDir, 'conversations'), runs, findAgent: (id) => agents.find(id) })
+  const loaded = await conversations.init()
+  if (loaded.damaged > 0) console.warn(`[storage] conversations: ${loaded.damaged} arquivo(s) ignorado(s)`)
+
+  return { settings, agents, tools, runs, conversations, hardware }
 }

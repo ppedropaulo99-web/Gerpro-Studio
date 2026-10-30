@@ -5,12 +5,14 @@ import {
   Code2,
   History,
   House,
-  MessageSquare,
+  MessagesSquare,
   Settings,
+  Sparkles,
   Wrench,
   type LucideIcon
 } from 'lucide-react'
 import { HomePage } from '@renderer/pages/HomePage'
+import { ConversationsPage } from '@renderer/pages/ConversationsPage'
 import { AgentsPage } from '@renderer/pages/AgentsPage'
 import { ChatPage } from '@renderer/pages/ChatPage'
 import { ModelsPage } from '@renderer/pages/ModelsPage'
@@ -34,8 +36,9 @@ export interface RouteDef {
 /** Registro único de telas. Adicionar uma tela = adicionar uma entrada aqui. */
 export const routes: RouteDef[] = [
   { id: 'home', label: 'Início', icon: House, section: 'workspace', component: HomePage },
+  { id: 'conversations', label: 'Conversas', icon: MessagesSquare, section: 'workspace', component: ConversationsPage },
+  { id: 'chat', label: 'Gerpro AI', icon: Sparkles, section: 'workspace', component: ChatPage },
   { id: 'agents', label: 'Agentes', icon: Bot, section: 'workspace', component: AgentsPage },
-  { id: 'chat', label: 'Chat', icon: MessageSquare, section: 'workspace', component: ChatPage },
   { id: 'models', label: 'Modelos', icon: Boxes, section: 'workspace', component: ModelsPage },
   { id: 'runs', label: 'Execuções', icon: History, section: 'workspace', component: RunsPage },
   { id: 'tools', label: 'Ferramentas', icon: Wrench, section: 'workspace', component: ToolsPage },

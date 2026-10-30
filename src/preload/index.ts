@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IpcChannels, IpcEvents, type GerproApi } from '@shared/ipc'
 import { themeFromArguments } from '@shared/settings'
+import type { Conversation, ConversationSaveChange } from '@shared/conversations'
 import type { RunRecord } from '@shared/runs'
 
 // O Renderer recebe só funções de alto nível. ipcRenderer em si nunca é exposto.
@@ -39,6 +40,28 @@ const api: GerproApi = {
   },
   providers: {
     list: () => ipcRenderer.invoke(IpcChannels.providersList)
+  },
+  conversations: {
+    list: () => ipcRenderer.invoke(IpcChannels.conversationsList),
+    get: (id) => ipcRenderer.invoke(IpcChannels.conversationsGet, id),
+    send: (request) => ipcRenderer.invoke(IpcChannels.conversationsSend, request),
+    rename: (id, title) => ipcRenderer.invoke(IpcChannels.conversationsRename, id, title),
+    remove: (id) => ipcRenderer.invoke(IpcChannels.conversationsDelete, id),
+    retrySave: (id) => ipcRenderer.invoke(IpcChannels.conversationsRetrySave, id),
+    onUpdated: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, conversation: Conversation) => listener(conversation)
+      ipcRenderer.on(IpcEvents.conversationsUpdated, handler)
+      return () => {
+        ipcRenderer.removeListener(IpcEvents.conversationsUpdated, handler)
+      }
+    },
+    onSaveChanged: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, change: ConversationSaveChange) => listener(change)
+      ipcRenderer.on(IpcEvents.conversationsSaveChanged, handler)
+      return () => {
+        ipcRenderer.removeListener(IpcEvents.conversationsSaveChanged, handler)
+      }
+    }
   },
   hardware: {
     getState: () => ipcRenderer.invoke(IpcChannels.hardwareGetState),

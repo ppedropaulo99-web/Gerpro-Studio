@@ -7,6 +7,7 @@
  */
 
 import type { AgentDraft, AgentRecord } from './agents'
+import type { Conversation, ConversationList, ConversationSaveChange, ConversationSaveStatus, ConversationSendRequest } from './conversations'
 import type { Result } from './errors'
 import type { AnalysisRequest, HardwareAdvisorState, LocalConsentChange } from './hardware'
 import type { ProviderOverview } from './inference'
@@ -29,6 +30,12 @@ export const IpcChannels = {
   runsStartDemo: 'runs:start-demo',
   runsCancel: 'runs:cancel',
   providersList: 'providers:list',
+  conversationsList: 'conversations:list',
+  conversationsGet: 'conversations:get',
+  conversationsSend: 'conversations:send',
+  conversationsRename: 'conversations:rename',
+  conversationsDelete: 'conversations:delete',
+  conversationsRetrySave: 'conversations:retry-save',
   hardwareGetState: 'hardware:get-state',
   hardwareSetLocalConsent: 'hardware:set-local-consent',
   hardwareAnalyze: 'hardware:analyze',
@@ -37,7 +44,9 @@ export const IpcChannels = {
 
 /** Canais de evento Main → Renderer. */
 export const IpcEvents = {
-  runsUpdated: 'runs:updated'
+  runsUpdated: 'runs:updated',
+  conversationsUpdated: 'conversations:updated',
+  conversationsSaveChanged: 'conversations:save-changed'
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -107,6 +116,30 @@ export interface GerproApi {
    */
   providers: {
     list(): Promise<Result<ProviderOverview[]>>
+  }
+  /**
+   * Conversas contínuas, gravadas neste computador. Cada envio é uma
+   * execução do `RunService` com o recorte permitido do histórico; o texto em
+   * geração chega por `runs.onUpdated` e a resposta final, por `onUpdated`.
+   */
+  conversations: {
+    /** Mais recente primeiro; `damaged` conta arquivos que não puderam ser lidos. */
+    list(): Promise<Result<ConversationList>>
+    get(id: string): Promise<Result<Conversation>>
+    /**
+     * `conversationId: null` cria a conversa com a mensagem. Recusas:
+     * `conflict` (resposta em geração ou limite), `invalid-state` (outro
+     * agente), além das recusas de `runs.start`.
+     */
+    send(request: ConversationSendRequest): Promise<Result<{ conversation: Conversation; run: RunRecord }>>
+    rename(id: string, title: string): Promise<Result<Conversation>>
+    /** Interrompe a resposta em geração, se houver, e apaga o arquivo. */
+    remove(id: string): Promise<Result<null>>
+    /** Tenta gravar de novo uma conversa que ficou sem salvar; devolve a situação depois da tentativa. */
+    retrySave(id: string): Promise<Result<ConversationSaveStatus>>
+    onUpdated(listener: (conversation: Conversation) => void): () => void
+    /** Mudanças na situação de gravação (salva, salvando, falha). */
+    onSaveChanged(listener: (change: ConversationSaveChange) => void): () => void
   }
   /** Gerpro Hardware Advisor. Nesta etapa, só análises demonstrativas produzem dados (fictícios). */
   hardware: {

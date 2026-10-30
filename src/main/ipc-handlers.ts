@@ -22,7 +22,7 @@ interface HandlerSpec {
 export type DataChannel = Exclude<(typeof IpcChannels)[keyof typeof IpcChannels], typeof IpcChannels.appGetInfo>
 
 export function createDataHandlers(services: Services): Record<DataChannel, HandlerSpec> {
-  const { settings, agents, tools, runs, hardware } = services
+  const { settings, agents, tools, runs, conversations, hardware } = services
   return {
     [IpcChannels.settingsGet]: { arity: 0, run: () => settings.get() },
     [IpcChannels.settingsUpdate]: { arity: 1, run: ([patch]) => settings.update(patch) },
@@ -38,6 +38,12 @@ export function createDataHandlers(services: Services): Record<DataChannel, Hand
     [IpcChannels.runsStartDemo]: { arity: 1, run: ([request]) => runs.start(demoRunRequest(unwrap(validateDemoRunRequest(request)))) },
     [IpcChannels.runsCancel]: { arity: 1, run: ([id]) => runs.cancel(id) },
     [IpcChannels.providersList]: { arity: 0, run: () => runs.providers() },
+    [IpcChannels.conversationsList]: { arity: 0, run: () => conversations.list() },
+    [IpcChannels.conversationsGet]: { arity: 1, run: ([id]) => conversations.get(id) },
+    [IpcChannels.conversationsSend]: { arity: 1, run: ([request]) => conversations.send(request) },
+    [IpcChannels.conversationsRename]: { arity: 2, run: ([id, title]) => conversations.rename(id, title) },
+    [IpcChannels.conversationsDelete]: { arity: 1, run: async ([id]) => (await conversations.remove(id), null) },
+    [IpcChannels.conversationsRetrySave]: { arity: 1, run: ([id]) => conversations.retrySave(id) },
     [IpcChannels.hardwareGetState]: { arity: 0, run: () => hardware.getState() },
     [IpcChannels.hardwareSetLocalConsent]: { arity: 1, run: ([change]) => hardware.setLocalConsent(change) },
     [IpcChannels.hardwareAnalyze]: { arity: 1, run: ([request]) => hardware.analyze(request) },

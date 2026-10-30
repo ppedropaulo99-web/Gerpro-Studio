@@ -40,23 +40,30 @@
 | D34 | 3.3.5 | `RunService` único no Main (fila FIFO, uma ativa, até 10 pendentes, `AbortController`, prazo a partir de `running`, finalização única) com provedor simulado determinístico; execuções simuladas registram modelo e texto simulados, nunca métricas (Opção A); `runs:start-demo` vira adaptador da mesma fila; texto agrupado a cada 75 ms com `revision`; `engineAvailable` só considera provedor real | Validar todo o ciclo de vida antes do motor real, sem segunda fila nem simulação confundida com inferência ou com prova de compatibilidade |
 | D35 | 3.3.6 | Ollama como primeiro provedor real, atrás de `InferenceProvider` (`kind: 'external'`): conversão só no adaptador, comunicação só no Main e só loopback, sem redirecionamentos, com limites de tamanho; motor real disponível só após resposta `ready`; agente disponível só com o modelo instalado num provedor real pronto; limite atingido sem texto é falha | Ter inferência real sem prender o app ao Ollama: o motor próprio futuro entra como outro provedor, e nada simulado, remoto ou vazio parece resposta real |
 
+| D36 | 3.3.7 | Execução real pela interface com `runs:start` (agente escolhido, modelo em `overrides.model`), sem mudar contratos; as telas só exibem o estado do `RunService` (`watchRuns` por `revision`, sem buffer próprio); falha de execução simulada nunca é atribuída ao motor local | Uma única fila e uma única fonte de verdade; nada simulado parece real e nada real é convertido em simulação |
+| D39 | 3.3.7-A | Situação de gravação por conversa (`saved`/`saving`/`failed`) avisada só quando muda; falha não descarta a memória nem desfaz alterações (inclusive renomear); nova tentativa manual; escritas seguidas agrupadas; ponto de controle do texto parcial no máximo a cada 2 s e na saída do app, sem retomar a geração | Não apresentar como salvo o que não foi gravado, sem perder o que está na tela; preservar o texto já recebido sem gravar a cada trecho nem afetar o streaming |
+| D38 | 3.3.7 (conversas) | Conversas contínuas no Main (`ConversationService`), uma por arquivo (`VersionedStore`); contexto montado no Main e passado ao `RunService` por parâmetro interno, sem mudar `RunRequest`, `InferenceProvider` nem o adaptador Ollama; recorte conservador por caracteres, registrado em cada resposta; agente fixo por conversa e modelo trocável | O modelo recebe o histórico de verdade sem segunda fila nem segundo buffer; conversas isoladas e resistentes a arquivo corrompido; o histórico chega ao provedor sem que o Renderer possa injetá-lo pelo IPC |
+| D37 | 3.3.7 (UX) | Papéis separados: Início como dashboard (saudação, indicadores, execuções recentes, atalhos), Conversas para interagir com modelos locais (lista lateral, mensagens, campo de entrada), Execuções para monitorar (resumo, histórico, métricas, erros, registro, demonstração simulada) e Chat reservado ao futuro assistente interno; nomes amigáveis derivados só do identificador (a lista de mensagens independentes foi substituída pelas conversas contínuas, D38) | Interface simples por padrão, com o técnico a um clique; preparar conversas futuras sem criar uma camada provisória que precise ser descartada |
+| D40 | 3.3.7 (identidade) | Tela Chat renomeada para Gerpro AI só no que o usuário vê (menu, página, Apresentação Guiada); rota `chat`, `ChatPage`, classes CSS e marcas `data-tour` preservadas; a palavra chat continua com o sentido técnico em contratos, capacidades de modelo e na integração Ollama; a tela segue sem chamar o motor | Alinha o nome à função de assistente do produto sem tocar em arquitetura nem invalidar referências internas. |
+
 ## Limitações conhecidas
 
 ### Funcionais
 
-- A inferência real existe no Main pelo adaptador Ollama (Lote 3.3.6), mas a
-  interface ainda não inicia uma execução real (integração visual no Lote
-  3.3.7). Não há download de modelos nem chat real. Chat, a biblioteca da
+- A inferência real existe no Main pelo adaptador Ollama (Lote 3.3.6) e é
+  iniciada pela tela Conversas (Lote 3.3.7), uma execução por resposta, com o
+  histórico permitido da conversa. Não há download de modelos. A biblioteca da
   tela Modelos e os logs do Desenvolvedor usam dados de exemplo,
-  identificados com o selo "Exemplo". No Início, modelos carregados e
-  tokens aparecem como "Planejado", sem valor.
+  identificados com o selo "Exemplo"; o Gerpro AI só descreve o assistente
+  em desenvolvimento. Em Execuções, modelos carregados e tokens aparecem como
+  "Planejado", sem valor.
 - Nenhuma ferramenta executa. Todas aparecem como `not-implemented`.
-- Nenhum agente fica `available`, porque falta o motor. O provedor simulado
-  não muda isso.
-- Execuções são só simuladas (a fila é real; quem responde é o provedor
-  simulado) e se perdem ao fechar o app.
-- A tela Execuções ainda inicia execuções por `runs:start-demo` (sucesso ou
-  falha). `runs:start` está exposto, mas sem formulário próprio.
+- Um agente só fica `available` com o modelo padrão instalado num provedor
+  real pronto. O provedor simulado não muda isso.
+- Execuções (reais e simuladas) ficam só na memória do Main: até 100 por
+  sessão, descartadas ao fechar o app.
+- A seção "Demonstração simulada" e a Apresentação Guiada ainda usam
+  `runs:start-demo`.
 - Durante a geração, o progresso fica indeterminado: a barra só mostra 100%
   ao concluir; a etapa ("Gerando resposta") aparece abaixo dela.
 - As preferências são gravadas, mas, exceto o tema e o nome de exibição, não têm efeito. As de
@@ -131,11 +138,8 @@
 
 ### Inferência local (Ollama, Lote 3.3.6)
 
-- **Sem início pela interface:** a inferência real foi validada pelo
-  `RunService` (fora da interface). A tela Execuções e a Apresentação
-  Guiada continuam usando o provedor simulado. Menor integração proposta
-  para o Lote 3.3.7: seletor de modelo instalado e campo de mensagem no card
-  da tela Execuções, chamando `runs:start`.
+- **Execução pela interface:** feita no Lote 3.3.7 (tela Conversas). A
+  Apresentação Guiada continua usando só o provedor simulado.
 - **Modelos com raciocínio (ex.: `qwen3:8b`):** o Ollama envia o raciocínio
   em `message.thinking`, que não entra na resposta nem é exibido. Os tokens
   de raciocínio contam no limite de saída e em `outputTokens`, e o tempo até
@@ -158,10 +162,63 @@
 - **Métricas:** `peakMemoryBytes` fica sempre `null` (o Ollama não informa).
 - **Estados:** o Ollama aparece como `ready`, `unreachable` ou `error`;
   `not-detected` e `incompatible-version` não são usados.
-- **Textos ainda desatualizados:** passos da Apresentação Guiada, cards do
-  Início, Chat, Desenvolvedor e as notas técnicas das recomendações ainda
-  descrevem o motor como não conectado. Subestimam, não prometem
-  funcionalidade inexistente; revisão no Lote 3.3.7.
+- **Textos:** revisados no Lote 3.3.7 (Apresentação Guiada, Início, Conversas, Chat,
+  Agentes, Modelos e recomendações). Os logs do Desenvolvedor continuam de exemplo,
+  identificados como tal.
+
+### Conversas e Execuções (Lote 3.3.7 e conversas contínuas)
+
+- **Contexto estimado, não medido:** o recorte usa 3 caracteres por token e,
+  sem `contextLength` no perfil do agente, supõe uma janela de 4.096 tokens.
+  Se a janela real do motor for menor, o próprio motor pode descartar o
+  início do contexto sem avisar; com `contextLength` no perfil, o recorte
+  segue esse valor.
+- **Sem resumo nem memória:** quando a conversa passa do limite, as mensagens
+  mais antigas continuam gravadas e visíveis, mas deixam de ser enviadas. Não
+  há resumo automático nem memória entre conversas.
+- **Agente fixo por conversa:** para usar outro agente, crie uma nova
+  conversa. Se o agente for excluído ou arquivado, a conversa fica só para
+  leitura. As ferramentas do agente não são usadas; Conversas avisa quando o
+  agente tem alguma.
+- **Uma resposta por vez em cada conversa:** enquanto uma resposta é gerada,
+  a mesma conversa não aceita outro envio (outras conversas entram na fila do
+  `RunService`).
+- **Fechar durante a geração:** a resposta volta como "Interrompida ao fechar
+  o aplicativo", com o texto gravado no último ponto de controle (a cada 2 s,
+  mais a gravação feita ao fechar). Se o processo for encerrado à força ou o
+  computador desligar, perdem-se até os últimos 2 s de texto. A geração não é
+  retomada automaticamente.
+- **"Detalhes técnicos":** só para respostas desta sessão; as execuções não
+  são gravadas.
+- **Limites:** até 500 conversas e 400 mensagens por conversa; acima disso, o
+  envio é recusado com uma explicação.
+- **Gravação:** se a escrita no disco falhar, a conversa continua na memória
+  e na tela, marcada "Falha ao salvar", com a opção de tentar de novo; a
+  próxima alteração também tenta. Se o app for fechado ainda com a falha, o
+  que não foi gravado se perde (o arquivo fica na última versão gravada).
+- **Janelas estreitas:** abaixo de 900 px, a lista de Conversas vira uma faixa
+  curta acima das mensagens.
+- **Agente obrigatório:** toda conversa usa um agente salvo (instruções e
+  perfil vêm dele). Sem agentes salvos, Conversas explica e não envia.
+- **Perfil:** o da execução é o do agente; a interface não oferece ajuste
+  por execução (o contrato aceita).
+- **"Sua mensagem" em Execuções:** guardada só na memória do Renderer (o
+  `RunRecord` não guarda a entrada); some ao recarregar a janela. A mensagem
+  continua gravada na conversa.
+- **Métricas ao interromper:** execuções interrompidas não têm métricas (o
+  motor não as envia), e a tela diz isso em vez de estimá-las.
+- **Lista de modelos:** atualizada ao abrir Conversas, no botão de atualizar
+  ao lado do seletor e após um erro do motor; não há atualização contínua.
+- **Raciocínio:** não é exibido; os tokens de raciocínio aparecem somados em
+  "Tokens gerados (inclui raciocínio)". O motor só avisa "carregando" antes do
+  primeiro texto, então o estado fica "Carregando modelo" também enquanto o
+  modelo raciocina; Conversas explica isso no texto de espera.
+- **Nomes amigáveis:** só reformatam o identificador (`qwen3:8b` → "Qwen 3
+  (8B)"); nada é inferido além dele. O identificador exato aparece em
+  Execuções e na tela Modelos.
+- **Desempenho em CPU:** na homologação, `llama3.1:8b` levou ~10 s para
+  carregar e gerou ~5 tokens/s; respostas longas demoram, e o tempo limite do
+  perfil do agente vale para a geração inteira.
 
 ### Técnicas
 

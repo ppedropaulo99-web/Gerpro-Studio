@@ -14,7 +14,7 @@ import type { TourProgress } from './tour-state'
 const LOCATE_INTERVAL_MS = 100
 const LOCATE_ATTEMPTS = 25
 
-const FEATURE_TONE: Record<TourFeatureState, Tone> = { implemented: 'success', demo: 'warning', planned: 'neutral' }
+const FEATURE_TONE: Record<TourFeatureState, Tone> = { implemented: 'success', demo: 'warning', development: 'neutral', planned: 'neutral' }
 
 type Spot = { rect: Rect; clipped: boolean }
 

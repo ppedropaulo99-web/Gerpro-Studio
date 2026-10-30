@@ -38,6 +38,8 @@ export interface VersionedStoreOptions<T> {
    * dados migrados. Para migrações que descartam valores sem equivalente.
    */
   backupBeforeMigration?: boolean
+  /** Escrita do arquivo; padrão `writeFileAtomic`. Substituível só para simular falhas em testes. */
+  writer?: (filePath: string, contents: string) => Promise<void>
   now?: () => Date
   log?: (message: string) => void
 }
@@ -112,7 +114,7 @@ export class VersionedStore<T> {
       data
     }
     try {
-      await writeFileAtomic(this.options.filePath, `${JSON.stringify(envelope, null, 2)}\n`)
+      await (this.options.writer ?? writeFileAtomic)(this.options.filePath,`${JSON.stringify(envelope, null, 2)}\n`)
     } catch (error) {
       this.log(`falha ao gravar ${this.options.filePath}: ${String(error)}`)
       throw new AppError('storage', 'Não foi possível gravar os dados no disco.', { retryable: true })

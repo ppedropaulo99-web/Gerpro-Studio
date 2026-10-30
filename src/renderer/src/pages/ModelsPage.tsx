@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Download, FolderOpen, HardDrive, RefreshCw } from 'lucide-react'
+import { Download, FolderOpen, HardDrive, MessageSquare, RefreshCw } from 'lucide-react'
 import type { ModelSource } from '@shared/recommendations'
+import { useNavigation } from '@renderer/app/navigation'
 import { PageHeader } from '@renderer/components/layout/PageHeader'
 import {
   Button,
@@ -21,6 +22,8 @@ import { models } from '@renderer/data/models'
 import type { LibraryModel } from '@renderer/data/types'
 import { providerState, summarizeEngine } from '@renderer/lib/engine'
 import { capabilityLabel, formatContext, formatGb } from '@renderer/lib/format'
+import { eligibleModels, friendlyModelName, modelKey } from '@renderer/lib/real-runs'
+import { requestModelFor } from '@renderer/lib/run-intent'
 import { displayedModelStatus } from '@renderer/lib/status'
 import { useResource } from '@renderer/lib/use-resource'
 
@@ -105,10 +108,13 @@ export function ModelsPage() {
 /**
  * Modelos realmente instalados nos provedores locais (ex.: Ollama), como o
  * Main os informa. Só leitura: nada é baixado, carregado ou removido daqui.
+ * "Usar em Conversas" leva a Conversas com o modelo pré-selecionado.
  */
 function InstalledModels() {
+  const { navigate } = useNavigation()
   const providers = useResource(() => window.gerpro.providers.list())
   const real = providers.state.status === 'ready' ? summarizeEngine(providers.state.data).real : []
+  const usable = new Set(providers.state.status === 'ready' ? eligibleModels(providers.state.data).map((o) => o.key) : [])
 
   return (
     <section className="section" aria-labelledby="installed-models">
@@ -154,18 +160,39 @@ function InstalledModels() {
                       <th>Quantização</th>
                       <th>Contexto máximo</th>
                       <th style={{ textAlign: 'right' }}>Tamanho</th>
+                      <th aria-label="Ações" />
                     </tr>
                   </thead>
                   <tbody>
                     {installed.map(({ model }) => (
                       <tr key={model.ref.modelId}>
-                        <td className="mono">{model.ref.modelId}</td>
+                        <td>
+                          <div className="stack" style={{ gap: 0 }}>
+                            <span>{friendlyModelName(model.ref.modelId, model.displayName)}</span>
+                            <span className="mono subtle">{model.ref.modelId}</span>
+                          </div>
+                        </td>
                         <td className="muted">{model.family ?? '—'}</td>
                         <td className="muted">{model.parameterSize ?? '—'}</td>
                         <td className="muted">{model.quantization ?? '—'}</td>
                         <td className="muted">{model.contextLength ? `${formatContext(model.contextLength)} tokens` : '—'}</td>
                         <td className="mono" style={{ textAlign: 'right' }}>
                           {model.sizeBytes === null ? '—' : formatGb(model.sizeBytes / 1e9)}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          {usable.has(modelKey(model.ref)) && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              icon={<MessageSquare size={13} />}
+                              onClick={() => {
+                                requestModelFor(model.ref)
+                                navigate('conversations')
+                              }}
+                            >
+                              Usar em Conversas
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))}

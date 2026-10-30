@@ -35,10 +35,13 @@ export function registerIpcHandlers(services: Services): void {
   }
 
   // Eventos só vão para janelas que exibem a própria aplicação.
-  services.runs.onUpdate((run) => {
+  const broadcast = (channel: string, payload: unknown) => {
     for (const win of BrowserWindow.getAllWindows()) {
       const wc = win.webContents
-      if (!wc.isDestroyed() && isAppUrl(wc.getURL())) wc.send(IpcEvents.runsUpdated, run)
+      if (!wc.isDestroyed() && isAppUrl(wc.getURL())) wc.send(channel, payload)
     }
-  })
+  }
+  services.runs.onUpdate((run) => broadcast(IpcEvents.runsUpdated, run))
+  services.conversations.onUpdate((conversation) => broadcast(IpcEvents.conversationsUpdated, conversation))
+  services.conversations.onSaveChange((change) => broadcast(IpcEvents.conversationsSaveChanged, change))
 }

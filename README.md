@@ -20,7 +20,8 @@ Documentação completa (arquitetura, contratos, Hardware Advisor, pontos de int
 | Agentes › Recomendações | Agentes salvos entram na avaliação | Perfil de hardware e biblioteca de modelos fictícios |
 | Início | Agentes salvos e simulações da sessão | — (modelos e tokens: planejado) |
 | Ferramentas | Catálogo e permissões declaradas (execução planejada) | — |
-| Chat, Modelos | — | Conversas e biblioteca de modelos de exemplo |
+| Gerpro AI | — | — (em desenvolvimento) |
+| Modelos | — | Biblioteca de modelos de exemplo |
 | Desenvolvedor | Informações do aplicativo | Logs de exemplo (servidor local: planejado) |
 
 Os estados dos dados de exemplo são convertidos para o contrato por `legacyRunState`

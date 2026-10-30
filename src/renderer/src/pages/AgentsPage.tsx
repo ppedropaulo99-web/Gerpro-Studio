@@ -28,7 +28,9 @@ import { modelById } from '@renderer/data/models'
 import { toolById } from '@renderer/data/tools'
 import type { AgentCategory } from '@renderer/data/types'
 import { emptyAgentForm, formFromDefinition, formFromExample, type AgentFormValues } from '@renderer/lib/agent-form'
+import { useNavigation } from '@renderer/app/navigation'
 import { callApi } from '@renderer/lib/api'
+import { requestRunFor } from '@renderer/lib/run-intent'
 import { agentAvailability, agentConfigState } from '@renderer/lib/status'
 import { useResource } from '@renderer/lib/use-resource'
 
@@ -52,6 +54,7 @@ function toDraft({ createdAt: _c, updatedAt: _u, ...draft }: AgentDefinition): A
 const sortByName = (list: AgentRecord[]) => [...list].sort((a, b) => a.definition.name.localeCompare(b.definition.name, 'pt-BR'))
 
 export function AgentsPage() {
+  const { navigate } = useNavigation()
   const saved = useResource(() => window.gerpro.agents.list())
   const tools = useResource(() => window.gerpro.tools.list())
   const [editing, setEditing] = useState<Editing | null>(null)
@@ -123,9 +126,9 @@ export function AgentsPage() {
         }
       />
 
-      <FeatureNotice state="planned">
-        Executar agentes pela interface ainda está planejado. Os agentes salvos são reais e ficam gravados neste computador; só
-        aparecem como disponíveis quando um motor de IA local responde com o modelo do agente instalado.
+      <FeatureNotice state="real">
+        Os agentes salvos são reais e ficam gravados neste computador. "Executar" abre Conversas com o agente escolhido, para enviar uma
+        mensagem a um modelo instalado; ferramentas e execução autônoma de agentes ainda estão em desenvolvimento.
       </FeatureNotice>
 
       <section className="section" aria-labelledby="saved-agents" data-tour="agents.saved">
@@ -208,7 +211,16 @@ export function AgentsPage() {
                     <span className="subtle mono truncate" title="Modelo">
                       {def.defaultModel?.modelId ?? 'Sem modelo'}
                     </span>
-                    <Button size="sm" icon={<Play size={13} />} disabled title="Planejado: execução de agentes pela interface">
+                    <Button
+                      size="sm"
+                      icon={<Play size={13} />}
+                      disabled={archived}
+                      title={archived ? 'Agente arquivado não pode ser executado' : 'Enviar uma mensagem com este agente em Conversas'}
+                      onClick={() => {
+                        requestRunFor(def.id)
+                        navigate('conversations')
+                      }}
+                    >
                       Executar
                     </Button>
                   </CardFooter>

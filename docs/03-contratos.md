@@ -385,6 +385,46 @@ pending ──► running ──► completed
 - **Dados antigos:** o histórico de exemplo da tela usa estados antigos,
   convertidos por `legacyRunState` (`src/renderer/src/lib/runs.ts`).
 
+## Conversas (`src/shared/conversations.ts`)
+
+Três conceitos separados: `Conversation` (sessão gravada), `ConversationMessage`
+(mensagem do usuário ou do assistente) e `RunRecord` (cada geração, no
+`RunService`). Uma conversa tem várias execuções; cada resposta guarda o
+`runId`.
+
+- **`Conversation`:** `id` (`conv-…`), `title`, `createdAt`, `updatedAt`,
+  `model` (último escolhido), `agentId` (fixo depois da primeira mensagem) e
+  `messages` em ordem cronológica.
+- **`ConversationMessage`:** `id` (`msg-…`), `role` (`user` | `assistant`),
+  `content`, `createdAt`, `state` (`pending`, `complete`, `cancelled`,
+  `failed`, `interrupted`), `runId`, `model` (quem gerou a resposta), `error`
+  e `context`. Mensagens do usuário só guardam texto e data.
+- **`MessageContext`:** `{ sent, omitted, firstSentId }`: quantas mensagens
+  anteriores foram enviadas ao modelo, quantas elegíveis ficaram de fora pelo
+  limite e a mais antiga enviada. Distingue o histórico gravado do histórico
+  efetivamente enviado.
+- **`ConversationSendRequest`:** `{ conversationId | null, agentId, model,
+  input }`. `null` cria a conversa com a primeira mensagem.
+- **Resposta `pending`:** `content` guarda o texto parcial do último ponto de
+  controle (a tela mostra o da execução); no início seguinte vira
+  `interrupted` com esse texto.
+- **`ConversationSaveStatus`:** `{ state: 'saved' | 'saving' | 'failed',
+  retrying, message }`, em cada `ConversationSummary` (`save`) e no evento
+  `conversations:save-changed`. `message` é um texto para a tela, sem
+  caminhos nem detalhes do sistema. Só existe na memória do Main; não é
+  gravada no arquivo da conversa.
+- **Contexto:** `selectContext` escolhe as trocas (pergunta + resposta com
+  texto, concluída ou interrompida) mais recentes que cabem em
+  `historyBudgetChars`, sem cortar mensagens nem pular trocas; trocas com
+  falha não entram. Ver "Conversas contínuas" em
+  [Motor de inferência](05-motor-de-inferencia.md).
+- **Validação:** `validateConversation` é estrita (IDs únicos, ordem
+  cronológica, limites de tamanho); `validateConversationSendRequest` valida
+  o pedido do IPC.
+- **`RunService.start(request, { history })`:** o histórico entra só pelo
+  Main (`ConversationService`); o canal `runs:start` continua recebendo só o
+  `RunRequest`, que não mudou.
+
 ## Configurações (`src/shared/settings.ts`)
 
 **Status:** a persistência está implementada. Só a aparência tem efeito; o

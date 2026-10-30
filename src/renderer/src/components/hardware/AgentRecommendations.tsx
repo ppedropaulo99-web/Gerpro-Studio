@@ -11,6 +11,7 @@ import { exampleAgentProfiles } from '@renderer/data/agent-requirements'
 import { agents as exampleAgents } from '@renderer/data/agents'
 import { models } from '@renderer/data/models'
 import { advisorHardware, buildCandidates, recommendationConclusion } from '@renderer/lib/advisor'
+import { summarizeEngine } from '@renderer/lib/engine'
 import { recommendationFit } from '@renderer/lib/status'
 import { useResource } from '@renderer/lib/use-resource'
 
@@ -63,10 +64,14 @@ function Body({
   onOpenSettings
 }: Props & { state: HardwareAdvisorState; task: TaskFilter; onTask: (t: TaskFilter) => void; onOpenSettings: () => void }) {
   const { profile, note } = advisorHardware(state)
+  // Motor real conectado (provedor pronto). Não torna nada executável aqui:
+  // as recomendações usam a biblioteca de exemplo, cujos modelos nunca estão instalados.
+  const providers = useResource(() => window.gerpro.providers.list())
+  const engineAvailable = providers.state.status === 'ready' && summarizeEngine(providers.state.data).connected
   const candidates = useMemo(() => buildCandidates(saved, exampleAgents, models, exampleAgentProfiles), [saved])
   const recs = useMemo(
-    () => recommendAgents(candidates, { hardware: profile, hardwareNote: note, task, tools, engineAvailable: false }),
-    [candidates, profile, note, task, tools]
+    () => recommendAgents(candidates, { hardware: profile, hardwareNote: note, task, tools, engineAvailable }),
+    [candidates, profile, note, task, tools, engineAvailable]
   )
   const byKey = new Map(candidates.map((c) => [`${c.origin}:${c.agentId}`, c]))
 
@@ -90,8 +95,8 @@ function Body({
         </Notice>
       )}
       <Notice tone="neutral">
-        Nenhum agente pode ser executado agora pela interface: a execução real ainda está planejada. A compatibilidade é uma estimativa feita a partir do
-        perfil de hardware e não foi confirmada em execução.
+        As recomendações usam a biblioteca de modelos de exemplo e o perfil de hardware: são estimativas, não confirmadas em execução. Para
+        usar um agente com um modelo instalado neste computador, envie uma mensagem em Conversas.
       </Notice>
 
       <div className="toolbar">

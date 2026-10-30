@@ -180,8 +180,8 @@ export function AgentEditor({ mode, initial, tools, onRetryTools, takenIds, onCa
 
       <Section title="Modelo" description="Referência ao modelo e parâmetros de geração">
         <Notice tone="warning">
-          O modelo é registrado na definição. O agente só fica disponível quando um motor de IA local responde com
-          este modelo instalado, e a execução pela interface ainda está planejada.
+          Este é o modelo padrão do agente. Em Conversas, o agente pode ser usado com qualquer modelo instalado neste
+          computador; ele aparece como disponível quando o motor de IA local tem este modelo instalado.
         </Notice>
         <Field label="ID do modelo" hint="Obrigatório quando o estado é Pronto. Não vinculado a um motor específico.">
           {(id) => (

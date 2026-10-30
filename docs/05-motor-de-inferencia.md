@@ -6,9 +6,10 @@
 **Status da inferência local (Lote 3.3.6): implementada com o Ollama como
 provedor substituível.** O adaptador Ollama roda modelos já instalados neste
 computador pelo `RunService` (inferência real validada com `llama3.1:8b` e
-`qwen3:8b`). Download e gerenciamento de modelos continuam fora do app, e a
-**interface ainda não inicia uma execução real**: a integração visual fica
-para o Lote 3.3.7.
+`qwen3:8b`). Download e gerenciamento de modelos continuam fora do app.
+
+**Execução pela interface (Lote 3.3.7): implementada na tela Execuções.** Ver
+"Execução real pela interface" abaixo.
 
 ## Adaptador Ollama (Lote 3.3.6)
 
@@ -30,6 +31,137 @@ para o Lote 3.3.7.
   `createServices`, sem mudar agentes, execuções nem interface.
 - **Limitações:** ver "Inferência local (Ollama)" em
   [Decisões e limitações](07-decisoes-e-limitacoes.md).
+
+## Execução real pela interface (Lote 3.3.7)
+
+Organização das telas:
+
+| Tela | Papel |
+|---|---|
+| Início | Dashboard: indicadores, execuções recentes e atalhos; não envia mensagens |
+| Conversas | Interação: escolher o modelo, escrever, enviar, acompanhar a resposta e interromper |
+| Execuções | Monitoramento: resumo da sessão, histórico real e simulado, estados, métricas, erros, registro técnico e a demonstração simulada |
+| Gerpro AI | Reservado ao futuro assistente interno do Gerpro Studio (em desenvolvimento); não chama o motor |
+
+Fluxo em Conversas (`pages/ConversationsPage.tsx`):
+
+1. A tela lê `providers:list` e oferece só modelos **locais, instalados e de
+   conversa** de provedores reais prontos (`eligibleModels`,
+   `renderer/src/lib/real-runs.ts`), com nome amigável
+   (`friendlyModelName`: `llama3.1:8b` → "Llama 3.1 (8B)"); o identificador
+   exato fica nos detalhes. Modelos de raciocínio aparecem marcados. O botão
+   de atualizar consulta de novo.
+2. O usuário escolhe o modelo e o agente (instruções e perfil) e escreve a
+   mensagem (até 32.000 caracteres; Enter envia, Shift+Enter quebra a
+   linha). O pedido vai por
+   `conversations:send` (ver "Conversas contínuas" abaixo), que chama o
+   `RunService` com `overrides.model` = modelo escolhido; o perfil é o do
+   agente.
+3. A execução entra na fila única do `RunService`. A tela acompanha
+   `runs:updated` (`watchRuns`, `renderer/src/lib/session-runs.ts`): assina
+   antes de listar, junta por `revision` e nunca acumula texto por conta
+   própria; o texto exibido é sempre o do `RunService`.
+4. Estados com rótulo de texto, não só cor: "Aguardando na fila (Nª)",
+   "Carregando modelo", "Gerando resposta", "Interrompendo…", "Concluída",
+   "Concluída com aviso" (texto cortado no limite), "Interrompida",
+   "Tempo esgotado", "Sem resposta (limite)" e "Falhou".
+5. Durante a geração, o botão "Enviar" vira "Interromper geração" (ou
+   "Tirar da fila"), que chama `runs:cancel`; o texto recebido até ali é
+   mantido.
+6. Erros são explicados em linguagem simples (`friendlyError`), sempre com a
+   mensagem original junto. Uma falha real nunca vira simulação, e a falha de
+   uma simulação nunca é atribuída ao motor local.
+7. A lista lateral mostra as conversas gravadas. "Detalhes técnicos", sob
+   cada resposta desta sessão, abre a execução em Execuções.
+
+Em Execuções aparecem só as métricas medidas pelo motor (tempo total,
+carregamento, tempo até o primeiro texto, tokens e velocidade); as ausentes
+são omitidas, e memória não é estimada. A seção "Demonstração simulada"
+continua lá, usa a mesma fila e fica identificada com o selo "Simulado". As
+execuções reais e simuladas aparecem juntas em "Execuções desta sessão", cada
+uma com o tipo.
+
+Navegação: "Conversar com IA" (Início), "Executar" (Agentes) e "Usar em
+Conversas" (Modelos) abrem Conversas, os dois últimos com o agente ou o
+modelo pré-selecionado; "Detalhes técnicos" e "Histórico e métricas"
+(Conversas) abrem Execuções; "Nova mensagem" (Execuções) volta a Conversas
+(`renderer/src/lib/run-intent.ts`, só em memória).
+
+## Conversas contínuas
+
+Cada conversa tem várias mensagens e o modelo recebe o contexto anterior de
+verdade, não só na tela.
+
+Arquitetura (o caminho continua React → Preload → IPC → Main):
+
+- `ConversationService` (`src/main/services/conversation-service.ts`) guarda
+  as conversas e monta o contexto. Não conhece o Ollama: fala só com o
+  `RunService`.
+- `RunService.start(request, { history })`: o histórico vai entre as
+  instruções do agente e a nova mensagem, dentro do mesmo limite
+  `promptChars`, da mesma fila, cancelamento e tempo limite. O registro
+  técnico da execução conta as mensagens enviadas, sem o conteúdo.
+- `InferenceRequest.messages` já era uma lista de mensagens, e o adaptador
+  Ollama já usava `/api/chat`: nenhum contrato de provedor nem o adaptador
+  mudaram. Outro provedor recebe o mesmo `messages`.
+
+Envio de uma mensagem:
+
+1. Identifica a conversa ativa (ou cria uma, com `conversationId: null`).
+2. Recusa se a conversa já está gerando uma resposta ou se o agente pedido
+   não é o dela.
+3. Recorta o histórico permitido (`selectContext`) e chama o `RunService`.
+   Uma recusa (modelo não instalado, motor parado, fila cheia) não grava
+   nada.
+4. Grava a mensagem do usuário e a resposta pendente (`state: 'pending'`,
+   com `runId` e o contexto enviado).
+5. Durante a geração, a tela mostra o texto da execução (`runs:updated`):
+   não há segundo buffer. A conversa copia o texto parcial para a resposta
+   pendente e grava no máximo a cada 2 s (`CHECKPOINT_INTERVAL_MS`), nunca a
+   cada trecho; ao fechar o app, grava na hora o que chegou desde o último
+   ponto (até 1,5 s de espera).
+6. Ao fim, a conversa grava o texto final, o estado (`complete`,
+   `cancelled`, `failed`) e o modelo, e avisa a tela por
+   `conversations:updated`.
+7. No próximo início, respostas que ficaram `pending` viram `interrupted`,
+   com o texto do último ponto gravado. Nada é gerado de novo sem o usuário
+   enviar outra mensagem.
+
+Gravação: cada conversa tem uma situação (`saved`, `saving`, `failed`),
+avisada por `conversations:save-changed` só quando muda. As escritas são
+atômicas (arquivo temporário + troca) e seguidas: pedidos acumulados viram
+uma escrita com o estado mais recente. Se uma escrita falha, o arquivo
+anterior fica intacto, as mensagens continuam na memória e na tela, e a
+conversa fica marcada como não salva até uma gravação dar certo (próxima
+alteração ou "Tentar salvar novamente", `conversations:retry-save`). A
+mensagem mostrada é genérica, sem caminhos; o log técnico registra só a
+primeira falha de cada sequência e a recuperação.
+
+Estratégia de contexto (inicial, sem medir tokens):
+
+- Janela: `contextLength` do perfil do agente; sem ela, supõe 4.096 tokens,
+  padrão comum dos motores locais.
+- Reserva para a resposta: `maxOutputTokens` ou 512 tokens.
+- Conversão conservadora de 3 caracteres por token; no máximo 40 mensagens
+  anteriores; nunca acima de `promptChars`.
+- Entram as trocas mais recentes inteiras (pergunta + resposta), sem cortar
+  mensagens nem pular trocas. Trocas com falha ou sem texto não entram;
+  respostas interrompidas com texto entram.
+- Nada sai do histórico gravado. Cada resposta registra o que foi enviado, e
+  a tela marca onde o contexto da última resposta começou quando as mais
+  antigas ficaram de fora.
+- Sem resumo automático nem memória semântica.
+
+Troca de modelo: o seletor muda o modelo das próximas respostas; o histórico
+continua e vai inteiro (dentro do limite) para o novo modelo. Cada resposta
+registra o modelo que a gerou, e a tela mostra "Modelo alterado para …". O
+agente (instruções e perfil) não muda com o modelo: fica fixo na conversa.
+
+Ficam para etapas futuras: resumo automático de conversas longas, memória
+entre conversas, contagem exata de tokens pelo motor, o assistente interno
+Gerpro AI, a seleção de modelos por lista na criação de agentes, ferramentas,
+instalação assistida de modelos, recomendações conforme o hardware e a
+integração opcional com o VS Code.
 
 ## O que existe hoje
 
