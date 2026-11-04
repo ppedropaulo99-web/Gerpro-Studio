@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { describe, it } from 'node:test'
+import { afterEach, describe, it } from 'node:test'
 import { AppError } from '../../src/main/errors'
 import { createDataHandlers, invokeHandler } from '../../src/main/ipc-handlers'
 import { RunService } from '../../src/main/runs/run-service'
@@ -102,6 +102,7 @@ async function setup(options: { dir?: string; reply?: Reply; agents?: AgentDefin
     await writeFileAtomic(filePath, contents)
   }
   const service = new ConversationService({ dir, runs, findAgent: (id) => agents.get(id), now: scheduler.now, log: (m) => logs.push(m), scheduler, writer })
+  active.push(service)
   const loaded = await service.init()
   const updates: Conversation[] = []
   service.onUpdate((c) => updates.push(c))
@@ -111,6 +112,23 @@ async function setup(options: { dir?: string; reply?: Reply; agents?: AgentDefin
 }
 
 type Setup = Awaited<ReturnType<typeof setup>>
+
+/**
+ * Serviços criados no teste em andamento. A resposta final é gravada em
+ * segundo plano (`applyRun`); um teste que termina sem esperar `whenSaved()`
+ * deixa a gravação concorrendo com a remoção da pasta temporária (que roda
+ * depois deste `afterEach`) e falha de forma intermitente com ENOTEMPTY.
+ */
+const active: ConversationService[] = []
+afterEach(async () => {
+  const services = active.splice(0)
+  const pending = await Promise.all(
+    services.map((service) => Promise.race([service.whenSaved().then(() => false), settle().then(() => true)]))
+  )
+  // Espera mesmo assim, para a limpeza não falhar por outro motivo que não este.
+  await Promise.all(services.map((service) => service.whenSaved()))
+  assert.ok(!pending.includes(true), 'o teste terminou com gravação de conversa pendente: aguarde `whenSaved()` antes de terminar')
+})
 
 /** Deixa a geração (gerador assíncrono) e as gravações andarem. */
 async function idle(): Promise<void> {
@@ -215,6 +233,7 @@ describe('Conversas: criação, mensagens e contexto real', () => {
     await idle()
     await assert.rejects(s.service.send({ conversationId: conversation.id, agentId: 'outro', model: MODEL_A, input: 'Com outro agente.' }), isCode('invalid-state'))
     assert.equal(s.service.get(conversation.id).messages.length, 2)
+    await s.service.whenSaved()
   })
 
   it('recusa do RunService (modelo não instalado) não cria conversa nem grava mensagem', async () => {
@@ -242,6 +261,11 @@ describe('Conversas: geração, interrupção e falha', () => {
     assert.equal(after.state, 'complete')
     assert.equal(after.content, 'Olá mundo')
     assert.equal(s.updates.at(-1)!.messages[1]!.state, 'complete', 'avisa a interface quando a resposta termina')
+    // A resposta final é gravada em segundo plano: o arquivo só tem o texto final depois de `whenSaved()`.
+    await s.service.whenSaved()
+    const file = JSON.parse(await readFile(join(s.dir, `${conversation.id}.json`), 'utf8'))
+    assert.equal(file.data.messages[1].state, 'complete')
+    assert.equal(file.data.messages[1].content, 'Olá mundo')
   })
 
   it('cancelamento: guarda o texto recebido, marca "cancelled" e a troca continua no contexto seguinte', async () => {

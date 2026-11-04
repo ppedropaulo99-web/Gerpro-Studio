@@ -160,12 +160,17 @@ export function estimateRequirementsFromModel(model: Pick<ModelProfile, 'sizeGb'
   }
 }
 
+/**
+ * Maior VRAM entre as GPUs comprovadamente dedicadas (`sharedMemory === false`).
+ * Uma GPU de classificação desconhecida não entra: a memória informada pode
+ * ser só a reserva do firmware. VRAMs de GPUs diferentes não são somadas.
+ */
 function dedicatedVram(gpus: readonly GpuInfo[]): number | null {
-  const known = gpus.filter((g) => !g.sharedMemory && g.vramGb !== null).map((g) => g.vramGb as number)
+  const known = gpus.filter((g) => g.sharedMemory === false && g.vramGb !== null).map((g) => g.vramGb as number)
   return known.length ? Math.max(...known) : null
 }
 
-const hasUnifiedMemory = (gpus: readonly GpuInfo[]) => gpus.some((g) => g.sharedMemory && g.vendor === 'apple')
+const hasUnifiedMemory = (gpus: readonly GpuInfo[]) => gpus.some((g) => g.sharedMemory === true && g.vendor === 'apple')
 
 export type LocalCapabilityLevel = 'high' | 'medium' | 'low' | 'insufficient' | 'unknown'
 
@@ -180,7 +185,8 @@ export interface LocalCapability {
 /** Compatibilidade estimada do perfil com processamento local, para o diagnóstico. */
 export function estimateLocalCapability(profile: HardwareProfile | null): LocalCapability {
   if (!profile) return { level: 'unknown', maxModelSizeGb: null, summary: 'Sem perfil de hardware.', reasons: [] }
-  if (!profile.memory) {
+  const totalRamGb = profile.memory?.totalGb ?? null
+  if (totalRamGb === null) {
     return {
       level: 'unknown',
       maxModelSizeGb: null,
@@ -194,25 +200,29 @@ export function estimateLocalCapability(profile: HardwareProfile | null): LocalC
   const vram = gpus ? dedicatedVram(gpus) : null
   const unified = gpus ? hasUnifiedMemory(gpus) : false
   // Reserva parte da RAM para o sistema; memória unificada é aproveitada melhor.
-  const ramBudget = profile.memory.totalGb * (unified ? 0.7 : 0.6)
+  const ramBudget = totalRamGb * (unified ? 0.7 : 0.6)
   const budget = Math.max(ramBudget, vram ?? 0)
   const maxModelSizeGb = round1(Math.max(0, budget - 0.5) / 1.2)
 
-  reasons.push({ kind: 'positive', factor: 'memory', message: `${gb(profile.memory.totalGb)} de RAM no total.` })
+  reasons.push({ kind: 'positive', factor: 'memory', message: `${gb(totalRamGb)} de RAM no total.` })
   if (gpus === null) reasons.push({ kind: 'unknown', factor: 'gpu', message: 'GPU não identificada.' })
   else if (vram) reasons.push({ kind: 'positive', factor: 'gpu', message: `GPU dedicada com ${gb(vram)} de VRAM.` })
   else if (unified) reasons.push({ kind: 'positive', factor: 'gpu', message: 'Memória unificada compartilhada com a GPU.' })
   else reasons.push({ kind: 'limitation', factor: 'gpu', message: 'Nenhuma GPU dedicada identificada: os modelos rodariam na CPU.' })
-  if (profile.cpu && profile.cpu.physicalCores < 4) {
-    reasons.push({ kind: 'limitation', factor: 'cpu', message: `${profile.cpu.physicalCores} núcleos físicos: modelos maiores tendem a responder mais devagar.` })
+  const physicalCores = profile.cpu?.physicalCores
+  if (physicalCores === null) {
+    reasons.push({ kind: 'unknown', factor: 'cpu', message: 'Núcleos físicos do processador não identificados.' })
+  } else if (physicalCores !== undefined && physicalCores < 4) {
+    reasons.push({ kind: 'limitation', factor: 'cpu', message: `${physicalCores} núcleos físicos: modelos maiores tendem a responder mais devagar.` })
   }
   if (profile.acceleration === null) reasons.push({ kind: 'unknown', factor: 'acceleration', message: 'Aceleração não identificada.' })
   else if (profile.acceleration.length === 0) {
     reasons.push({ kind: 'limitation', factor: 'acceleration', message: 'Nenhuma instrução de aceleração identificada.' })
   }
-  if (profile.storage === null) reasons.push({ kind: 'unknown', factor: 'storage', message: 'Espaço em disco não identificado.' })
-  else if (profile.storage.freeGb < 10) {
-    reasons.push({ kind: 'limitation', factor: 'storage', message: `${gb(profile.storage.freeGb)} livres em disco para novos modelos.` })
+  const freeDiskGb = profile.storage?.freeGb ?? null
+  if (freeDiskGb === null) reasons.push({ kind: 'unknown', factor: 'storage', message: 'Espaço em disco não identificado.' })
+  else if (freeDiskGb < 10) {
+    reasons.push({ kind: 'limitation', factor: 'storage', message: `${gb(freeDiskGb)} livres em disco para novos modelos.` })
   }
 
   const level: LocalCapabilityLevel = budget >= 20 ? 'high' : budget >= 8 ? 'medium' : budget >= 3 ? 'low' : 'insufficient'
@@ -286,7 +296,10 @@ export function recommendAgent(candidate: RecommendationCandidate, ctx: Recommen
   } else if (!requirements) {
     criticalUnknown = true
   } else {
-    if (!hw.memory) {
+    // Atributos ausentes nunca entram em comparações.
+    const totalGb = hw.memory?.totalGb ?? null
+    const availableGb = hw.memory?.availableGb ?? null
+    if (totalGb === null) {
       criticalUnknown = true
       add('unknown', 'memory', 'Memória RAM não identificada.')
     }
@@ -295,8 +308,7 @@ export function recommendAgent(candidate: RecommendationCandidate, ctx: Recommen
     const unified = hw.gpus ? hasUnifiedMemory(hw.gpus) : false
     const fitsInVram = vram !== null && vram >= requirements.preferredVramGb
 
-    if (hw.memory) {
-      const { totalGb, availableGb } = hw.memory
+    if (totalGb !== null) {
       if (totalGb < requirements.minRamGb && !fitsInVram) {
         add('blocker', 'memory', `Estimativa: o modelo precisa de cerca de ${gb(requirements.minRamGb)} de memória; o perfil indica ${gb(totalGb)}.`)
       } else if (totalGb < requirements.recommendedRamGb && !fitsInVram) {
@@ -304,8 +316,11 @@ export function recommendAgent(candidate: RecommendationCandidate, ctx: Recommen
       } else {
         add('positive', 'memory', `Memória adequada: ${gb(totalGb)} para ~${gb(requirements.minRamGb)} necessários.`)
       }
-      if (availableGb < requirements.minRamGb && totalGb >= requirements.minRamGb && !fitsInVram) {
-        add('limitation', 'memory', `${gb(availableGb)} livres no momento da análise; fechar outros aplicativos daria mais folga.`)
+      if (totalGb >= requirements.minRamGb && !fitsInVram) {
+        if (availableGb === null) add('unknown', 'memory', 'Memória livre no momento da análise não identificada.')
+        else if (availableGb < requirements.minRamGb) {
+          add('limitation', 'memory', `${gb(availableGb)} livres no momento da análise; fechar outros aplicativos daria mais folga.`)
+        }
       }
     }
 
@@ -313,19 +328,25 @@ export function recommendAgent(candidate: RecommendationCandidate, ctx: Recommen
     else if (fitsInVram) add('positive', 'gpu', `Cabe inteiro na VRAM (${gb(vram)}).`)
     else if (unified) add('positive', 'gpu', 'Memória unificada acelera o modelo na GPU integrada.')
     else if (vram !== null && vram > 0) add('limitation', 'gpu', `Cabe parcialmente na VRAM (${vram} de ~${gb(requirements.preferredVramGb)}): parte roda na CPU.`)
-    else if (hw.gpus.some((g) => !g.sharedMemory && g.vramGb === null)) add('unknown', 'gpu', 'VRAM da GPU não informada.')
+    else if (hw.gpus.some((g) => g.sharedMemory === false && g.vramGb === null)) add('unknown', 'gpu', 'VRAM da GPU não informada.')
+    else if (hw.gpus.some((g) => g.sharedMemory === null)) {
+      add('unknown', 'gpu', 'Tipo de memória da GPU não identificado (dedicada ou compartilhada): a VRAM não foi considerada.')
+    }
     else if (requirements.minRamGb >= 3) add('limitation', 'gpu', 'Nenhuma GPU dedicada identificada: o modelo rodaria na CPU, com respostas mais demoradas.')
     else add('positive', 'gpu', 'Modelo leve, adequado à execução na CPU.')
 
     if (!model || effectiveModelAvailability(model) !== 'installed') {
-      if (hw.storage === null) add('unknown', 'storage', 'Espaço em disco não identificado.')
-      else if (hw.storage.freeGb < requirements.diskGb + 2) {
-        add('blocker', 'storage', `Estimativa: o download do modelo precisa de ~${gb(requirements.diskGb)} livres; o perfil indica ${gb(hw.storage.freeGb)}.`)
-      } else add('positive', 'storage', `Espaço em disco adequado (${gb(hw.storage.freeGb)} livres).`)
+      const freeGb = hw.storage?.freeGb ?? null
+      if (freeGb === null) add('unknown', 'storage', 'Espaço em disco não identificado.')
+      else if (freeGb < requirements.diskGb + 2) {
+        add('blocker', 'storage', `Estimativa: o download do modelo precisa de ~${gb(requirements.diskGb)} livres; o perfil indica ${gb(freeGb)}.`)
+      } else add('positive', 'storage', `Espaço em disco adequado (${gb(freeGb)} livres).`)
     }
 
     if (hw.cpu === null) add('unknown', 'cpu', 'Processador não identificado.')
-    else if (hw.cpu.physicalCores < requirements.minCpuCores && !fitsInVram) {
+    else if (hw.cpu.physicalCores === null) {
+      if (!fitsInVram) add('unknown', 'cpu', 'Núcleos físicos do processador não identificados.')
+    } else if (hw.cpu.physicalCores < requirements.minCpuCores && !fitsInVram) {
       add('limitation', 'cpu', `${hw.cpu.physicalCores} núcleos físicos; este modelo responde melhor com ${requirements.minCpuCores} ou mais.`)
     }
 

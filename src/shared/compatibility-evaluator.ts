@@ -103,7 +103,10 @@ export interface EvaluationStep {
  * Onde o modelo ficaria. `gpu-partial` diz só que parte dos pesos não caberia
  * na VRAM; não indica proporção de camadas nem desempenho.
  */
-export type Placement = 'cpu' | 'gpu-full' | 'gpu-partial' | 'shared-memory' | 'unknown-vram' | 'unknown-gpu'
+export type Placement = 'cpu' | 'gpu-full' | 'gpu-partial' | 'shared-memory' | 'unknown-vram' | 'unknown-gpu-memory' | 'unknown-gpu'
+
+/** Posições em que a VRAM pode existir sem ser conhecida: a estimativa só da RAM não basta para desaconselhar. */
+const UNCERTAIN_PLACEMENTS: ReadonlySet<Placement> = new Set(['unknown-vram', 'unknown-gpu-memory', 'unknown-gpu'])
 
 /** Estimativa de memória. Nunca é medição. */
 export interface MemoryEstimate {
@@ -156,8 +159,9 @@ export interface CompatibilityEvaluation {
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
+/** GPUs comprovadamente dedicadas; classificação desconhecida (`null`) não conta. */
 function dedicatedGpu(gpus: readonly GpuInfo[]): { vramGb: number | null } | null {
-  const dedicated = gpus.filter((g) => !g.sharedMemory)
+  const dedicated = gpus.filter((g) => g.sharedMemory === false)
   if (dedicated.length === 0) return null
   const known = dedicated.filter((g) => g.vramGb !== null).map((g) => g.vramGb as number)
   return { vramGb: known.length ? Math.max(...known) : null }
@@ -185,7 +189,8 @@ function evaluateResources(entry: ProviderModelEntry, ctx: EvaluationContext, st
     add('resources.hardware-profile', 'unknown', 'hardware', message, { status: ctx.hardware.status })
     return { estimate: null, fits: null, memoryNow: 'unknown', hardwareProfile: null }
   }
-  if (!hw.memory) {
+  const totalRamGb = hw.memory?.totalGb ?? null
+  if (totalRamGb === null) {
     add('resources.memory-data', 'unknown', 'memory', 'Memória RAM não identificada no perfil.')
     return { estimate: null, fits: null, memoryNow: 'unknown', hardwareProfile: hw }
   }
@@ -216,9 +221,9 @@ function evaluateResources(entry: ProviderModelEntry, ctx: EvaluationContext, st
   const unknownComponents: MemoryEstimate['unknownComponents'] = contextGb === null ? ['context'] : []
   const complete = unknownComponents.length === 0
   const requiredGb = round2(weightsGb + (contextGb ?? 0))
-  const usableRamGb = round2(hw.memory.totalGb * (1 - ESTIMATE_RULES.ramReserveFraction))
-  // A memória livre é um retrato do momento da análise; numa análise desatualizada, não vale mais.
-  const availableRamGb = ctx.hardware.status === 'stale' ? null : hw.memory.availableGb
+  const usableRamGb = round2(totalRamGb * (1 - ESTIMATE_RULES.ramReserveFraction))
+  // A memória livre é um retrato do momento da análise; numa análise desatualizada (ou não identificada), não vale.
+  const availableRamGb = ctx.hardware.status === 'stale' ? null : (hw.memory?.availableGb ?? null)
 
   let placement: Placement
   let gpuGb = 0
@@ -231,7 +236,8 @@ function evaluateResources(entry: ProviderModelEntry, ctx: EvaluationContext, st
       const usableVram = round2(dedicated.vramGb * (1 - ESTIMATE_RULES.vramReserveFraction))
       gpuGb = Math.min(requiredGb, usableVram)
       placement = requiredGb <= usableVram ? 'gpu-full' : 'gpu-partial'
-    } else placement = hw.gpus.some((g) => g.sharedMemory) ? 'shared-memory' : 'cpu'
+    } else if (hw.gpus.some((g) => g.sharedMemory === null)) placement = 'unknown-gpu-memory'
+    else placement = hw.gpus.some((g) => g.sharedMemory === true) ? 'shared-memory' : 'cpu'
   }
   const ramGb = round2(requiredGb - gpuGb)
 
@@ -241,9 +247,10 @@ function evaluateResources(entry: ProviderModelEntry, ctx: EvaluationContext, st
     'gpu-partial': `Estimativa: ${gb(gpuGb)} na VRAM e ${gb(ramGb)} na RAM. A divisão de camadas e o desempenho dependem do provedor e não são estimados aqui.`,
     'shared-memory': 'GPU integrada usa a própria RAM: a estimativa considera só a RAM.',
     'unknown-vram': 'GPU dedicada com VRAM não informada: a estimativa considera só a RAM.',
+    'unknown-gpu-memory': 'GPU com tipo de memória não identificado (dedicada ou compartilhada): a estimativa considera só a RAM.',
     'unknown-gpu': 'GPU não identificada: a estimativa considera só a RAM.'
   }
-  const placementKind: ReasonKind = placement === 'unknown-vram' || placement === 'unknown-gpu' ? 'unknown' : 'notice'
+  const placementKind: ReasonKind = UNCERTAIN_PLACEMENTS.has(placement) ? 'unknown' : 'notice'
   add('resources.placement', placementKind, 'gpu', placementText[placement], { placement, gpuGb, ramGb })
 
   // Capacidade. Com componente desconhecido, a conta é um piso: só pode concluir que NÃO cabe.
@@ -280,7 +287,8 @@ function evaluateResources(entry: ProviderModelEntry, ctx: EvaluationContext, st
   else memoryNow = complete ? 'sufficient' : 'unknown'
   if (fits !== false) {
     if (availableRamGb === null) {
-      add('resources.available-now', 'unknown', 'memory', 'Análise de hardware desatualizada: a memória livre atual não é conhecida.', { ramGb })
+      const why = ctx.hardware.status === 'stale' ? 'Análise de hardware desatualizada' : 'Memória livre não identificada na análise'
+      add('resources.available-now', 'unknown', 'memory', `${why}: a memória livre atual não é conhecida.`, { ramGb })
     } else if (memoryNow === 'insufficient') {
       add(
         'resources.available-now',
@@ -437,7 +445,7 @@ function evaluate(entry: ProviderModelEntry, ctx: EvaluationContext, withAdjustm
   else if (!resources.fits) {
     const placement = resources.estimate!.placement
     // Sem saber a VRAM, "não cabe na RAM" não basta para desaconselhar.
-    estimateState = placement === 'unknown-vram' || placement === 'unknown-gpu' ? 'not-verified' : 'not-recommended'
+    estimateState = UNCERTAIN_PLACEMENTS.has(placement) ? 'not-verified' : 'not-recommended'
   } else estimateState = profileIssue ? 'not-recommended' : 'estimated-compatible'
 
   // 5. Testes válidos nas condições atuais

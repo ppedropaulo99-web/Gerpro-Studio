@@ -1,5 +1,5 @@
 import type { AgentRecord } from '@shared/agents'
-import type { HardwareAdvisorState, HardwareProfile } from '@shared/hardware'
+import type { GpuInfo, HardwareAdvisorState, HardwareProfile } from '@shared/hardware'
 import { usableProfile } from '@shared/hardware'
 import {
   gb,
@@ -102,28 +102,62 @@ export interface DiagnosticRow {
   known: boolean
 }
 
+/** Memória de uma GPU: a VRAM só é apresentada como tal quando a GPU é comprovadamente dedicada. */
+function gpuMemoryText(g: GpuInfo): string {
+  if (g.sharedMemory === true) return 'memória compartilhada'
+  if (g.sharedMemory === false) return g.vramGb === null ? 'VRAM não informada' : gb(g.vramGb)
+  const reported = g.vramGb === null ? '' : `; ${gb(g.vramGb)} informados pelo driver`
+  return `tipo de memória não identificado${reported}`
+}
+
 /** Linhas do diagnóstico. Campos não identificados aparecem como tal, nunca inventados. */
 export function diagnosticRows(p: HardwareProfile): DiagnosticRow[] {
   const unknown = (label: string): DiagnosticRow => ({ label, value: 'Não identificado', known: false })
   const platform = { windows: 'Windows', macos: 'macOS', linux: 'Linux', other: 'Outro' } as const
   return [
     p.cpu
-      ? { label: 'Processador', value: `${p.cpu.model} · ${p.cpu.architecture} · ${p.cpu.physicalCores} núcleos / ${p.cpu.logicalCores} threads`, known: true }
+      ? {
+          label: 'Processador',
+          value: [
+            p.cpu.model ?? 'Modelo não identificado',
+            p.cpu.architecture ?? 'arquitetura não identificada',
+            `${p.cpu.physicalCores === null ? 'núcleos físicos não identificados' : `${p.cpu.physicalCores} núcleos`} / ${p.cpu.logicalCores === null ? 'threads não identificadas' : `${p.cpu.logicalCores} threads`}`
+          ].join(' · '),
+          known: true
+        }
       : unknown('Processador'),
-    p.memory ? { label: 'Memória RAM', value: `${gb(p.memory.totalGb)} (${gb(p.memory.availableGb)} livres)`, known: true } : unknown('Memória RAM'),
+    p.memory
+      ? {
+          label: 'Memória RAM',
+          value: `${p.memory.totalGb === null ? 'Total não identificado' : gb(p.memory.totalGb)} (${p.memory.availableGb === null ? 'memória livre não identificada' : `${gb(p.memory.availableGb)} livres`})`,
+          known: true
+        }
+      : unknown('Memória RAM'),
     p.gpus === null
       ? unknown('GPU e VRAM')
       : {
           label: 'GPU e VRAM',
           value: p.gpus.length
             ? p.gpus
-                .map((g) => `${g.model} · ${g.sharedMemory ? 'memória compartilhada' : g.vramGb === null ? 'VRAM não informada' : gb(g.vramGb)}`)
+                .map((g) => `${g.model ?? 'Modelo não identificado'} · ${gpuMemoryText(g)}`)
                 .join('; ')
             : 'Nenhuma GPU dedicada',
           known: true
         },
-    p.storage ? { label: 'Armazenamento', value: `${gb(p.storage.freeGb)} livres de ${gb(p.storage.totalGb)}`, known: true } : unknown('Armazenamento'),
-    p.os ? { label: 'Sistema operacional', value: `${platform[p.os.platform]} ${p.os.version} · ${p.os.architecture}`, known: true } : unknown('Sistema operacional'),
+    p.storage
+      ? {
+          label: 'Armazenamento',
+          value: `${p.storage.freeGb === null ? 'Espaço livre não identificado' : `${gb(p.storage.freeGb)} livres`} de ${p.storage.totalGb === null ? 'um total não identificado' : gb(p.storage.totalGb)}`,
+          known: true
+        }
+      : unknown('Armazenamento'),
+    p.os
+      ? {
+          label: 'Sistema operacional',
+          value: `${p.os.platform === null ? 'Sistema não identificado' : platform[p.os.platform]} ${p.os.version ?? '(versão não identificada)'} · ${p.os.architecture ?? 'arquitetura não identificada'}`,
+          known: true
+        }
+      : unknown('Sistema operacional'),
     p.acceleration === null
       ? unknown('Aceleração')
       : { label: 'Aceleração', value: p.acceleration.length ? p.acceleration.map((a) => a.toUpperCase()).join(', ') : 'Nenhuma conhecida', known: true }

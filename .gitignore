@@ -41,3 +41,12 @@ desktop.ini
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Auxiliar nativo DXCore: binários e saídas de build nunca entram no repositório
+/resources/helpers/
+/native/dxcore-helper/build/
+/native/helper-host/build/
+/native/lock-holder-test/build/
+*.exe
+*.obj
+*.pdb

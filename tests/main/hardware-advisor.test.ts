@@ -7,7 +7,7 @@ import { DemoHardwareDetector, UnimplementedLocalDetector } from '../../src/main
 import { HardwareAdvisorService } from '../../src/main/hardware/hardware-advisor-service'
 import { createDataHandlers, invokeHandler } from '../../src/main/ipc-handlers'
 import { createServices } from '../../src/main/services'
-import type { DemoScenario, HardwareAdvisorState, HardwareDetector, HardwareProfile, LocalAnalysisScope } from '../../src/shared/hardware'
+import { uniformQuality, type DemoScenario, type HardwareAdvisorState, type HardwareDetector, type HardwareProfile, type LocalAnalysisScope } from '../../src/shared/hardware'
 import { IpcChannels } from '../../src/shared/ipc'
 import { agentDraft, fakeClock, tempDir } from '../support/fixtures'
 
@@ -119,7 +119,8 @@ describe('Hardware Advisor: consentimento', () => {
       availability: async () => ({ available: true, reason: null }),
       detect: async (signal) => {
         read = true
-        return { ...(await new DemoHardwareDetector('workstation').detect(signal)), provenance: { source: 'local-detector', detectorId: 'local-futuro', collectedAt: new Date().toISOString(), confidence: 'high' } }
+        const { provenance: _p, ...data } = await new DemoHardwareDetector('workstation').detect(signal)
+        return { ...data, provenance: { source: 'local-detector', detectorId: 'local-futuro', collectedAt: new Date().toISOString(), confidence: 'high', quality: uniformQuality(data, 'detected') } }
       }
     }
     // Autorizado na versão demonstrativa; depois o app passa a ter detecção real.
@@ -206,7 +207,10 @@ describe('Hardware Advisor: análise', () => {
       id: 'liar',
       source: 'demo',
       availability: async () => ({ available: true, reason: null }),
-      detect: async (signal) => ({ ...(await new DemoHardwareDetector('workstation').detect(signal)), provenance: { source: 'local-detector', detectorId: 'x', collectedAt: new Date().toISOString(), confidence: 'high' } })
+      detect: async (signal) => {
+        const { provenance: _p, ...data } = await new DemoHardwareDetector('workstation').detect(signal)
+        return { ...data, provenance: { source: 'local-detector', detectorId: 'x', collectedAt: new Date().toISOString(), confidence: 'high', quality: uniformQuality(data, 'detected') } }
+      }
     }
     const { service } = await authorized({ demoDetector: () => liar })
     assert.equal((await service.analyze({ mode: 'demo' })).status, 'error')

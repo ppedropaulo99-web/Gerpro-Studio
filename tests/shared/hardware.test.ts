@@ -14,9 +14,12 @@ import {
   validateHardwareConsent,
   validateHardwareProfile,
   validateLocalConsentChange,
+  uniformQuality,
   type AnalysisRecord,
   type HardwareConsent,
-  type HardwareProfile
+  type HardwareProfile,
+  type HardwareProfileData,
+  type HardwareProvenance
 } from '../../src/shared/hardware'
 import {
   estimateLocalCapability,
@@ -29,10 +32,17 @@ import {
 } from '../../src/shared/recommendations'
 
 const provenance = { source: 'demo', detectorId: 'demo-test', collectedAt: '2026-10-23T12:00:00.000Z', confidence: 'high' } as const
-const profile = (name: keyof typeof DEMO_PROFILES, extra: Partial<HardwareProfile> = {}): HardwareProfile => {
+/** Perfil demonstrativo; a qualidade acompanha os dados depois de aplicar `extra`. */
+const profile = (name: keyof typeof DEMO_PROFILES, extra: Partial<HardwareProfileData> = {}, prov: Partial<HardwareProvenance> = {}): HardwareProfile => {
   const { confidence: _c, ageDays: _a, ...rest } = DEMO_PROFILES[name]
-  return { ...structuredClone(rest), provenance, ...extra }
+  const data: HardwareProfileData = { ...structuredClone(rest), ...extra }
+  return { ...data, provenance: { ...provenance, quality: uniformQuality(data, 'simulated'), ...prov } }
 }
+/** O mesmo perfil, como se lido por um detector real. */
+const realProfile = ({ provenance: p, ...data }: HardwareProfile): HardwareProfile => ({
+  ...data,
+  provenance: { ...p, source: 'local-detector', detectorId: 'local-test', quality: uniformQuality(data, 'detected') }
+})
 const granted: HardwareConsent = { ...NO_CONSENT, localAnalysis: { status: 'granted', decidedAt: '2026-10-23T12:00:00.000Z', scope: 'demo-only' } }
 const NOW = new Date('2026-10-24T12:00:00.000Z')
 
@@ -60,8 +70,10 @@ describe('contratos de hardware', () => {
   })
 
   it('exige origem, data e confiabilidade', () => {
-    assert.equal(validateHardwareProfile({ ...profile('workstation'), provenance: { ...provenance, collectedAt: 'ontem' } }).ok, false)
-    assert.equal(validateHardwareProfile({ ...profile('workstation'), provenance: { ...provenance, confidence: 'certeza' } }).ok, false)
+    assert.equal(validateHardwareProfile(profile('workstation', {}, { collectedAt: 'ontem' })).ok, false)
+    assert.equal(validateHardwareProfile(profile('workstation', {}, { confidence: 'certeza' as 'high' })).ok, false)
+    const { quality: _q, ...withoutQuality } = profile('workstation').provenance
+    assert.equal(validateHardwareProfile({ ...profile('workstation'), provenance: withoutQuality }).ok, false)
   })
 
   it('consentimento: envio ao servidor não pode ser autorizado nesta versão', () => {
@@ -92,7 +104,10 @@ describe('contratos de hardware', () => {
   it('análise demonstrativa precisa de perfil marcado como demonstração', () => {
     const record = { mode: 'demo', attemptedAt: provenance.collectedAt, outcome: { kind: 'completed', profile: profile('workstation') } }
     assert.equal(validateAnalysisRecord(record).ok, true)
-    const disguised = { ...record, outcome: { kind: 'completed', profile: { ...profile('workstation'), provenance: { ...provenance, source: 'local-detector' } } } }
+    // Perfil real válido por si só: quem o recusa é a regra do registro demonstrativo.
+    const real = realProfile(profile('workstation'))
+    assert.equal(validateHardwareProfile(real).ok, true)
+    const disguised = { ...record, outcome: { kind: 'completed', profile: real } }
     assert.equal(validateAnalysisRecord(disguised).ok, false)
   })
 
@@ -115,7 +130,7 @@ describe('estados da análise', () => {
     assert.equal(deriveAnalysisStatus(granted, record({ kind: 'unavailable', reason: 'x' }), NOW), 'unavailable')
     assert.equal(deriveAnalysisStatus(granted, record({ kind: 'error', message: 'x' }), NOW), 'error')
     assert.equal(deriveAnalysisStatus(granted, record({ kind: 'completed', profile: profile('workstation') }), NOW), 'completed')
-    const old = profile('workstation', { provenance: { ...provenance, collectedAt: '2026-07-01T00:00:00Z' } })
+    const old = profile('workstation', {}, { collectedAt: '2026-07-01T00:00:00Z' })
     assert.equal(deriveAnalysisStatus(granted, record({ kind: 'completed', profile: old }), NOW), 'stale')
   })
 

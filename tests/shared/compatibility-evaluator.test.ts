@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import type { CompatibilityAssessment, CompatibilityTest } from '../../src/shared/compatibility'
+import { isConfirmedState, type CompatibilityAssessment, type CompatibilityTest } from '../../src/shared/compatibility'
 import {
   ESTIMATE_RULES,
   evaluateCompatibility,
@@ -11,7 +11,7 @@ import {
   type TaskQualityEvidence
 } from '../../src/shared/compatibility-evaluator'
 import { DEFAULT_EXECUTION_PROFILE, type ExecutionProfile } from '../../src/shared/execution'
-import { validateHardwareProfile, type GpuInfo, type HardwareProfile } from '../../src/shared/hardware'
+import { uniformQuality, validateHardwareProfile, type GpuInfo, type HardwareProfile, type HardwareProfileData } from '../../src/shared/hardware'
 import { validateProviderModel, type ProviderModel, type ProviderModelEntry } from '../../src/shared/inference'
 
 // ---------------------------------------------------------------------------
@@ -25,17 +25,17 @@ const synthetic = { source: 'demo', detectorId: 'synthetic-test', collectedAt: N
 const dedicated = (vramGb: number | null): GpuInfo => ({ vendor: 'other', model: 'GPU dedicada sintética', vramGb, sharedMemory: false })
 const integrated: GpuInfo = { vendor: 'other', model: 'GPU integrada sintética', vramGb: null, sharedMemory: true }
 
-function hw(totalGb: number, availableGb: number, gpus: GpuInfo[] | null, extra: Partial<HardwareProfile> = {}): HardwareProfile {
-  return {
+function hw(totalGb: number, availableGb: number, gpus: GpuInfo[] | null, extra: Partial<HardwareProfileData> = {}): HardwareProfile {
+  const data: HardwareProfileData = {
     cpu: { model: 'CPU sintética', architecture: 'x64', physicalCores: 8, logicalCores: 16 },
     memory: { totalGb, availableGb },
     gpus,
     storage: { freeGb: 200, totalGb: 500 },
     os: { platform: 'windows', version: '11', architecture: 'x64' },
     acceleration: [],
-    provenance: synthetic,
     ...extra
   }
+  return { ...data, provenance: { ...synthetic, quality: uniformQuality(data, 'simulated') } }
 }
 
 const SYNTHETIC = {
@@ -213,6 +213,27 @@ describe('compatibilidade: dados ausentes', () => {
     const e = evaluateCompatibility(installed(LARGE), ctx({ hardware: completed(hw(8, 6, null)) }))
     assert.equal(e.estimate!.placement, 'unknown-gpu')
     assert.equal(e.state, 'not-verified')
+  })
+
+  it('classificação de memória desconhecida: a VRAM informada não é tratada como dedicada', () => {
+    const unknownKind: GpuInfo = { vendor: 'intel', model: null, vramGb: 16, sharedMemory: null }
+    const p = completed(hw(8, 6, [unknownKind]))
+    const e = evaluateCompatibility(installed(LARGE), ctx({ hardware: p }))
+    assert.equal(e.estimate!.placement, 'unknown-gpu-memory')
+    assert.equal(e.estimate!.gpuGb, 0)
+    assert.equal(step(e, 'resources.placement')!.kind, 'unknown')
+    assert.match(step(e, 'resources.placement')!.message, /tipo de memória não identificado/)
+    // Não cabe na RAM, mas a GPU pode ser dedicada: não verificado, nunca desaconselhado nem compatível.
+    assert.equal(e.state, 'not-verified')
+    // Com uma GPU comprovadamente dedicada ao lado, vale a VRAM dela.
+    const withDedicated = evaluateCompatibility(installed(LARGE), ctx({ hardware: completed(hw(8, 6, [unknownKind, dedicated(12)])) }))
+    assert.equal(withDedicated.estimate!.placement, 'gpu-full')
+  })
+
+  it('duas GPUs dedicadas: a VRAM não é somada', () => {
+    const e = evaluateCompatibility(installed(LARGE), ctx({ hardware: completed(hw(32, 24, [dedicated(4), dedicated(4)])) }))
+    assert.equal(e.estimate!.placement, 'gpu-partial')
+    assert.ok(e.estimate!.gpuGb <= 4)
   })
 
   it('contexto máximo do modelo desconhecido: elegibilidade desconhecida, não recusada', () => {
@@ -568,5 +589,53 @@ describe('compatibilidade: nada é apresentado como medição', () => {
     assert.doesNotMatch(json, /"measured"|tokensPerSecond|timeToFirstToken|loadMs/)
     assert.equal(r.target!.estimate!.source, 'estimate')
     assert.doesNotMatch(json, /\bmedid[oa]s?\b/i)
+  })
+})
+
+describe('compatibilidade: perfis parcialmente detectados', () => {
+  it('perfil parcial respeita o contrato', () => {
+    const p = hw(16, 8, [], { memory: { totalGb: null, availableGb: 6 }, cpu: { model: null, architecture: 'x64', physicalCores: null, logicalCores: 8 } })
+    assert.ok(validateHardwareProfile(p).ok)
+  })
+
+  it('RAM total desconhecida: sem estimativa, não verificado, nada confirmado', () => {
+    const p = completed(hw(16, 8, [dedicated(12)], { memory: { totalGb: null, availableGb: 6 } }))
+    for (const m of [SMALL, LARGE]) {
+      const e = evaluateCompatibility(installed(m), ctx({ hardware: p }))
+      assert.equal(e.state, 'not-verified')
+      assert.equal(e.estimate, null)
+      assert.equal(e.memoryNow, 'unknown')
+      assert.equal(step(e, 'resources.memory-data')!.kind, 'unknown')
+    }
+    const r = recommendModels(request(MEDIUM, [installed(MEDIUM), installed(SMALL)], { hardware: p }))
+    assert.notEqual(r.decision, 'free-memory')
+  })
+
+  it('memória livre desconhecida: capacidade estimada pelo total, memória atual desconhecida, sem "liberar memória"', () => {
+    const p = completed(hw(32, 24, [], { memory: { totalGb: 32, availableGb: null } }))
+    const e = evaluateCompatibility(installed(MEDIUM), ctx({ hardware: p }))
+    assert.equal(e.memoryNow, 'unknown')
+    assert.equal(e.estimate!.availableRamGb, null)
+    assert.equal(e.estimate!.usableRamGb, 24)
+    assert.ok(!isConfirmedState(e.state))
+    assert.match(step(e, 'resources.available-now')!.message, /não identificada/)
+    assert.ok(!e.steps.some((x) => /null|NaN/.test(x.message)))
+    assert.notEqual(recommendModels(request(MEDIUM, [installed(MEDIUM)], { hardware: p })).decision, 'free-memory')
+  })
+
+  it('análise desatualizada continua explicada como desatualizada', () => {
+    const stale = { ...completed(hw(32, 24, [])), status: 'stale' } as const
+    assert.match(step(evaluateCompatibility(installed(MEDIUM), ctx({ hardware: stale })), 'resources.available-now')!.message, /desatualizada/)
+  })
+
+  it('perfil completo: resultado igual ao de antes (mesmo perfil, mesma avaliação)', () => {
+    const full = evaluateCompatibility(installed(MEDIUM), ctx({ hardware: completed(SYNTHETIC.ram16vram4) }))
+    const withPartialCpu = evaluateCompatibility(
+      installed(MEDIUM),
+      ctx({ hardware: completed(hw(16, 10, [dedicated(4)], { cpu: { model: null, architecture: null, physicalCores: null, logicalCores: 4 } })) })
+    )
+    // CPU e sistema não entram no cálculo de memória: atributos ausentes ali não mudam a estimativa.
+    assert.deepEqual(withPartialCpu.estimate, full.estimate)
+    assert.equal(withPartialCpu.state, full.state)
   })
 })

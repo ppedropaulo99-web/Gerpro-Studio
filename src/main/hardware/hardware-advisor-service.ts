@@ -2,6 +2,9 @@ import {
   consentCovers,
   CURRENT_GRANT_SCOPE,
   deriveAnalysisStatus,
+  migrateHardwareV1,
+  migrateHardwareV2,
+  migrateHardwareV3,
   NO_CONSENT,
   SCOPE_REQUIRED,
   STALE_AFTER_DAYS,
@@ -11,15 +14,18 @@ import {
   validateHardwareProfile,
   validateLocalConsentChange,
   type AnalysisMode,
+  type AnalysisOutcome,
   type AnalysisRecord,
   type DemoScenario,
   type HardwareAdvisorState,
   type HardwareConsent,
   type HardwareDetector,
+  type LocalAnalysisDecision,
   type LocalAnalysisScope
 } from '@shared/hardware'
 import { formatIssues, isRecord, type ValidationIssue } from '@shared/validation'
 import { AppError, unwrap } from '../errors'
+import { abortReasonOf, DetectionAbortedError, type DetectionAbortReason } from './detection-errors'
 import { VersionedStore, type ParseOutcome, type StoreStatus } from '../storage/versioned-store'
 
 /**
@@ -31,8 +37,57 @@ import { VersionedStore, type ParseOutcome, type StoreStatus } from '../storage/
  * exige mudar este serviço, o IPC nem a interface.
  */
 
-export const HARDWARE_FORMAT_VERSION = 1
+/**
+ * v1: perfil sem qualidade por atributo.
+ * v2: `provenance.quality` (detectado/estimado/indisponível/simulado) e
+ *     `cpu.physicalCores` anulável. Migração em `migrateHardwareV1`.
+ * v3: todo atributo de `cpu`, `memory`, `storage` e `os` anulável (perfis
+ *     parcialmente detectados). Todo arquivo v2 válido já é v3 válido; a
+ *     versão muda para que um app v2 não recuse um perfil parcial como
+ *     inválido e o substitua pelos padrões. Migração em `migrateHardwareV2`.
+ * v4: `gpus[].model` e `gpus[].sharedMemory` anuláveis (GPU sem nome ou com
+ *     classificação de memória não comprovada). Todo arquivo v3 válido já é
+ *     v4 válido; a versão muda pelo mesmo motivo. Migração em `migrateHardwareV3`.
+ */
+export const HARDWARE_FORMAT_VERSION = 4
 const DETECT_TIMEOUT_MS = 15_000
+/** Faixa aceita para `detectTimeoutMs` (valores menores servem só a testes). */
+export const DETECT_TIMEOUT_LIMITS = { min: 1, max: 60_000 } as const
+
+/**
+ * Análise interrompida (cancelamento ou prazo global). Nada é gravado: o
+ * último perfil e o consentimento ficam como estavam. Sem código novo em
+ * `ErrorCode`: o motivo vai em `details.aborted`.
+ */
+function abortedAnalysis(reason: DetectionAbortReason): AppError {
+  const message =
+    reason === 'timeout'
+      ? 'A análise de hardware excedeu o tempo limite. Nada foi alterado; a análise anterior foi mantida.'
+      : 'A análise de hardware foi cancelada. Nada foi alterado; a análise anterior foi mantida.'
+  return new AppError('invalid-state', message, { retryable: true, details: { aborted: reason } })
+}
+
+/**
+ * Espera `promise`, mas desiste quando o sinal dispara: um detector que
+ * ignora o sinal não prende a análise. Uma rejeição tardia é absorvida.
+ */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new DetectionAbortedError(abortReasonOf(signal)))
+    if (signal.aborted) {
+      promise.catch(() => undefined)
+      return onAbort()
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      (value) => (signal.removeEventListener('abort', onAbort), resolve(value)),
+      (error: unknown) => (signal.removeEventListener('abort', onAbort), reject(error))
+    )
+  })
+}
+
+/** Mesma decisão de análise local (status, data e escopo): nenhuma revogação ou nova autorização no meio. */
+const sameDecision = (a: LocalAnalysisDecision, b: LocalAnalysisDecision) => a.status === b.status && a.decidedAt === b.decidedAt && a.scope === b.scope
 
 interface HardwareFile {
   consent: HardwareConsent
@@ -73,6 +128,10 @@ export interface HardwareAdvisorDeps {
    */
   grantScope?: LocalAnalysisScope
   now?: () => Date
+  /** Escrita do arquivo. Substituível só para simular falhas em testes. */
+  writer?: (filePath: string, contents: string) => Promise<void>
+  /** Prazo global de `detect()`, em ms (inteiro). Padrão 15 s; outro valor só em testes. */
+  detectTimeoutMs?: number
 }
 
 export class HardwareAdvisorService {
@@ -81,6 +140,10 @@ export class HardwareAdvisorService {
   private running: Promise<HardwareAdvisorState> | null = null
 
   constructor(deps: HardwareAdvisorDeps) {
+    const timeout = deps.detectTimeoutMs
+    if (timeout !== undefined && (!Number.isInteger(timeout) || timeout < DETECT_TIMEOUT_LIMITS.min || timeout > DETECT_TIMEOUT_LIMITS.max)) {
+      throw new RangeError(`detectTimeoutMs deve ser um inteiro entre ${DETECT_TIMEOUT_LIMITS.min} e ${DETECT_TIMEOUT_LIMITS.max}.`)
+    }
     this.deps = deps
     this.store = new VersionedStore({
       filePath: deps.filePath,
@@ -88,13 +151,23 @@ export class HardwareAdvisorService {
       version: HARDWARE_FORMAT_VERSION,
       defaults: () => ({ consent: structuredClone(NO_CONSENT), lastAnalysis: null }),
       parse: parseHardwareFile,
-      now: deps.now
+      migrations: { 1: migrateHardwareV1, 2: migrateHardwareV2, 3: migrateHardwareV3 },
+      // A migração pode descartar uma análise real da v1; o original fica copiado.
+      backupBeforeMigration: true,
+      now: deps.now,
+      writer: deps.writer
     })
   }
 
   async init(): Promise<StoreStatus> {
     await this.store.load()
-    return this.store.status
+    const status = this.store.status
+    if (status.state === 'migrated') {
+      // Grava já no formato novo: sem isso, cada abertura repetiria a migração
+      // e a cópia do original. Se falhar, o arquivo v1 continua intacto.
+      await this.store.update((file) => file).catch((error: unknown) => console.warn('[storage] hardware: migração não gravada', error))
+    }
+    return status
   }
 
   async getState(): Promise<HardwareAdvisorState> {
@@ -170,30 +243,51 @@ export class HardwareAdvisorService {
     if (!availability.available) {
       record = { mode, attemptedAt, outcome: { kind: 'unavailable', reason: availability.reason ?? 'Detector indisponível.' } }
     } else {
-      try {
-        const raw = await detector.detect(AbortSignal.timeout(DETECT_TIMEOUT_MS))
-        const profile = validateHardwareProfile(raw)
-        if (!profile.ok) {
-          record = { mode, attemptedAt, outcome: { kind: 'error', message: `Perfil inválido do detector: ${formatIssues(profile.issues)}`.slice(0, 500) } }
-        } else if (mode === 'demo' && profile.value.provenance.source !== 'demo') {
-          record = { mode, attemptedAt, outcome: { kind: 'error', message: 'O detector demonstrativo produziu dados não marcados como demonstração.' } }
-        } else {
-          record = { mode, attemptedAt, outcome: { kind: 'completed', profile: profile.value } }
-        }
-      } catch (error) {
-        const message = error instanceof Error && error.message ? error.message : 'Falha desconhecida do detector.'
-        record = { mode, attemptedAt, outcome: { kind: 'error', message: message.slice(0, 500) } }
-      }
+      // Interrompida (cancelamento ou prazo): lança sem gravar nada.
+      record = { mode, attemptedAt, outcome: await this.runDetector(detector, mode) }
     }
 
     await this.store.update((file) => {
-      // O consentimento pode ter sido revogado durante a análise: nesse caso, nada é gravado.
+      // O consentimento pode ter mudado durante a análise: revogado, ou revogado e
+      // concedido de novo. Nos dois casos o resultado é de outra autorização e é descartado.
       if (!consentCovers(file.consent, required)) {
         throw new AppError('invalid-state', 'A autorização foi revogada durante a análise; o resultado foi descartado.')
+      }
+      if (!sameDecision(file.consent.localAnalysis, consent.localAnalysis)) {
+        throw new AppError('invalid-state', 'A autorização mudou durante a análise; o resultado foi descartado.')
       }
       return { ...file, lastAnalysis: record }
     })
     return this.getState()
+  }
+
+  /**
+   * Executa o detector com o prazo global e devolve o resultado a registrar.
+   * - Concluído ou falha comum: resultado a gravar (perfil ou `error`).
+   * - Interrompido (`DetectionAbortedError`, sinal disparado, resultado que
+   *   chegou depois do prazo): lança `abortedAnalysis`, sem validar nem gravar.
+   */
+  private async runDetector(detector: HardwareDetector, mode: AnalysisMode): Promise<AnalysisOutcome> {
+    const signal = AbortSignal.timeout(this.deps.detectTimeoutMs ?? DETECT_TIMEOUT_MS)
+    let raw: unknown
+    try {
+      raw = await untilAborted(detector.detect(signal), signal)
+    } catch (error) {
+      if (error instanceof DetectionAbortedError) throw abortedAnalysis(error.reason)
+      // Falha surgida depois da interrupção é consequência dela, não falha própria do detector.
+      if (signal.aborted) throw abortedAnalysis(abortReasonOf(signal))
+      const message = error instanceof Error && error.message ? error.message : 'Falha desconhecida do detector.'
+      return { kind: 'error', message: message.slice(0, 500) }
+    }
+    // Resultado entregue depois do prazo: descartado sem validar nem publicar.
+    if (signal.aborted) throw abortedAnalysis(abortReasonOf(signal))
+
+    const profile = validateHardwareProfile(raw)
+    if (!profile.ok) return { kind: 'error', message: `Perfil inválido do detector: ${formatIssues(profile.issues)}`.slice(0, 500) }
+    if (mode === 'demo' && profile.value.provenance.source !== 'demo') {
+      return { kind: 'error', message: 'O detector demonstrativo produziu dados não marcados como demonstração.' }
+    }
+    return { kind: 'completed', profile: profile.value }
   }
 
   private now(): Date {

@@ -1,4 +1,4 @@
-import type { DemoScenario, DetectorAvailability, HardwareDetector, HardwareProfile } from '@shared/hardware'
+import { uniformQuality, type DemoScenario, type DetectorAvailability, type HardwareDetector, type HardwareProfile, type HardwareProfileData } from '@shared/hardware'
 
 /**
  * Detectores do Hardware Advisor.
@@ -6,7 +6,8 @@ import type { DemoScenario, DetectorAvailability, HardwareDetector, HardwareProf
  * - `UnimplementedLocalDetector`: lugar reservado para a detecção real.
  *   Sempre indisponível nesta etapa; nunca lê nada do computador.
  * - `DemoHardwareDetector`: devolve perfis FICTÍCIOS, com nomes de hardware
- *   inventados e `provenance.source = 'demo'`. Não consulta o sistema.
+ *   inventados, `provenance.source = 'demo'` e todo atributo presente marcado
+ *   como `simulated`. Não consulta o sistema.
  */
 
 export class UnimplementedLocalDetector implements HardwareDetector {
@@ -24,7 +25,7 @@ export class UnimplementedLocalDetector implements HardwareDetector {
 
 const DAY = 86_400_000
 
-type DemoProfile = Omit<HardwareProfile, 'provenance'> & { confidence: HardwareProfile['provenance']['confidence']; ageDays?: number }
+type DemoProfile = HardwareProfileData & { confidence: HardwareProfile['provenance']['confidence']; ageDays?: number }
 
 /** Perfis fictícios. Nomes propositalmente genéricos para não parecerem hardware real. */
 export const DEMO_PROFILES: Record<Exclude<DemoScenario, 'error'>, DemoProfile> = {
@@ -93,7 +94,8 @@ export class DemoHardwareDetector implements HardwareDetector {
         source: 'demo',
         detectorId: this.id,
         collectedAt: new Date(this.now().getTime() - ageDays * DAY).toISOString(),
-        confidence
+        confidence,
+        quality: uniformQuality(profile, 'simulated')
       }
     })
   }
