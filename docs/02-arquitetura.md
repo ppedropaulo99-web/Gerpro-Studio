@@ -145,7 +145,7 @@ Os arquivos ficam em `<userData>/storage/` e são lidos e gravados só pelo Main
 |---|---|---|
 | `settings.json` | `gerpro.settings` | Preferências |
 | `agents.json` | `gerpro.agents` | Definições de agentes (até 500); formato 2, migrado do 1 |
-| `hardware.json` | `gerpro.hardware` | Consentimento e última análise |
+| `hardware.json` | `gerpro.hardware` | Consentimento e última análise; formato 4 (qualidade por atributo, perfis parciais e GPUs parcialmente identificadas), migrado do 1, do 2 e do 3 |
 | `conversations/<id>.json` | `gerpro.conversation` | Uma conversa por arquivo (até 500 conversas e 400 mensagens cada) |
 | (cofre) | `gerpro.secrets` | Credenciais cifradas. O cofre ainda não é instanciado pelo app. |
 

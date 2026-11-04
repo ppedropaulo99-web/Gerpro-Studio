@@ -2,10 +2,19 @@
 
 Avalia os recursos do computador para recomendar agentes e modelos compatíveis.
 
-**Estado atual (etapa 3.1):** não há leitura real de hardware. O detector real
-(`UnimplementedLocalDetector`) sempre responde "indisponível". Só o detector
+**Estado atual (handoff H2):** o app não lê o hardware real. O serviço recebe
+`UnimplementedLocalDetector`, que sempre responde "indisponível". Só o detector
 demonstrativo produz perfis, todos **fictícios** e marcados com
 `provenance.source = 'demo'`.
+
+O detector real (`local/local-hardware-detector.ts`: CPU, memória, SO, disco,
+GPU e DXCore) existe e é testado, mas está **dormente**: nenhum módulo do app
+o importa. O auxiliar DXCore e o launcher não estão autorizados para produção,
+porque os hashes continuam `null`. Contrato atual: `hardware.json` v4,
+detalhado em [`docs/04-hardware-advisor.md`](../../../docs/04-hardware-advisor.md).
+O passo 1 abaixo descreve o caminho original; a implementação já existe em
+`local/`. Ligá-la exige os passos 2 e 3 e, para o DXCore, os critérios de
+[`docs/10`](../../../docs/10-ativacao-dxcore.md) §7.
 
 ## Camadas
 

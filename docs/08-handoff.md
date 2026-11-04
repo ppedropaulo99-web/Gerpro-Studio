@@ -2,7 +2,13 @@
 
 Guia para continuar o Gerpro Studio. O código é a fonte primária; este
 documento aponta o caminho e remete aos demais para os detalhes. O que existe
-de verdade está em [Inventário e riscos](09-inventario-e-riscos.md).
+de verdade está em [Inventário e riscos](09-inventario-e-riscos.md). Para a
+primeira leitura, comece pelo
+[Guia de transferência](12-guia-de-transferencia.md).
+
+Estado: Etapa H2 (preparação do handoff). O app é o do Lote 3.3.8. A linha de
+hardware avançou depois disso (detector local, auxiliar DXCore, launcher e
+testes de contenção), mas **fora do app**: ver a seção 11.
 
 ## 1. Ambiente
 
@@ -12,6 +18,9 @@ de verdade está em [Inventário e riscos](09-inventario-e-riscos.md).
 | Node.js | ≥ 22.12 para rodar; ≥ 22.18 para `npm test`, que usa a remoção de tipos nativa. Verificado com 24.22.1. |
 | npm | ≥ 10. Verificado com 11.19.1. |
 | Ollama | Opcional. Sem ele o app abre normalmente, mas Conversas não envia. Espera-se em `127.0.0.1:11434`, com modelos já baixados. |
+| MSVC v143 + Windows SDK 10.0.26100 | Opcional: só para recompilar os nativos de `native/` (seção 11). O app, os testes e o build não precisam dele. |
+
+O `package.json` não declara `engines`; confira a versão do Node à mão.
 
 ## 2. Dependências
 
@@ -43,6 +52,15 @@ npm test            # node:test, sem dependências extras
 npm run typecheck   # Main/Preload, Renderer e testes
 ```
 
+- **Resultado esperado:** 1.565 testes. Num clone limpo, 1.539 passam e 26
+  são pulados. Os pulados só leem (hash, cabeçalho PE) binários nativos
+  compilados localmente, que nunca entram no Git. Com os builds locais, os
+  1.565 passam. **Nenhum teste executa binário nativo**: os processos dos
+  supervisores são simulados.
+- Os testes da linha de hardware (`tests/main/dxcore-*`, `host-*`,
+  `hardware-*`, `lock-holder-*`, `helper-*`, `native-pe-inspect`) cobrem
+  código que não faz parte do app (seção 11). Eles também conferem que o app
+  não importa esse código e que os hashes de produção continuam `null`.
 - `tests/support/fake-ollama.ts` simula o Ollama por HTTP local; os testes não
   dependem de um Ollama instalado.
 - `tests/support/fixtures.ts` tem `tempDir`, `agentDraft`, `settle` e
@@ -83,7 +101,7 @@ testes.
 | `ToolRegistry` | Catálogo declarado | Executar ferramentas |
 | `RunService` | Fila, cancelamento, prazo, resolução de modelo e provedores | Gravar execuções |
 | `ConversationService` | Conversas gravadas e recorte de contexto | Falar com provedores diretamente |
-| `HardwareAdvisorService` | Consentimento e análise demonstrativa | Ler o hardware real |
+| `HardwareAdvisorService` | Consentimento e análise demonstrativa (`hardware.json` v4, cancelamento e prazo) | Ler o hardware real: recebe `UnimplementedLocalDetector`; o detector local está dormente (seção 11) |
 | `OllamaInferenceProvider` | Único arquivo que conhece a API do Ollama | Instalar, iniciar ou baixar modelos |
 
 ## 8. Persistência
@@ -142,6 +160,35 @@ função pura. Identifique o que não for real com `FeatureBadge` e `FeatureNoti
 | Modelo recusado como não instalado | Identificador exato não encontrado | `llama3.1` não equivale a `llama3.1:8b` |
 | Canal novo responde erro de validação | Aridade divergente | Conferir o registro em `ipc-handlers.ts` |
 | Chamada de rede bloqueada no Renderer | CSP `connect-src 'self'` | Fazer a chamada no Main; não afrouxe a CSP |
+| 26 testes pulados | Builds nativos locais ausentes | Esperado num clone; não é falha |
+
+## 11. Componentes desativados e ferramentas de diagnóstico
+
+Código real e testado, mas **fora do app**. Nenhum módulo do app o importa,
+e `out/` não o contém.
+
+| Componente | Onde | Situação |
+|---|---|---|
+| Detector local de hardware | `src/main/hardware/local/` | **Dormente.** O app usa `UnimplementedLocalDetector`, e o escopo concedido continua `demo-only` |
+| Auxiliar DXCore | `native/dxcore-helper/`, `src/main/hardware/local/bundled-helper.ts` | **Não autorizado para produção.** `DXCORE_HELPER_SHA256 = { x64: null, arm64: null }`, por isso o executor recusa |
+| Launcher com Job Object | `native/helper-host/`, `src/main/hardware/local/dxcore-host-contract.ts` | **Não autorizado para produção.** `DXCORE_HOST_SHA256` e `DXCORE_HOST_JOB_MEMORY_LIMIT_BYTES` são `null` |
+| Segurador de travas | `native/lock-holder-test/` | **Só de teste**, nunca executado; não autorizado para produção |
+| Diagnósticos | `scripts/diagnostics/` | Manuais; só rodam com flags `--confirm-*`. Fora de CI |
+| Builds nativos | `scripts/native/` | Exigem MSVC; gravam só em `native/*/build/` |
+
+**Regras:**
+
+- Não altere hashes, limite de memória, detector em `createServices` nem
+  escopo de consentimento sem uma decisão de ativação, conforme os critérios
+  da [docs/10 §7](10-ativacao-dxcore.md#7-critérios-objetivos-para-liberar-a-ativação-6c8).
+- Nenhum binário entra no Git nem em `resources/`. O `.gitignore` bloqueia
+  `*.exe`, `*.obj`, `*.pdb`, `/resources/helpers/` e `native/*/build/`.
+- Entregue e receba o projeto por **clone**, nunca por cópia da pasta: a pasta
+  local contém binários e arquivos ignorados.
+- Histórico e decisões: [Hardware Advisor](04-hardware-advisor.md),
+  [Ativação do DXCore](10-ativacao-dxcore.md),
+  [Testes de contenção](11-testes-contencao.md) e as decisões D47 em diante (Lote 3.3.9) em
+  [Decisões](07-decisoes-e-limitacoes.md).
 
 ## Extensão para o Gerpro Web
 
@@ -150,9 +197,11 @@ desktop própria, consome APIs do Gerpro Web existente e preserva a
 possibilidade de incorporar módulos web durante a migração.
 
 **Nada dessa integração existe.** Este repositório não contém endpoints,
-autenticação nem contratos do Gerpro Web, e nenhum deve ser presumido. A equipe
-responsável define e implementa os contratos conforme as capacidades reais do
-Gerpro Web.
+autenticação nem contratos do Gerpro Web (Gerpro.com), e nenhum deve ser
+presumido. A equipe Cognitiva define e implementa os contratos conforme as
+capacidades reais do Gerpro.com. O mesmo vale para o **motor de
+personalização** (metadados de telas e campos, layouts, regras, workflows,
+validação, publicação e auditoria): nenhum código existe.
 
 Pontos do código prontos para receber a integração:
 

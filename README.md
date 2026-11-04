@@ -1,14 +1,38 @@
 # Gerpro Studio
 
-Aplicação desktop de IA para conversar com modelos instalados neste computador, por meio de
-agentes configuráveis. A inferência é real e local, pelo Ollama. As conversas ficam gravadas
-neste computador.
+**Visão do produto:** ambiente DIY/low-code de personalização do ecossistema Gerpro, para
+usuários comuns e técnicos. O usuário inclui e configura campos, personaliza telas e layouts,
+cria workflows e regras de negócio, e publica as alterações de forma controlada, com validação e
+permissões. Agentes de IA são um módulo complementar, não a finalidade exclusiva.
 
-Ainda não há execução de ferramentas, detecção real de hardware, instalador nem integração com
-o Gerpro Web.
+**Este repositório é um protótipo de referência** da base desktop e do módulo de agentes de IA:
+conversas com modelos instalados neste computador, por meio de agentes configuráveis. A
+inferência é real e local, pelo Ollama, e as conversas ficam gravadas neste computador.
 
-Documentação completa: [`docs/`](docs/README.md). Para continuar o desenvolvimento, comece pelo
-[Handoff](docs/08-handoff.md) e pelo [Inventário e riscos](docs/09-inventario-e-riscos.md).
+**As funcionalidades de personalização ainda não existem**: campos, telas, layouts, workflows,
+regras, validação, permissões e publicação são planejados. Também ainda não há execução de
+ferramentas, detecção real de hardware no app, instalador nem integração com o Gerpro.com
+(Gerpro Web). A integração com o Gerpro.com e o motor de personalização serão desenvolvidos pela
+equipe Cognitiva; o responsável pelo produto segue como PM/PO.
+
+Documentação completa: [`docs/`](docs/README.md). Para assumir o projeto, comece pelo
+[Guia de transferência](docs/12-guia-de-transferencia.md), depois o
+[Inventário e riscos](docs/09-inventario-e-riscos.md) e o [Handoff](docs/08-handoff.md).
+
+## Estado das funcionalidades
+
+| Classe | Exemplos | Detalhes |
+|---|---|---|
+| Implementadas | Agentes, Conversas, Execuções da sessão, Ollama local, persistência versionada, consentimento de hardware | [Inventário](docs/09-inventario-e-riscos.md#aplicativo) |
+| Parcialmente implementadas | Início, Modelos, Ferramentas (só declarações), permissões, Configurações, Desenvolvedor | idem |
+| Simuladas (identificadas na interface) | Recomendações de hardware com perfis fictícios, Apresentação Guiada, demonstração de execução | idem |
+| Planejadas | Gerpro.com, motor de personalização, execução de ferramentas, plugins, credenciais, empacotamento, Gerpro AI | idem |
+| Ferramentas de diagnóstico (fora do app) | `scripts/diagnostics/`, `scripts/native/`, artefatos de teste em `native/` | [Fora do aplicativo](docs/09-inventario-e-riscos.md#fora-do-aplicativo) |
+| Experimentais desativadas | Detector local de hardware (dormente), auxiliar DXCore, launcher com Job Object | idem |
+
+> **DXCore, launcher e Lock Holder não estão autorizados para uso em produção.** Os hashes de
+> produção são `null`, o app usa `UnimplementedLocalDetector` e nenhum binário nativo entra no Git.
+> Ver [Handoff › Componentes desativados](docs/08-handoff.md#11-componentes-desativados-e-ferramentas-de-diagnóstico).
 
 ## Dados reais × demonstrativos
 
@@ -37,6 +61,7 @@ Os estados dos dados de exemplo são convertidos para o contrato por `legacyRunS
 - Node.js ≥ 22.12 (testado com 24.22)
 - npm ≥ 10
 - Ollama, opcional: sem ele o app abre, mas Conversas não envia mensagens
+- MSVC v143 + Windows SDK, opcional: só para recompilar os nativos de `native/`; o app não precisa
 
 ## Como iniciar
 
@@ -52,7 +77,7 @@ Outros scripts:
 | `npm run typecheck` | Verifica os tipos de Main/Preload e Renderer |
 | `npm run build` | Verifica os tipos e gera o build de produção em `out/` |
 | `npm run preview` | Executa o build de produção localmente |
-| `npm test` | Testes automatizados (`node:test`, sem dependências extras; exige Node ≥ 22.18) |
+| `npm test` | Testes automatizados (`node:test`, sem dependências extras; exige Node ≥ 22.18). 1.565 testes; num clone limpo, 26 são pulados porque leem builds nativos locais |
 
 > Se `npm run dev` falhar com `Electron uninstall`, o binário não foi baixado. Rode `npx install-electron`.
 
@@ -96,7 +121,8 @@ src/
 │   ├── tools/            Catálogo e registro de ferramentas (só declarações)
 │   ├── runs/             RunService (fila, cancelamento, prazo) e provedor simulado
 │   ├── engine/           Provedores de inferência (adaptador Ollama, HTTP local)
-│   ├── hardware/         Hardware Advisor e detectores
+│   ├── hardware/         Hardware Advisor e detectores (demonstração)
+│   │   └── local/        Detector real e DXCore: DORMENTE, não importado pelo app
 │   └── plugins/          (reservado) sistema de plugins
 ├── preload/
 │   ├── index.ts          Ponte contextBridge → window.gerpro (API mínima)
@@ -127,6 +153,14 @@ src/
         ├── data/         Dados simulados (agentes, modelos, execuções...)
         ├── lib/          Formatação, mapeamento de status, utilitários
         └── styles/       tokens.css (cores, espaço, tipografia) + estilos
+
+native/                   Fontes C++ (MSVC): auxiliar DXCore, launcher e artefatos só de teste.
+                          Fora do app; builds em native/*/build/, ignorados pelo Git
+scripts/
+├── windows/              Atalhos e inicializador do modo de desenvolvimento
+├── diagnostics/          Diagnósticos manuais e supervisor de testes de contenção (fora do app)
+└── native/               Builds MSVC e inspeção de PE (fora do app)
+tests/                    node:test: main/, shared/, renderer/, support/
 ```
 
 ## Segurança do Electron

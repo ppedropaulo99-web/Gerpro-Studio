@@ -1,48 +1,74 @@
 # Inventário de funcionalidades e riscos
 
-Estado verificado no encerramento técnico do Lote 3.3.8, sobre o commit
-`f68f2b2` mais as alterações locais do lote.
+Estado verificado na Etapa H2 (preparação do handoff), sobre o commit
+`7198e36` mais as alterações locais que acompanham a entrega. Verificação:
+typecheck, `npm test` (1.565 testes; num clone limpo, 1.539 passam e 26 são
+pulados) e `npm run build`, todos sem falha. A auditoria H1 conferiu cada
+linha no código; uma tela existente, sozinha, não conta como evidência.
 
 ## Inventário
 
 Classificação:
 
-1. **Implementada e funcional:** opera de verdade, com dados reais.
-2. **Parcial:** parte real, com lacunas relevantes.
-3. **Simulada:** fluxo demonstrativo com dados fictícios, identificado.
-4. **Apenas interface:** tela ou controle sem comportamento por trás.
-5. **Planejada:** existe como contrato, ponto de extensão ou intenção.
-6. **Não implementada:** não há nada além de uma eventual menção.
+1. **Implementada:** opera de verdade, com dados reais e testes. Pode ter
+   limitações, descritas na observação.
+2. **Parcialmente implementada:** parte real, com lacunas relevantes.
+3. **Simulada:** fluxo demonstrativo com dados fictícios, identificado na
+   interface.
+4. **Planejada:** existe só como contrato, ponto de extensão, tela
+   informativa ou intenção; nenhum comportamento real.
+5. **Ferramenta de diagnóstico:** código manual de engenharia, fora do app;
+   nunca empacotado.
+6. **Experimental desativada:** código real e testado, mas **desligado** do
+   app e **não autorizado para produção**.
 
-Uma interface existente não significa integração funcional: a coluna
-"Evidência" diz o que sustenta cada classificação.
+### Aplicativo
 
 | Funcionalidade | Classificação | Evidência no código | Observação |
 |---|---|---|---|
+| Agentes | 1. Implementada | `AgentService`, `AgentEditor`, `tests/main/agents-integrity.test.ts` | Cadastro, editor, exemplos e proteção dos dados. Agentes conversam; não executam ferramentas nem agem sozinhos |
+| Conversas | 1. Implementada | `ConversationService`, `tests/main/conversation-service.test.ts` | Persistentes e com contexto; sem resumo, memória, busca ou exportação |
+| Execuções | 1. Implementada | `RunService`, `pages/RunsPage.tsx` | Monitoramento real, só da sessão: nada é gravado. Inclui demonstração simulada identificada |
+| Provedores | 1. Implementada | `InferenceProvider`, `RunService`, `providers:list` | Contrato real com um provedor real e um simulado |
+| Ollama | 1. Implementada | `engine/ollama/ollama-provider.ts`, `tests/main/ollama-provider.test.ts` | Só modelos já instalados, só em `127.0.0.1:11434`; não inicia o serviço nem baixa modelos |
+| Persistência local | 1. Implementada | `VersionedStore`, `atomic-file.ts`, `tests/main/storage.test.ts` | Envelope versionado, migrações, escrita atômica, esquemas estritos |
+| Consentimento de hardware | 1. Implementada | `HardwareAdvisorService`, `hardware.json` v4, `tests/main/hardware-advisor.test.ts` | Gravado e revogável; escopo concedido `demo-only`; `serverSharing` recusado pela validação |
 | Dashboard (Início) | 2. Parcial | `pages/HomePage.tsx` lê agentes, execuções da sessão e configurações | Indicadores e atalhos reais; modelos carregados e tokens do dia ainda não existem |
-| Agentes | 1. Implementada e funcional | `AgentService`, `AgentEditor`, `tests/main/agents-integrity.test.ts` | Cadastro, editor, exemplos e proteção dos dados. Agentes conversam; não executam ferramentas nem agem sozinhos |
 | Modelos | 2. Parcial | `pages/ModelsPage.tsx`, `providers:list` | Lista real dos modelos instalados; a biblioteca é de exemplo e não há download |
-| Conversas | 1. Implementada e funcional | `ConversationService`, `tests/main/conversation-service.test.ts` | Persistentes e com contexto; sem resumo, memória, busca ou exportação |
-| Execuções | 1. Implementada e funcional | `RunService`, `pages/RunsPage.tsx` | Monitoramento real, só da sessão: nada é gravado. Inclui demonstração simulada identificada |
-| Gerpro AI | 4. Apenas interface | `pages/ChatPage.tsx` não chama o motor | Tela informativa do futuro assistente, com controles desativados |
 | Ferramentas | 2. Parcial | `tools/catalog.ts`, `ToolRegistry` | Catálogo de 7 declarações é real; nenhuma tem executor nem controle de ativação |
-| Execução de ferramentas | 5. Planejada | `ToolExecutor` em `shared/tools.ts`, sem implementação | Nenhuma ferramenta chega ao modelo |
 | Permissões | 2. Parcial | `requestedPermissions`, `missingPermissions` | Registradas por agente e preservadas; não há concessão nem aplicação |
-| Provedores | 1. Implementada e funcional | `InferenceProvider`, `RunService`, `providers:list` | Contrato real com um provedor real e um simulado |
-| Ollama | 1. Implementada e funcional | `engine/ollama/ollama-provider.ts`, `tests/main/ollama-provider.test.ts` | Só modelos já instalados, em endereço fixo; não inicia o serviço nem baixa modelos |
-| Integração Gerpro Web | 6. Não implementada | Só o consentimento `serverSharing`, que não pode ser concedido, e propostas na documentação | Sem cliente, endpoints ou autenticação |
-| Detecção de hardware | 5. Planejada | `HardwareDetector`; `UnimplementedLocalDetector` sempre responde indisponível | Consentimento real; análise só com cenários fictícios |
-| Hardware Advisor (recomendações) | 3. Simulada | `recommendations.ts` com perfis e biblioteca fictícios | Regras reais e testadas sobre entradas de demonstração |
-| Avaliador de compatibilidade | 5. Planejada | `compatibility-evaluator.ts`, testado, sem chamador | Lógica pronta, não ligada a dados reais |
-| Benchmark | 6. Não implementada | Nenhum código | `tested-compatible` existe como estado, sem produtor |
-| Integração VS Code | 6. Não implementada | Nenhum código; só registro no roadmap | |
-| Motor de inferência próprio | 5. Planejada | `kind: 'embedded'` no contrato | Tecnologia não decidida |
-| Plugins | 5. Planejada | `PluginManifest`, sem carregamento | Botão desativado em Ferramentas |
-| Credenciais (`SecretVault`) | 5. Planejada | Implementado e testado, não instanciado | Nenhuma credencial é usada hoje |
 | Configurações | 2. Parcial | `SettingsService` | Tudo é gravado; só tema e nome têm efeito; privacidade bloqueada nos valores seguros |
 | Desenvolvedor | 2. Parcial | `pages/DeveloperPage.tsx` | Informações do app reais; logs de exemplo; servidor local só como interface desativada |
+| Avaliador de compatibilidade | 2. Parcial | `compatibility-evaluator.ts`, testado | Lógica pronta; no app só recebe perfis de demonstração |
+| Hardware Advisor (recomendações) | 3. Simulada | `recommendations.ts`, `DemoHardwareDetector` (`source: 'demo'`, qualidade `simulated`) | Regras reais e testadas sobre perfis e biblioteca fictícios |
 | Apresentação Guiada | 3. Simulada | `tour/`, `runs:start-demo` | Percorre as telas reais com execução simulada |
-| Empacotamento e atualização | 6. Não implementada | Sem configuração | Só desenvolvimento e build local |
+| Detecção de hardware no app | 4. Planejada | `services/index.ts` usa `UnimplementedLocalDetector`, que sempre responde indisponível | O detector real existe e está dormente (tabela seguinte) |
+| Gerpro AI | 4. Planejada | `pages/ChatPage.tsx` não faz chamada ao Main | Tela informativa, controles desativados |
+| Execução de ferramentas | 4. Planejada | `ToolExecutor` em `shared/tools.ts`, sem implementação | Nenhuma ferramenta chega ao modelo |
+| Credenciais (`SecretVault`) | 4. Planejada | Implementado e testado, não instanciado em `createServices` | Nenhuma credencial é usada hoje |
+| Plugins | 4. Planejada | `PluginManifest`, sem carregamento | Botão desativado em Ferramentas |
+| Motor de inferência próprio | 4. Planejada | `kind: 'embedded'` no contrato | Tecnologia não decidida |
+| Integração Gerpro.com | 4. Planejada | Só o consentimento `serverSharing`, que não pode ser concedido, e propostas na documentação | Sem cliente, endpoints, autenticação nem contratos |
+| Motor de personalização | 4. Planejada | Nenhum código | Metadados, layouts, regras, workflows, publicação e auditoria: escopo da equipe |
+| Benchmark | 4. Planejada | Nenhum código | `tested-compatible` existe como estado, sem produtor |
+| Integração VS Code | 4. Planejada | Nenhum código; só registro no roadmap | |
+| Empacotamento e atualização | 4. Planejada | Sem configuração | Só desenvolvimento e build local; sem ícone próprio |
+
+### Fora do aplicativo
+
+Nada desta tabela é importado pelo app (só `src/main/hardware/local/` se
+referencia), nem aparece em `out/`. Testes de fonte conferem isso.
+
+| Componente | Classificação | Evidência no código | Observação |
+|---|---|---|---|
+| Detector local de hardware (CPU, memória, SO, disco, GPU) | 6. Experimental desativada | `src/main/hardware/local/local-hardware-detector.ts`, `probes/*`, `tests/main/local-hardware-detector.test.ts` | **Dormente.** Para ligar: trocar o detector em `createServices`, conceder o escopo `device-detection` e criar uma tela de consentimento nova ([Hardware README](../src/main/hardware/README.md)) |
+| Auxiliar DXCore (`gerpro-dxcore-helper.exe`) | 6. Experimental desativada | `native/dxcore-helper/`, `bundled-helper.ts` (`DXCORE_HELPER_SHA256 = { x64: null, arm64: null }`) | **Não autorizado para produção.** Com hash `null`, o executor recusa (`integrity-unknown`). Binário fora do Git |
+| Launcher com Job Object (`gerpro-helper-host.exe`) | 6. Experimental desativada | `native/helper-host/`, `dxcore-host-contract.ts` (`DXCORE_HOST_SHA256 = { x64: null, arm64: null }`, `DXCORE_HOST_JOB_MEMORY_LIMIT_BYTES = null`) | **Não autorizado para produção.** Nunca executado pelo app; bloqueado também por `memory-limit-pending` |
+| Diagnóstico manual de hardware | 5. Diagnóstico | `scripts/diagnostics/run-hardware-diagnostic.mjs`, `hardware-diagnostic.mjs` | Só com flags `--confirm-*`; roda em pasta temporária própria |
+| Supervisor de testes de contenção | 5. Diagnóstico | `scripts/diagnostics/run-host-containment.mjs`, `host-containment/*` | Só com `--confirm-host-containment-run`; usa os artefatos de teste, nunca o DXCore real |
+| Segurador de travas (`gerpro-lock-holder-test.exe`) | 5. Diagnóstico | `native/lock-holder-test/`, `host-containment/lock-holder.ts` | **Só de teste; nunca executado; não autorizado para produção** |
+| Launcher de testes e alvos sintéticos | 5. Diagnóstico | `native/helper-host/test-artifacts/`, `scripts/native/build-host-test-artifacts.mjs` | Variante de build com outros nomes; histórico em [docs/11](11-testes-contencao.md) |
+| Builds MSVC e inspeção de PE | 5. Diagnóstico | `scripts/native/*` | Exigem MSVC v143; gravam só em `native/*/build/` (ignorado) |
 
 ## Riscos e pendências
 
@@ -73,15 +99,18 @@ Comportamentos decididos; não são defeitos.
 | Seletor durante a verificação | Enquanto os modelos são consultados, o seletor desativado de Conversas mostra "Nenhum modelo disponível" | Texto impreciso por instantes; com motor lento, por segundos | Certa com motor lento | Controle desativado e nada é enviado | Mostrar um estado de verificação | Baixa |
 | Teclado no menu | Sem navegação por setas; Tab percorre os itens e o menu segue aberto até Esc | Navegação menos fluida | Certa | Enter, Tab e Esc funcionam | Adotar o padrão ARIA de menu | Baixa |
 | Exclusão de agente | Usa o diálogo nativo `window.confirm` | Visual diferente do app | Certa | Funciona por teclado | Usar o `Dialog` do app | Baixa |
+| Origem confiável ampla | `isAppUrl` (`env.ts`) aceita qualquer URL `file:` como origem do app, e a navegação para `file:` é permitida | Um HTML local carregado na janela passaria pela checagem do IPC | Sem evidência: o app só carrega o próprio `index.html` e bloqueia novas janelas | Restringir ao `index.html` do build antes de incorporar módulos web | Média |
+| Estilos inline na CSP | `style-src 'unsafe-inline'` em produção | Superfície maior se houver injeção de HTML | Sem evidência; `script-src 'self'` continua restrito | Avaliar remoção | Baixa |
 
 ### Funcionalidades planejadas
 
 | Funcionalidade | Descrição | Impacto da ausência | Mitigação atual | Ação futura | Prioridade |
 |---|---|---|---|---|---|
-| Integração Gerpro Web | APIs e módulos web | Studio opera isolado | Arquitetura preparada, sem contratos | Equipe define os contratos reais | Alta |
+| Integração Gerpro.com | Identidade, organizações, permissões, APIs e módulos web | Studio opera isolado | Arquitetura preparada, sem contratos | Equipe define os contratos reais | Alta |
+| Motor de personalização | Metadados de telas e campos, layouts, regras, workflows, validação, publicação e auditoria | Sem personalização | Padrões de validador e `Result<T>` servem de molde | Equipe desenha e implementa | Alta |
 | Empacotamento | Instalador e atualização | Distribuição impossível | Execução em desenvolvimento | Definir ferramenta, assinatura e ícone | Alta |
 | Ferramentas e permissões | Executores e concessão | Agentes só conversam | Avisos em Agentes e Conversas | Implementar com validação no Main | Alta |
-| Detecção de hardware | Detector real | Recomendações são demonstrativas | Selo e avisos | Seguir `src/main/hardware/README.md` | Média |
+| Detecção de hardware | Ligar o detector local dormente ao app | Recomendações são demonstrativas | Selo e avisos | Novo consentimento (`device-detection`) e tela, conforme `src/main/hardware/README.md`; DXCore só depois dos critérios da [docs/10 §7](10-ativacao-dxcore.md#7-critérios-objetivos-para-liberar-a-ativação-6c8) | Média |
 | Download de modelos | Instalação assistida | Depende do Ollama externo | Mensagens orientam | Definir origem e licenças | Média |
 | Motor próprio | Provedor `embedded` | Depende do Ollama | Provedor substituível | Decidir runtime | Média |
 | Benchmark | Medição real | Sem testes de compatibilidade | Estimativas identificadas | Definir metodologia | Baixa |
@@ -100,12 +129,26 @@ Comportamentos decididos; não são defeitos.
 | Outras plataformas | Só Windows 11 | Comportamento desconhecido | Código sem dependência de plataforma, salvo `scripts/windows/` | Validar macOS e Linux, se forem alvo | Conforme decisão |
 | Disco cheio e permissões reais | Falhas simuladas por injeção ou diretório no lugar do arquivo | Mensagem do sistema pode variar | Testes em `tests/main/storage.test.ts` | Teste manual em ambiente controlado | Baixa |
 | Build empacotado | Só o `out/` local foi executado | Caminhos e `userData` podem mudar | Não há empacotamento | Homologar ao criar o instalador | Alta quando existir |
+| Testes que leem builds nativos | 26 testes só rodam com os binários compilados localmente (MSVC), que ficam fora do Git | Num clone limpo, aparecem como pulados | Os demais testes cobrem a lógica com binários simulados | Gerar os builds numa máquina de engenharia, se a linha DXCore for retomada | Baixa |
+| Sem CI, lint ou formatação | Nada roda automaticamente a cada alteração | Regressão só aparece quando alguém roda os testes | `npm test`, `typecheck` e `build` documentados | Configurar CI com os três comandos (sem os supervisores de diagnóstico) | Média |
+
+### Componentes desativados e de diagnóstico
+
+| Risco | Descrição | Impacto | Mitigação atual | Ação futura | Prioridade |
+|---|---|---|---|---|---|
+| Ativação acidental do DXCore | Alguém preenche um hash de produção ou liga o detector local | Processo nativo não aprovado rodaria no computador do usuário | Hashes e limite de memória `null`; `UnimplementedLocalDetector`; escopo `demo-only`; testes de fonte | Tratar como decisão de ativação, com revisão e os critérios da docs/10 §7 | Alta |
+| Binários na entrega | A pasta local contém `.exe` em `resources/helpers/` e `native/*/build/` | Executáveis não aprovados circulariam | `.gitignore` bloqueia `*.exe`, `*.obj`, `*.pdb` e as pastas de build | Entregar só por clone do repositório | Alta |
+| Supervisores em automação | `scripts/diagnostics/` inicia processos nativos de teste | Execução fora do ambiente controlado | Só com flags de confirmação explícitas | Não incluir em CI | Média |
+| Volume do histórico | docs/10 e docs/11 somam ~2.900 linhas de engenharia nativa | Confusão sobre o que está ativo | [Guia de transferência](12-guia-de-transferencia.md) e este inventário | Ler só ao retomar a linha de hardware | Baixa |
 
 ### Decisões arquiteturais pendentes
 
 | Decisão | Descrição | Impacto | Responsável | Prioridade |
 |---|---|---|---|---|
-| Contratos do Gerpro Web | Autenticação, ambientes, versionamento e APIs | Define toda a integração | Equipe de integração | Alta |
+| Contratos do Gerpro.com | Autenticação, ambientes, versionamento e APIs | Define toda a integração | Equipe de integração | Alta |
+| Modelo de personalização | Como metadados, layouts e regras são representados, validados, publicados e auditados | Define o motor de personalização | Equipe Cognitiva e produto | Alta |
+| Ativação da detecção real | Ligar ou não o detector local e, depois, o DXCore | Privacidade, empacotamento e assinatura | Produto e equipe técnica | Média |
+| Criptografia das conversas | Hoje gravadas em texto claro no `userData` | Privacidade em máquinas compartilhadas | Produto e equipe técnica | Média |
 | Contêiner de módulos web | Como incorporar módulos com segurança | Exige revisar CSP e `isAppUrl` | Equipe de integração | Alta |
 | Runtime do motor próprio | Biblioteca, processo auxiliar ou remoto | Empacotamento e isolamento | Equipe técnica | Média |
 | Persistência de execuções | Gravar ou não, e por quanto tempo | Privacidade e auditoria | Produto e equipe técnica | Média |
