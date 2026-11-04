@@ -76,7 +76,14 @@ desativado.
    de engenharia, fora do app.
 12. [Guia de transferência](12-guia-de-transferencia.md): leitura de entrada
    para a equipe Cognitiva (visão, execução, arquitetura, ordem de leitura,
-   limitações e responsabilidades).
+   limitações e responsabilidades) e guia técnico de continuidade.
+13. [Visão do produto](13-visao-do-produto.md): plataforma DIY/low-code,
+   público, proposta de valor, capacidades planejadas, agentes como módulo
+   complementar e existente × planejado.
+14. [Roadmap de engenharia](14-roadmap-de-engenharia.md): sequência proposta
+   de implementação, sem prazos, sujeita à validação da Cognitiva.
+15. [Checklist de transferência](15-checklist-de-transferencia.md): acesso,
+   execução, demonstração, responsáveis, pendências e aceite.
 
 ## Outros documentos
 

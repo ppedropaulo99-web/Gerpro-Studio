@@ -1,11 +1,20 @@
 # Guia de transferência para a equipe Cognitiva
 
-Leitura de entrada para quem assume o Gerpro Studio. É curto de propósito:
-os detalhes ficam nos documentos indicados na seção 5.
+Leitura de entrada e **guia técnico de continuidade** para quem assume o
+Gerpro Studio. É curto de propósito: os detalhes ficam nos documentos
+indicados na seção 5.
 
-Estado descrito: Etapas H2 e H3 (preparação do handoff), sobre `7198e36` mais as
-alterações locais versionadas na entrega. O inventário verificável está em
-[Inventário e riscos](09-inventario-e-riscos.md).
+Estado descrito: commit `6996e55` da `main` (handoff). O inventário
+verificável está em [Inventário e riscos](09-inventario-e-riscos.md).
+
+Pacote de transferência:
+
+| Documento | Para quê |
+|---|---|
+| [Visão do produto](13-visao-do-produto.md) | Visão funcional, público, proposta de valor, existente × planejado |
+| Este guia | Continuidade técnica: arquitetura, tecnologias, repositório, execução, testes, build, componentes desativados, limitações |
+| [Roadmap de engenharia](14-roadmap-de-engenharia.md) | Sequência proposta de implementação, sujeita à validação da Cognitiva |
+| [Checklist de transferência](15-checklist-de-transferencia.md) | Acesso, execução, demonstração, responsáveis, pendências e aceite |
 
 ## 1. Objetivo e visão
 
@@ -127,7 +136,7 @@ src/shared/  contratos e validadores puros (sem React, Electron nem Node)
 
 ## 5. Sequência recomendada de leitura
 
-1. Este guia.
+1. Este guia e a [Visão do produto](13-visao-do-produto.md).
 2. [`README.md`](../README.md): visão rápida, scripts e segurança.
 3. [Inventário e riscos](09-inventario-e-riscos.md): o que é real, simulado,
    parcial, planejado, de diagnóstico ou desativado.
@@ -137,7 +146,9 @@ src/shared/  contratos e validadores puros (sem React, Electron nem Node)
 6. [Pontos de integração](06-pontos-de-integracao.md), em especial os itens
    6 e 7 (Gerpro Web).
 7. [Decisões e limitações](07-decisoes-e-limitacoes.md), como consulta.
-8. Só para quem for mexer em hardware: [Hardware Advisor](04-hardware-advisor.md),
+8. [Roadmap de engenharia](14-roadmap-de-engenharia.md) e
+   [Checklist de transferência](15-checklist-de-transferencia.md).
+9. Só para quem for mexer em hardware: [Hardware Advisor](04-hardware-advisor.md),
    [Ativação do DXCore](10-ativacao-dxcore.md) e
    [Testes de contenção](11-testes-contencao.md). Os dois últimos são
    **histórico de engenharia** e não são necessários para o restante do produto.
@@ -202,6 +213,12 @@ Lista completa, com impacto e prioridade:
    aparece como real.
 
 ## 9. Responsabilidades da equipe após a transferência
+
+A arquitetura descrita neste guia é a **do protótipo, não uma decisão
+definitiva**. A equipe Cognitiva tem autonomia para definir a arquitetura
+definitiva: manter, adaptar ou substituir o que existe. A única exigência é
+manter as regras de segurança da seção 8 enquanto o código atual estiver em
+uso.
 
 | Área | Responsabilidade |
 |---|---|

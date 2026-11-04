@@ -16,8 +16,11 @@ ferramentas, detecção real de hardware no app, instalador nem integração com
 equipe Cognitiva; o responsável pelo produto segue como PM/PO.
 
 Documentação completa: [`docs/`](docs/README.md). Para assumir o projeto, comece pelo
-[Guia de transferência](docs/12-guia-de-transferencia.md), depois o
-[Inventário e riscos](docs/09-inventario-e-riscos.md) e o [Handoff](docs/08-handoff.md).
+[Guia de transferência](docs/12-guia-de-transferencia.md) e pela
+[Visão do produto](docs/13-visao-do-produto.md), depois o
+[Inventário e riscos](docs/09-inventario-e-riscos.md), o [Handoff](docs/08-handoff.md), o
+[Roadmap de engenharia](docs/14-roadmap-de-engenharia.md) e o
+[Checklist de transferência](docs/15-checklist-de-transferencia.md).
 
 ## Estado das funcionalidades
 
